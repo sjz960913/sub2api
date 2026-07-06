@@ -3,7 +3,7 @@
 # Sub2API Docker Deployment Preparation Script
 # =============================================================================
 # This script prepares deployment files for Sub2API:
-#   - Downloads docker-compose.local.yml and .env.example from this fork
+#   - Downloads the all-in-one Docker Compose file and env template from this fork
 #   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
 #   - Applies default deployment values (image, port, admin account)
 #   - Creates necessary data directories
@@ -27,7 +27,7 @@ GITHUB_REPO="${GITHUB_REPO:-sjz960913/sub2api}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/deploy}"
 
-DEFAULT_SUB2API_IMAGE="${SUB2API_IMAGE:-ghcr.io/sjz960913/sub2api:latest}"
+DEFAULT_SUB2API_IMAGE="${SUB2API_IMAGE:-ghcr.io/sjz960913/sub2api-allinone:latest}"
 DEFAULT_SERVER_PORT="${SUB2API_SERVER_PORT:-8080}"
 DEFAULT_ADMIN_EMAIL="${SUB2API_ADMIN_EMAIL:-admin@sub2api.local}"
 DEFAULT_ADMIN_PASSWORD="${SUB2API_ADMIN_PASSWORD:-}"
@@ -105,24 +105,24 @@ main() {
         fi
     fi
 
-    # Download docker-compose.local.yml and save as docker-compose.yml
+    # Download docker-compose.allinone.yml and save as docker-compose.yml
     print_info "Downloading docker-compose.yml..."
     if command_exists curl; then
-        curl -sSL "${GITHUB_RAW_URL}/docker-compose.local.yml" -o docker-compose.yml
+        curl -sSL "${GITHUB_RAW_URL}/docker-compose.allinone.yml" -o docker-compose.yml
     elif command_exists wget; then
-        wget -q "${GITHUB_RAW_URL}/docker-compose.local.yml" -O docker-compose.yml
+        wget -q "${GITHUB_RAW_URL}/docker-compose.allinone.yml" -O docker-compose.yml
     else
         print_error "Neither curl nor wget is installed. Please install one of them."
         exit 1
     fi
     print_success "Downloaded docker-compose.yml"
 
-    # Download .env.example
+    # Download all-in-one .env.example
     print_info "Downloading .env.example..."
     if command_exists curl; then
-        curl -sSL "${GITHUB_RAW_URL}/.env.example" -o .env.example
+        curl -sSL "${GITHUB_RAW_URL}/.env.allinone.example" -o .env.example
     else
-        wget -q "${GITHUB_RAW_URL}/.env.example" -O .env.example
+        wget -q "${GITHUB_RAW_URL}/.env.allinone.example" -O .env.example
     fi
     print_success "Downloaded .env.example"
 

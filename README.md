@@ -295,7 +295,7 @@ SUB2API_SERVER_PORT=18080 \
 SUB2API_ADMIN_EMAIL=admin@example.com \
 SUB2API_ADMIN_PASSWORD='change_this_admin_password' \
 SUB2API_POSTGRES_PASSWORD='change_this_postgres_password' \
-SUB2API_IMAGE=ghcr.io/sjz960913/sub2api:latest \
+SUB2API_IMAGE=ghcr.io/sjz960913/sub2api-allinone:latest \
 bash docker-deploy.sh
 ```
 
@@ -308,13 +308,13 @@ docker compose logs -f sub2api
 ```
 
 **What the script does:**
-- Downloads `docker-compose.local.yml` (saved as `docker-compose.yml`) and `.env.example`
+- Downloads the all-in-one Docker Compose file (saved as `docker-compose.yml`) and `.env.example`
 - Uses this fork by default: `sjz960913/sub2api`
-- Sets the default Docker image to `ghcr.io/sjz960913/sub2api:latest`
+- Sets the default Docker image to `ghcr.io/sjz960913/sub2api-allinone:latest`
 - Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
 - Writes default deployment values to `.env` (`SERVER_PORT`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `SUB2API_IMAGE`)
 - Creates `.env` file with auto-generated secrets
-- Creates data directories (uses local directories for easy backup/migration)
+- Creates data directories for application, PostgreSQL, and Redis data
 - Displays generated credentials for your reference
 
 #### Manual Deployment
@@ -353,7 +353,7 @@ ADMIN_PASSWORD=your_admin_password
 SERVER_PORT=8080
 
 # Optional: Custom fork image
-SUB2API_IMAGE=ghcr.io/sjz960913/sub2api:latest
+SUB2API_IMAGE=ghcr.io/sjz960913/sub2api-allinone:latest
 ```
 
 **Generate secure secrets:**

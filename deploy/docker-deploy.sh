@@ -3,8 +3,9 @@
 # Sub2API Docker Deployment Preparation Script
 # =============================================================================
 # This script prepares deployment files for Sub2API:
-#   - Downloads docker-compose.local.yml and .env.example
-#   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+#   - Downloads docker-compose.local.yml and .env.example from this fork
+#   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
+#   - Applies default deployment values (image, port, admin account)
 #   - Creates necessary data directories
 #
 # After running this script, you can start services with:
@@ -20,8 +21,17 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# GitHub raw content base URL
-GITHUB_RAW_URL="https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy"
+# Defaults for this fork. Override any of these when running the script, e.g.:
+#   SUB2API_SERVER_PORT=18080 SUB2API_ADMIN_EMAIL=admin@example.com bash docker-deploy.sh
+GITHUB_REPO="${GITHUB_REPO:-sjz960913/sub2api}"
+GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
+GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/deploy}"
+
+DEFAULT_SUB2API_IMAGE="${SUB2API_IMAGE:-ghcr.io/sjz960913/sub2api:latest}"
+DEFAULT_SERVER_PORT="${SUB2API_SERVER_PORT:-8080}"
+DEFAULT_ADMIN_EMAIL="${SUB2API_ADMIN_EMAIL:-admin@sub2api.local}"
+DEFAULT_ADMIN_PASSWORD="${SUB2API_ADMIN_PASSWORD:-}"
+DEFAULT_POSTGRES_PASSWORD="${SUB2API_POSTGRES_PASSWORD:-}"
 
 # Print colored message
 print_info() {
@@ -43,6 +53,26 @@ print_error() {
 # Generate random secret
 generate_secret() {
     openssl rand -hex 32
+}
+
+# Replace an existing KEY=value line in .env, or append it when missing.
+set_env_value() {
+    local key="$1"
+    local value="$2"
+    local tmp_file=".env.tmp.$$"
+
+    if grep -q "^${key}=" .env; then
+        awk -v key="${key}" -v value="${value}" '
+            $0 ~ "^" key "=" {
+                print key "=" value
+                next
+            }
+            { print }
+        ' .env > "${tmp_file}"
+        mv "${tmp_file}" .env
+    else
+        printf '%s=%s\n' "${key}" "${value}" >> .env
+    fi
 }
 
 # Check if command exists
@@ -100,26 +130,30 @@ main() {
     print_info "Generating secure secrets..."
     echo ""
 
-    # Generate secrets
+    # Generate secrets and apply deployment defaults
     JWT_SECRET=$(generate_secret)
     TOTP_ENCRYPTION_KEY=$(generate_secret)
-    POSTGRES_PASSWORD=$(generate_secret)
+    POSTGRES_PASSWORD="${DEFAULT_POSTGRES_PASSWORD}"
+    ADMIN_PASSWORD="${DEFAULT_ADMIN_PASSWORD}"
+
+    if [ -z "${POSTGRES_PASSWORD}" ]; then
+        POSTGRES_PASSWORD=$(generate_secret)
+    fi
+
+    if [ -z "${ADMIN_PASSWORD}" ]; then
+        ADMIN_PASSWORD=$(generate_secret)
+    fi
 
     # Create .env from .env.example
     cp .env.example .env
 
-    # Update .env with generated secrets (cross-platform compatible)
-    if sed --version >/dev/null 2>&1; then
-        # GNU sed (Linux)
-        sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
-        sed -i "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
-        sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
-    else
-        # BSD sed (macOS)
-        sed -i '' "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
-        sed -i '' "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
-        sed -i '' "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
-    fi
+    set_env_value "SUB2API_IMAGE" "${DEFAULT_SUB2API_IMAGE}"
+    set_env_value "SERVER_PORT" "${DEFAULT_SERVER_PORT}"
+    set_env_value "ADMIN_EMAIL" "${DEFAULT_ADMIN_EMAIL}"
+    set_env_value "ADMIN_PASSWORD" "${ADMIN_PASSWORD}"
+    set_env_value "JWT_SECRET" "${JWT_SECRET}"
+    set_env_value "TOTP_ENCRYPTION_KEY" "${TOTP_ENCRYPTION_KEY}"
+    set_env_value "POSTGRES_PASSWORD" "${POSTGRES_PASSWORD}"
 
     # Create data directories
     print_info "Creating data directories..."
@@ -136,6 +170,10 @@ main() {
     echo "=========================================="
     echo ""
     echo "Generated secure credentials:"
+    echo "  SUB2API_IMAGE:         ${DEFAULT_SUB2API_IMAGE}"
+    echo "  SERVER_PORT:           ${DEFAULT_SERVER_PORT}"
+    echo "  ADMIN_EMAIL:           ${DEFAULT_ADMIN_EMAIL}"
+    echo "  ADMIN_PASSWORD:        ${ADMIN_PASSWORD}"
     echo "  POSTGRES_PASSWORD:     ${POSTGRES_PASSWORD}"
     echo "  JWT_SECRET:            ${JWT_SECRET}"
     echo "  TOTP_ENCRYPTION_KEY:   ${TOTP_ENCRYPTION_KEY}"
@@ -160,10 +198,7 @@ main() {
     echo "     docker-compose logs -f sub2api"
     echo ""
     echo "  4. Access Web UI:"
-    echo "     http://localhost:8080"
-    echo ""
-    print_info "If admin password is not set in .env, it will be auto-generated."
-    print_info "Check logs for the generated admin password on first startup."
+    echo "     http://localhost:${DEFAULT_SERVER_PORT}"
     echo ""
 }
 

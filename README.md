@@ -284,8 +284,22 @@ Use the automated deployment script for easy setup:
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/sjz960913/sub2api/main/deploy/docker-deploy.sh | bash
+```
 
+To override deployment defaults before generating `.env`:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/sjz960913/sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
+SUB2API_SERVER_PORT=18080 \
+SUB2API_ADMIN_EMAIL=admin@example.com \
+SUB2API_ADMIN_PASSWORD='change_this_admin_password' \
+SUB2API_POSTGRES_PASSWORD='change_this_postgres_password' \
+SUB2API_IMAGE=ghcr.io/sjz960913/sub2api:latest \
+bash docker-deploy.sh
+```
+
+```bash
 # Start services
 docker compose up -d
 
@@ -295,7 +309,10 @@ docker compose logs -f sub2api
 
 **What the script does:**
 - Downloads `docker-compose.local.yml` (saved as `docker-compose.yml`) and `.env.example`
-- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+- Uses this fork by default: `sjz960913/sub2api`
+- Sets the default Docker image to `ghcr.io/sjz960913/sub2api:latest`
+- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
+- Writes default deployment values to `.env` (`SERVER_PORT`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `SUB2API_IMAGE`)
 - Creates `.env` file with auto-generated secrets
 - Creates data directories (uses local directories for easy backup/migration)
 - Displays generated credentials for your reference
@@ -306,7 +323,7 @@ If you prefer manual setup:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/sjz960913/sub2api.git
 cd sub2api/deploy
 
 # 2. Copy environment configuration
@@ -334,6 +351,9 @@ ADMIN_PASSWORD=your_admin_password
 
 # Optional: Custom port
 SERVER_PORT=8080
+
+# Optional: Custom fork image
+SUB2API_IMAGE=ghcr.io/sjz960913/sub2api:latest
 ```
 
 **Generate secure secrets:**

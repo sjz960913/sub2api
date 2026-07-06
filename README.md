@@ -317,6 +317,44 @@ docker compose logs -f sub2api
 - Creates data directories for application, PostgreSQL, and Redis data
 - Displays generated credentials for your reference
 
+
+#### HTTPS Reverse Proxy (Nginx + Certbot)
+
+For production deployments, put Sub2API behind Nginx and enable HTTPS with Let's Encrypt. Before running the script:
+
+- Add an `A` record for your domain pointing to the server public IP
+- Make sure ports `80` and `443` are open in your firewall/security group
+- If the app is only exposed through Nginx, set `BIND_HOST=127.0.0.1` in `.env` and restart with `docker compose up -d`
+
+If you cloned this repository, run:
+
+```bash
+sudo DOMAIN=api.example.com \
+  UPSTREAM_PORT=8080 \
+  EMAIL=admin@example.com \
+  bash deploy/setup-https-nginx.sh
+```
+
+If you used the one-click deployment directory and did not clone the repository, download and run the script directly:
+
+```bash
+cd sub2api-deploy
+curl -sSL https://raw.githubusercontent.com/sjz960913/sub2api/main/deploy/setup-https-nginx.sh -o setup-https-nginx.sh
+set -a; . ./.env; set +a
+sudo DOMAIN=api.example.com \
+  UPSTREAM_PORT="${SERVER_PORT:-8080}" \
+  EMAIL=admin@example.com \
+  bash setup-https-nginx.sh
+```
+
+For example, if `.env` contains `SERVER_PORT=18080`:
+
+```bash
+sudo DOMAIN=codecodelove.top UPSTREAM_PORT=18080 bash setup-https-nginx.sh
+```
+
+The script installs Nginx and Certbot, writes the reverse proxy configuration, enables `underscores_in_headers on;`, requests a Let's Encrypt certificate, redirects HTTP to HTTPS, enables automatic renewal, and runs a renewal dry-run check.
+
 #### Manual Deployment
 
 If you prefer manual setup:

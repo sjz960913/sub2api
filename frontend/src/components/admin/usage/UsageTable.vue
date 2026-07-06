@@ -165,7 +165,22 @@
         </template>
 
         <template #cell-cost="{ row }">
-          <div class="min-w-[170px] text-xs">
+          <div v-if="!showCostBreakdown" class="min-w-[96px] text-sm">
+            <div class="flex items-center gap-1.5">
+              <span class="font-semibold text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+              <!-- Cost Detail Tooltip -->
+              <div
+                class="group relative"
+                @mouseenter="showTooltip($event, row)"
+                @mouseleave="hideTooltip"
+              >
+                <div class="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-100 transition-colors group-hover:bg-blue-100 dark:bg-gray-700 dark:group-hover:bg-blue-900/50">
+                  <Icon name="infoCircle" size="xs" class="text-gray-400 group-hover:text-blue-500 dark:text-gray-500 dark:group-hover:text-blue-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="min-w-[170px] text-xs">
             <div class="flex items-start gap-1.5">
               <div class="space-y-0.5">
                 <div class="flex items-center justify-between gap-3">
@@ -502,6 +517,7 @@ interface Props {
   defaultSortOrder?: 'asc' | 'desc'
   showAccountBilling?: boolean
   showUpstreamEndpoint?: boolean
+  showCostBreakdown?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -510,7 +526,8 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortKey: '',
   defaultSortOrder: 'asc',
   showAccountBilling: true,
-  showUpstreamEndpoint: true
+  showUpstreamEndpoint: true,
+  showCostBreakdown: true
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
@@ -520,6 +537,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
+const showCostBreakdown = props.showCostBreakdown
 const ipGeoBatchLoading = ref(false)
 
 const showIpGeoToolbar = computed(() => props.columns.some((col) => col.key === 'ip_address'))

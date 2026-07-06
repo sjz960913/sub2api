@@ -129,6 +129,15 @@
                     >${{ formatCost(stats.today_cost) }}</span
                   >
                 </p>
+                <p class="text-xs">
+                  <span class="text-sky-600 dark:text-sky-400" :title="t('admin.dashboard.profit')">
+                    ${{ formatCost(stats.today_profit) }}
+                  </span>
+                  <span class="text-gray-400 dark:text-gray-500"> / </span>
+                  <span class="text-gray-500 dark:text-gray-400" :title="t('admin.dashboard.grossMargin')">
+                    {{ formatPercent(stats.today_gross_margin) }}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -164,6 +173,15 @@
                     :title="t('admin.dashboard.standard')"
                     >${{ formatCost(stats.total_cost) }}</span
                   >
+                </p>
+                <p class="text-xs">
+                  <span class="text-sky-600 dark:text-sky-400" :title="t('admin.dashboard.profit')">
+                    ${{ formatCost(stats.total_profit) }}
+                  </span>
+                  <span class="text-gray-400 dark:text-gray-500"> / </span>
+                  <span class="text-gray-500 dark:text-gray-400" :title="t('admin.dashboard.grossMargin')">
+                    {{ formatPercent(stats.total_gross_margin) }}
+                  </span>
                 </p>
               </div>
             </div>
@@ -552,6 +570,10 @@ const formatCost = (value: number | null | undefined): string => {
     return safeValue.toFixed(3)
   }
   return safeValue.toFixed(4)
+}
+
+const formatPercent = (value: number | null | undefined): string => {
+  return `${(toFiniteNumber(value) * 100).toFixed(1)}%`
 }
 
 const formatDuration = (ms: number): string => {

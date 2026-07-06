@@ -69,11 +69,15 @@
         </p>
         <p class="text-xs text-gray-400">
           <template v-if="showAccountCost && totalAccountCost != null">
-            <span class="text-orange-500">{{ t('usage.accountCost') }} ${{ totalAccountCost.toFixed(4) }}</span>
+            <span class="text-orange-500">{{ t('usage.upstreamCost') }} ${{ totalAccountCost.toFixed(4) }}</span>
+            <span> · </span>
+            <span class="text-sky-500">{{ t('usage.profit') }} ${{ totalProfit.toFixed(4) }}</span>
+            <span> · </span>
+            <span>{{ t('usage.grossMargin') }} {{ grossMargin }}</span>
             <span> · </span>
           </template>
           <span>
-            {{ t('usage.standardCost') }}
+            {{ t('usage.baseCost') }}
             <span :class="{ 'line-through': strikeStandardCost }">${{ (stats?.total_cost || 0).toFixed(4) }}</span>
           </span>
         </p>
@@ -109,6 +113,16 @@ const { t } = useI18n()
 const totalAccountCost = computed(() => {
   const stats = props.stats as (AdminUsageStatsResponse & { total_account_cost?: number }) | null
   return stats?.total_account_cost ?? null
+})
+const totalProfit = computed(() => {
+  const stats = props.stats as (AdminUsageStatsResponse & { total_profit?: number }) | null
+  if (stats?.total_profit != null) return stats.total_profit
+  return (props.stats?.total_actual_cost ?? 0) - (totalAccountCost.value ?? 0)
+})
+const grossMargin = computed(() => {
+  const stats = props.stats as (AdminUsageStatsResponse & { total_gross_margin?: number }) | null
+  const value = stats?.total_gross_margin ?? ((props.stats?.total_actual_cost ?? 0) === 0 ? 0 : totalProfit.value / (props.stats?.total_actual_cost ?? 1))
+  return `${(value * 100).toFixed(1)}%`
 })
 const showAccountCost = computed(() => props.showAccountCost)
 const strikeStandardCost = computed(() => props.strikeStandardCost)

@@ -478,18 +478,43 @@ func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Cont
 }
 
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
+	return s.resolveCodexImageGenerationToolPolicy(ctx, account, apiKey).bridgeEnabled
+}
+
+type codexImageGenerationToolPolicy struct {
+	bridgeEnabled   bool
+	stripClientTool bool
+}
+
+func (s *OpenAIGatewayService) resolveCodexImageGenerationToolPolicy(ctx context.Context, account *Account, apiKey *APIKey) codexImageGenerationToolPolicy {
+	if account.CodexImageGenerationExplicitToolPolicy() == codexImageGenerationExplicitToolPolicyStrip {
+		return codexImageGenerationToolPolicy{stripClientTool: true}
+	}
 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
-		return *override
+		return codexImageGenerationToolPolicy{
+			bridgeEnabled:   *override,
+			stripClientTool: !*override,
+		}
 	}
 	if s != nil && s.channelService != nil && apiKey != nil && apiKey.GroupID != nil {
 		ch, err := s.channelService.GetChannelForGroup(ctx, *apiKey.GroupID)
 		if err != nil {
 			slog.Warn("failed to resolve codex image generation bridge channel override", "group_id", *apiKey.GroupID, "error", err)
-		} else if override := ch.CodexImageGenerationBridgeOverride(PlatformOpenAI); override != nil {
-			return *override
+		} else if ch != nil {
+			if policy, ok := ch.CodexImageGenerationExplicitToolPolicyOverride(PlatformOpenAI); ok && policy == codexImageGenerationExplicitToolPolicyStrip {
+				return codexImageGenerationToolPolicy{stripClientTool: true}
+			}
+			if override := ch.CodexImageGenerationBridgeOverride(PlatformOpenAI); override != nil {
+				return codexImageGenerationToolPolicy{
+					bridgeEnabled:   *override,
+					stripClientTool: !*override,
+				}
+			}
 		}
 	}
-	return s != nil && s.cfg != nil && s.cfg.Gateway.CodexImageGenerationBridgeEnabled
+	return codexImageGenerationToolPolicy{
+		bridgeEnabled: s != nil && s.cfg != nil && s.cfg.Gateway.CodexImageGenerationBridgeEnabled,
+	}
 }
 
 func (s *OpenAIGatewayService) checkChannelPricingRestriction(ctx context.Context, groupID *int64, requestedModel string) bool {
@@ -2738,20 +2763,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if apiKey != nil {
 		imageGenerationAllowed = GroupAllowsImageGeneration(apiKey.Group)
 	}
-	codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
+	effectiveCodexImagePolicy := codexImageGenerationToolPolicy{}
 	if isCodexCLI {
-		codexImageGenerationExplicitToolPolicy = account.CodexImageGenerationExplicitToolPolicy()
+		effectiveCodexImagePolicy = s.resolveCodexImageGenerationToolPolicy(ctx, account, apiKey)
 	}
-	codexImageGenerationBridgeEnabled := isCodexCLI && imageGenerationAllowed && codexImageGenerationExplicitToolPolicy != codexImageGenerationExplicitToolPolicyStrip && s.isCodexImageGenerationBridgeEnabled(ctx, account, apiKey)
+	codexImageGenerationBridgeEnabled := isCodexCLI && imageGenerationAllowed && effectiveCodexImagePolicy.bridgeEnabled
 	var imageIntent bool
-	if isCodexCLI && codexImageGenerationExplicitToolPolicy == codexImageGenerationExplicitToolPolicyStrip {
+	if isCodexCLI && effectiveCodexImagePolicy.stripClientTool {
 		decoded, decodeErr := ensureReqBody()
 		if decodeErr != nil {
 			return nil, decodeErr
 		}
 		if stripOpenAIImageGenerationTools(decoded) {
 			markDecodedModified()
-			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Stripped /responses image_generation tool for Codex client by account policy")
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Stripped /responses image_generation tool for Codex client by effective policy")
 		}
 		imageIntent = IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, decoded)
 	} else {

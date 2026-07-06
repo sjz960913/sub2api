@@ -165,9 +165,28 @@
         </template>
 
         <template #cell-cost="{ row }">
-          <div class="text-sm">
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+          <div class="min-w-[170px] text-xs">
+            <div class="flex items-start gap-1.5">
+              <div class="space-y-0.5">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('usage.userBilled') }}</span>
+                  <span class="font-semibold text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('usage.upstreamCost') }}</span>
+                  <span class="font-medium text-orange-500 dark:text-orange-400">${{ accountBilled(row).toFixed(6) }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('usage.baseCost') }}</span>
+                  <span class="font-medium text-gray-700 dark:text-gray-300">${{ row.total_cost?.toFixed(6) || '0.000000' }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('usage.profit') }}</span>
+                  <span class="font-medium" :class="profit(row) >= 0 ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400'">
+                    ${{ profit(row).toFixed(6) }}
+                  </span>
+                </div>
+              </div>
               <!-- Cost Detail Tooltip -->
               <div
                 class="group relative"
@@ -178,9 +197,6 @@
                   <Icon name="infoCircle" size="xs" class="text-gray-400 group-hover:text-blue-500 dark:text-gray-500 dark:group-hover:text-blue-400" />
                 </div>
               </div>
-            </div>
-            <div v-if="showAccountBilling && row.account_rate_multiplier != null" class="mt-0.5 text-[11px] text-orange-500 dark:text-orange-400">
-              A ${{ accountBilled(row).toFixed(6) }}
             </div>
           </div>
         </template>
@@ -391,7 +407,7 @@
             <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span>
           </div>
           <div class="flex items-center justify-between gap-6">
-            <span class="text-gray-400">{{ t('usage.original') }}</span>
+            <span class="text-gray-400">{{ t('usage.baseCost') }}</span>
             <span class="font-medium text-white">${{ tooltipData?.total_cost?.toFixed(6) || '0.000000' }}</span>
           </div>
           <div class="flex items-center justify-between gap-6">
@@ -405,13 +421,19 @@
               <span class="font-semibold text-blue-400">{{ formatMultiplier(tooltipData?.account_rate_multiplier ?? 1) }}x</span>
             </div>
             <div class="flex items-center justify-between gap-6">
-              <span class="text-gray-400">{{ t('usage.accountBilled') }}</span>
+              <span class="text-gray-400">{{ t('usage.upstreamCost') }}</span>
               <span class="font-semibold text-green-400">
                 ${{ accountBilled({
                   total_cost: tooltipData?.total_cost,
                   account_stats_cost: tooltipData?.account_stats_cost,
                   account_rate_multiplier: tooltipData?.account_rate_multiplier,
                 }).toFixed(6) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-6">
+              <span class="text-gray-400">{{ t('usage.profit') }}</span>
+              <span class="font-semibold" :class="profit(tooltipData) >= 0 ? 'text-sky-400' : 'text-rose-400'">
+                ${{ profit(tooltipData).toFixed(6) }}
               </span>
             </div>
           </template>
@@ -453,6 +475,12 @@ import {
 function accountBilled(row: { total_cost?: number | null; account_stats_cost?: number | null; account_rate_multiplier?: number | null }): number {
   const base = row.account_stats_cost != null ? row.account_stats_cost : (row.total_cost ?? 0)
   const result = base * (row.account_rate_multiplier ?? 1)
+  return Number.isNaN(result) ? 0 : result
+}
+
+function profit(row: { actual_cost?: number | null; total_cost?: number | null; account_stats_cost?: number | null; account_rate_multiplier?: number | null } | null | undefined): number {
+  if (!row) return 0
+  const result = (row.actual_cost ?? 0) - accountBilled(row)
   return Number.isNaN(result) ? 0 : result
 }
 

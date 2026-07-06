@@ -204,6 +204,11 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		}
 	}
 
+	if statusCode == http.StatusForbidden && account.Platform == PlatformOpenAI && isOpenAIImageGenerationGroupDisabled403("", responseBody) {
+		slog.Warn("openai_403_image_generation_group_disabled", "account_id", account.ID)
+		return false
+	}
+
 	// 先尝试临时不可调度规则（401除外）
 	// 如果匹配成功，直接返回，不执行后续禁用逻辑
 	if statusCode != 401 {
@@ -819,6 +824,11 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"account may be suspended or lack permissions",
 	)
 
+	if isOpenAIImageGenerationGroupDisabled403(upstreamMsg, responseBody) {
+		slog.Warn("openai_403_image_generation_group_disabled", "account_id", account.ID)
+		return false
+	}
+
 	if s.openAI403CounterCache == nil {
 		s.handleAuthError(ctx, account, msg)
 		return true
@@ -854,6 +864,17 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"threshold", openAI403DisableThreshold,
 	)
 	return true
+}
+
+func isOpenAIImageGenerationGroupDisabled403(upstreamMsg string, responseBody []byte) bool {
+	needle := strings.ToLower(ImageGenerationPermissionMessage())
+	if strings.Contains(strings.ToLower(upstreamMsg), needle) {
+		return true
+	}
+	if len(responseBody) == 0 {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(responseBody)), needle)
 }
 
 // handleAntigravity403 处理 Antigravity 平台的 403 错误

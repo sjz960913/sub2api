@@ -40,6 +40,8 @@ const stats = {
   total_cost: 0.001,
   total_actual_cost: 0.001,
   total_account_cost: 0.001,
+  total_profit: 0,
+  total_gross_margin: 0,
   average_duration_ms: 250,
 }
 

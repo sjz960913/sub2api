@@ -1479,6 +1479,8 @@ export interface DashboardStats {
   total_cost: number // 累计标准计费
   total_actual_cost: number // 累计实际扣除
   total_account_cost: number // 累计账号成本
+  total_profit: number // 累计利润
+  total_gross_margin: number // 累计毛利率
 
   // 今日 Token 使用统计
   today_requests: number
@@ -1490,6 +1492,8 @@ export interface DashboardStats {
   today_cost: number // 今日标准计费
   today_actual_cost: number // 今日实际扣除
   today_account_cost: number // 今日账号成本
+  today_profit: number // 今日利润
+  today_gross_margin: number // 今日毛利率
 
   // 系统运行统计
   average_duration_ms: number // 平均响应时间
@@ -1511,6 +1515,9 @@ export interface UsageStatsResponse {
   total_tokens: number
   total_cost: number // 标准计费
   total_actual_cost: number // 实际扣除
+  total_account_cost?: number // 上游成本
+  total_profit?: number // 利润
+  total_gross_margin?: number // 毛利率
   average_duration_ms: number
   models?: Record<string, number>
   endpoints?: EndpointStat[]

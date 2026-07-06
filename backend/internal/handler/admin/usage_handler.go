@@ -345,6 +345,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		c.Header("X-Usage-Stats-Cache", cacheStatusValue(hit))
 	}
 
+	stats.PopulateFinancialMetrics()
 	response.Success(c, stats)
 }
 

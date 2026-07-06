@@ -69,6 +69,27 @@ func platformBoolOverride(values map[string]any, key string, platform string) *b
 	return nil
 }
 
+func platformStringOverride(values map[string]any, key string, platform string) (string, bool) {
+	if values == nil {
+		return "", false
+	}
+	if v, ok := values[key].(string); ok {
+		return v, true
+	}
+	raw, ok := values[key].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		return "", false
+	}
+	if v, ok := raw[platform].(string); ok {
+		return v, true
+	}
+	return "", false
+}
+
 // CodexImageGenerationBridgeOverride returns the channel-level override for Codex
 // image_generation bridge injection. Nil means follow the global/account policy.
 func (c *Channel) CodexImageGenerationBridgeOverride(platform string) *bool {
@@ -76,6 +97,18 @@ func (c *Channel) CodexImageGenerationBridgeOverride(platform string) *bool {
 		return nil
 	}
 	return platformBoolOverride(c.FeaturesConfig, featureKeyCodexImageGenerationBridge, platform)
+}
+
+// CodexImageGenerationExplicitToolPolicyOverride returns the channel-level policy
+// for client-provided Codex /responses image_generation tools.
+func (c *Channel) CodexImageGenerationExplicitToolPolicyOverride(platform string) (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	if policy, ok := platformStringOverride(c.FeaturesConfig, featureKeyCodexImageGenerationExplicitToolPolicy, platform); ok {
+		return normalizeCodexImageGenerationExplicitToolPolicy(policy), true
+	}
+	return "", false
 }
 
 // CodexImageGenerationBridgeOverride returns the account-level override for Codex

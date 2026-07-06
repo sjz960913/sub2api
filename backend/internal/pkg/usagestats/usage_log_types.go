@@ -59,6 +59,8 @@ type DashboardStats struct {
 	TotalCost                float64 `json:"total_cost"`         // 累计标准计费
 	TotalActualCost          float64 `json:"total_actual_cost"`  // 累计实际扣除
 	TotalAccountCost         float64 `json:"total_account_cost"` // 累计账号成本
+	TotalProfit              float64 `json:"total_profit"`       // 累计利润
+	TotalGrossMargin         float64 `json:"total_gross_margin"` // 累计毛利率
 
 	// 今日 Token 使用统计
 	TodayRequests            int64   `json:"today_requests"`
@@ -70,6 +72,8 @@ type DashboardStats struct {
 	TodayCost                float64 `json:"today_cost"`         // 今日标准计费
 	TodayActualCost          float64 `json:"today_actual_cost"`  // 今日实际扣除
 	TodayAccountCost         float64 `json:"today_account_cost"` // 今日账号成本
+	TodayProfit              float64 `json:"today_profit"`       // 今日利润
+	TodayGrossMargin         float64 `json:"today_gross_margin"` // 今日毛利率
 
 	// 系统运行统计
 	AverageDurationMs float64 `json:"average_duration_ms"` // 平均响应时间
@@ -294,6 +298,37 @@ type UsageStats struct {
 	Endpoints                []EndpointStat `json:"endpoints,omitempty"`
 	UpstreamEndpoints        []EndpointStat `json:"upstream_endpoints,omitempty"`
 	EndpointPaths            []EndpointStat `json:"endpoint_paths,omitempty"`
+	TotalProfit             float64        `json:"total_profit"`
+	TotalGrossMargin        float64        `json:"total_gross_margin"`
+}
+
+func GrossMargin(revenue, profit float64) float64 {
+	if revenue == 0 {
+		return 0
+	}
+	return profit / revenue
+}
+
+func (s *DashboardStats) PopulateFinancialMetrics() {
+	if s == nil {
+		return
+	}
+	s.TotalProfit = s.TotalActualCost - s.TotalAccountCost
+	s.TodayProfit = s.TodayActualCost - s.TodayAccountCost
+	s.TotalGrossMargin = GrossMargin(s.TotalActualCost, s.TotalProfit)
+	s.TodayGrossMargin = GrossMargin(s.TodayActualCost, s.TodayProfit)
+}
+
+func (s *UsageStats) PopulateFinancialMetrics() {
+	if s == nil {
+		return
+	}
+	accountCost := 0.0
+	if s.TotalAccountCost != nil {
+		accountCost = *s.TotalAccountCost
+	}
+	s.TotalProfit = s.TotalActualCost - accountCost
+	s.TotalGrossMargin = GrossMargin(s.TotalActualCost, s.TotalProfit)
 }
 
 // PlatformUsage 表示某用户/某 API key 在单个"有效平台"维度的用量明细。

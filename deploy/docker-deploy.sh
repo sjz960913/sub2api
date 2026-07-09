@@ -126,6 +126,16 @@ main() {
     fi
     print_success "Downloaded .env.example"
 
+    # Download backup script
+    print_info "Downloading backup-allinone.sh..."
+    if command_exists curl; then
+        curl -sSL "${GITHUB_RAW_URL}/backup-allinone.sh" -o backup-allinone.sh
+    else
+        wget -q "${GITHUB_RAW_URL}/backup-allinone.sh" -O backup-allinone.sh
+    fi
+    chmod +x backup-allinone.sh
+    print_success "Downloaded backup-allinone.sh"
+
     # Generate .env file with auto-generated secrets
     print_info "Generating secure secrets..."
     echo ""
@@ -185,6 +195,7 @@ main() {
     echo "  docker-compose.yml        - Docker Compose configuration"
     echo "  .env                      - Environment variables (generated secrets)"
     echo "  .env.example              - Example template (for reference)"
+    echo "  backup-allinone.sh        - One-click full backup script"
     echo "  data/                     - Application data (will be created on first run)"
     echo "  postgres_data/            - PostgreSQL data"
     echo "  redis_data/               - Redis data"
@@ -199,6 +210,9 @@ main() {
     echo ""
     echo "  4. Access Web UI:"
     echo "     http://localhost:${DEFAULT_SERVER_PORT}"
+    echo ""
+    echo "  Backup all config and data:"
+    echo "     ./backup-allinone.sh"
     echo ""
 }
 

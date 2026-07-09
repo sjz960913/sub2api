@@ -280,6 +280,11 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
 	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
 
+	// GPT-5.6（sol / terra / luna）暂无独立定价，回退到 GPT-5.4。
+	s.fallbackPrices["gpt-5.6-sol"] = s.fallbackPrices["gpt-5.4"]
+	s.fallbackPrices["gpt-5.6-terra"] = s.fallbackPrices["gpt-5.4"]
+	s.fallbackPrices["gpt-5.6-luna"] = s.fallbackPrices["gpt-5.4"]
+
 	s.fallbackPrices["gpt-5.4-mini"] = &ModelPricing{
 		InputPricePerToken:     7.5e-7,
 		OutputPricePerToken:    4.5e-6,
@@ -667,6 +672,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// OpenAI（GPT-5 / Codex 族）：仅匹配已知型号，避免未知 OpenAI 型号误计价。
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
+		case "gpt-5.6-sol":
+			return s.fallbackPrices["gpt-5.6-sol"]
+		case "gpt-5.6-terra":
+			return s.fallbackPrices["gpt-5.6-terra"]
+		case "gpt-5.6-luna":
+			return s.fallbackPrices["gpt-5.6-luna"]
 		case "gpt-5.5-pro":
 			return s.fallbackPrices["gpt-5.5-pro"]
 		case "gpt-5.5":
@@ -702,6 +713,14 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 1. 优先从动态价格服务获取
 	if s.pricingService != nil {
 		litellmPricing := s.pricingService.GetModelPricing(model)
+		// 仅有图片价、无 token 价的条目（如 LiteLLM 的 imagen 类模型）不能用于
+		// token 计费：直接返回会把 token 流量按 $0 计费。跳过后走 fallback，
+		// 无 fallback 则 fail-closed（ErrModelPricingUnavailable）。
+		// 图片计费路径（getDefaultImagePrice / getImageUnitPrice）直接读
+		// PricingService，不受影响。
+		if litellmPricing != nil && litellmPricing.TokenPricingAbsent {
+			litellmPricing = nil
+		}
 		if litellmPricing != nil {
 			// 启用 5m/1h 分类计费的条件：
 			// 1. 存在 1h 价格
@@ -752,6 +771,9 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	if channelPricing == nil {
 		return pricing, nil
 	}
+	// 防止修改 fallbackPrices 中的共享指针
+	cloned := *pricing
+	pricing = &cloned
 	if channelPricing.InputPrice != nil {
 		pricing.InputPricePerToken = *channelPricing.InputPrice
 		pricing.InputPricePerTokenPriority = *channelPricing.InputPrice
@@ -1060,7 +1082,8 @@ func isOpenAIGPT54Model(model string) bool {
 	// normalizeCodexModel 的默认兜底把非 OpenAI 模型（claude-*、gemini-*、gpt-4o）
 	// 误识别为 gpt-5.4。
 	normalized := normalizeKnownOpenAICodexModel(model)
-	return normalized == "gpt-5.4" || normalized == "gpt-5.5" || normalized == "gpt-5.5-pro"
+	return normalized == "gpt-5.4" || normalized == "gpt-5.5" || normalized == "gpt-5.5-pro" ||
+		normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" || normalized == "gpt-5.6-luna"
 }
 
 // CalculateCostWithConfig 使用配置中的默认倍率计算费用
@@ -1208,6 +1231,28 @@ type ImagePriceConfig struct {
 	Price4K *float64 // 4K 尺寸价格（nil 表示使用默认值）
 }
 
+// VideoPriceConfig 视频生成计费配置。
+type VideoPriceConfig struct {
+	Price480P  *float64 // 480p 视频价格（nil 表示使用默认值）
+	Price720P  *float64 // 720p 视频价格（nil 表示使用默认值）
+	Price1080P *float64 // 1080p 视频价格（nil 表示使用默认值）
+}
+
+const (
+	defaultImageGenerationPrice = 0.134
+
+	defaultGrokImagineImagePrice1K        = 0.02
+	defaultGrokImagineImagePrice2K        = 0.02
+	defaultGrokImagineImageQualityPrice1K = 0.05
+	defaultGrokImagineImageQualityPrice2K = 0.07
+
+	defaultGrokImagineVideoPrice480P    = 0.05
+	defaultGrokImagineVideoPrice720P    = 0.07
+	defaultGrokImagineVideo15Price480P  = 0.08
+	defaultGrokImagineVideo15Price720P  = 0.14
+	defaultGrokImagineVideo15Price1080P = 0.25
+)
+
 // CalculateImageCost 计算图片生成费用
 // model: 请求的模型名称（用于获取 LiteLLM 默认价格）
 // imageSize: 图片尺寸 "1K", "2K", "4K"
@@ -1239,6 +1284,33 @@ func (s *BillingService) CalculateImageCost(model string, imageSize string, imag
 	}
 }
 
+// CalculateVideoCost 计算视频生成费用。
+// model: 请求的模型名称（用于获取默认价格）
+// resolution: 视频分辨率 "480p", "720p", "1080p"
+// videoCount: 生成的视频数量
+// groupConfig: 分组配置的价格（可能为 nil，表示使用默认值）
+// rateMultiplier: 费率倍数
+func (s *BillingService) CalculateVideoCost(model string, resolution string, videoCount int, groupConfig *VideoPriceConfig, rateMultiplier float64) *CostBreakdown {
+	if videoCount <= 0 {
+		return &CostBreakdown{}
+	}
+	resolution = NormalizeVideoBillingResolutionOrDefault(resolution)
+
+	unitPrice := s.getVideoUnitPrice(model, resolution, groupConfig)
+	totalCost := unitPrice * float64(videoCount)
+
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
+	}
+	actualCost := totalCost * rateMultiplier
+
+	return &CostBreakdown{
+		TotalCost:   totalCost,
+		ActualCost:  actualCost,
+		BillingMode: string(BillingModeVideo),
+	}
+}
+
 // getImageUnitPrice 获取图片单价
 func (s *BillingService) getImageUnitPrice(model string, imageSize string, groupConfig *ImagePriceConfig) float64 {
 	// 优先使用分组配置的价格
@@ -1263,8 +1335,33 @@ func (s *BillingService) getImageUnitPrice(model string, imageSize string, group
 	return s.getDefaultImagePrice(model, imageSize)
 }
 
+func (s *BillingService) getVideoUnitPrice(model string, resolution string, groupConfig *VideoPriceConfig) float64 {
+	if groupConfig != nil {
+		switch resolution {
+		case VideoBillingResolution480P:
+			if groupConfig.Price480P != nil {
+				return *groupConfig.Price480P
+			}
+		case VideoBillingResolution720P:
+			if groupConfig.Price720P != nil {
+				return *groupConfig.Price720P
+			}
+		case VideoBillingResolution1080P:
+			if groupConfig.Price1080P != nil {
+				return *groupConfig.Price1080P
+			}
+		}
+	}
+
+	return s.getDefaultVideoPrice(model, resolution)
+}
+
 // getDefaultImagePrice 获取 LiteLLM 默认图片价格
 func (s *BillingService) getDefaultImagePrice(model string, imageSize string) float64 {
+	if price, ok := getDefaultGrokImagineImagePrice(model, imageSize); ok {
+		return price
+	}
+
 	basePrice := 0.0
 
 	// 从 PricingService 获取 output_cost_per_image
@@ -1277,7 +1374,7 @@ func (s *BillingService) getDefaultImagePrice(model string, imageSize string) fl
 
 	// 如果没有找到价格，使用硬编码默认值（$0.134，来自 gemini-3-pro-image-preview）
 	if basePrice <= 0 {
-		basePrice = 0.134
+		basePrice = defaultImageGenerationPrice
 	}
 
 	// 2K 尺寸 1.5 倍，4K 尺寸翻倍
@@ -1289,4 +1386,74 @@ func (s *BillingService) getDefaultImagePrice(model string, imageSize string) fl
 	}
 
 	return basePrice
+}
+
+func (s *BillingService) getDefaultVideoPrice(model string, resolution string) float64 {
+	if price, ok := getDefaultGrokImagineVideoPrice(model, resolution); ok {
+		return price
+	}
+
+	// The bundled LiteLLM schema does not expose an output video generation price.
+	// Keep the historical model default as the fallback, while letting group-level
+	// video prices override it independently from image prices.
+	return s.getDefaultImagePrice(model, ImageBillingSize2K)
+}
+
+func getDefaultGrokImagineImagePrice(model string, imageSize string) (float64, bool) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	switch model {
+	case "grok-imagine-image-quality":
+		return getGrokImagineImageTierPrice(
+			imageSize,
+			defaultGrokImagineImageQualityPrice1K,
+			defaultGrokImagineImageQualityPrice2K,
+		), true
+	case "grok-imagine", "grok-imagine-image", "grok-imagine-edit":
+		return getGrokImagineImageTierPrice(
+			imageSize,
+			defaultGrokImagineImagePrice1K,
+			defaultGrokImagineImagePrice2K,
+		), true
+	default:
+		return 0, false
+	}
+}
+
+func getGrokImagineImageTierPrice(imageSize string, price1K float64, price2K float64) float64 {
+	switch NormalizeImageBillingTierOrDefault(imageSize) {
+	case ImageBillingSize1K:
+		return price1K
+	case ImageBillingSize2K, ImageBillingSize4K:
+		return price2K
+	default:
+		return price2K
+	}
+}
+
+func getDefaultGrokImagineVideoPrice(model string, resolution string) (float64, bool) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(model, "grok-imagine-video-1.5"):
+		switch NormalizeVideoBillingResolutionOrDefault(resolution) {
+		case VideoBillingResolution480P:
+			return defaultGrokImagineVideo15Price480P, true
+		case VideoBillingResolution720P:
+			return defaultGrokImagineVideo15Price720P, true
+		case VideoBillingResolution1080P:
+			return defaultGrokImagineVideo15Price1080P, true
+		default:
+			return defaultGrokImagineVideo15Price480P, true
+		}
+	case strings.HasPrefix(model, "grok-imagine-video"):
+		switch NormalizeVideoBillingResolutionOrDefault(resolution) {
+		case VideoBillingResolution480P:
+			return defaultGrokImagineVideoPrice480P, true
+		case VideoBillingResolution720P, VideoBillingResolution1080P:
+			return defaultGrokImagineVideoPrice720P, true
+		default:
+			return defaultGrokImagineVideoPrice480P, true
+		}
+	default:
+		return 0, false
+	}
 }

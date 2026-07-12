@@ -18,6 +18,15 @@ type dashboardUsageRepoCacheProbe struct {
 	service.UsageLogRepository
 	trendCalls      atomic.Int32
 	usersTrendCalls atomic.Int32
+	dashboardStats  *usagestats.DashboardStats
+}
+
+func (r *dashboardUsageRepoCacheProbe) GetDashboardStats(context.Context) (*usagestats.DashboardStats, error) {
+	if r.dashboardStats == nil {
+		return &usagestats.DashboardStats{}, nil
+	}
+	stats := *r.dashboardStats
+	return &stats, nil
 }
 
 func (r *dashboardUsageRepoCacheProbe) GetUsageTrendWithFilters(
@@ -115,4 +124,39 @@ func TestDashboardHandler_GetUserUsageTrend_UsesCache(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec2.Code)
 	require.Equal(t, "hit", rec2.Header().Get("X-Snapshot-Cache"))
 	require.Equal(t, int32(1), repo.usersTrendCalls.Load())
+}
+
+func TestDashboardHandler_BuildSnapshotV2Response_PopulatesFinancialMetrics(t *testing.T) {
+	repo := &dashboardUsageRepoCacheProbe{
+		dashboardStats: &usagestats.DashboardStats{
+			TotalActualCost:   10,
+			TotalAccountCost:  4,
+			TodayActualCost:   5,
+			TodayAccountCost:  2,
+		},
+	}
+	dashboardSvc := service.NewDashboardService(repo, nil, nil, nil)
+	handler := NewDashboardHandler(dashboardSvc, nil)
+	start := time.Date(2026, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	resp, err := handler.buildSnapshotV2Response(
+		context.Background(),
+		start,
+		start.AddDate(0, 0, 1),
+		"day",
+		&dashboardSnapshotV2Filters{},
+		true,
+		false,
+		false,
+		false,
+		false,
+		12,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp.Stats)
+	require.InDelta(t, 6, resp.Stats.TotalProfit, 1e-9)
+	require.InDelta(t, 0.6, resp.Stats.TotalGrossMargin, 1e-9)
+	require.InDelta(t, 3, resp.Stats.TodayProfit, 1e-9)
+	require.InDelta(t, 0.6, resp.Stats.TodayGrossMargin, 1e-9)
 }

@@ -168,6 +168,11 @@
           <div v-if="!showCostBreakdown" class="min-w-[96px] text-sm">
             <div class="flex items-center gap-1.5">
               <span class="font-semibold text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+              <span
+                v-if="row.long_context_billing_applied"
+                data-testid="long-context-billing-marker"
+                class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
+              >x2</span>
               <!-- Cost Detail Tooltip -->
               <div
                 class="group relative"
@@ -185,7 +190,14 @@
               <div class="space-y-0.5">
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('usage.userBilled') }}</span>
-                  <span class="font-semibold text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+                  <span class="inline-flex items-center gap-1.5 font-semibold text-green-600 dark:text-green-400">
+                    ${{ row.actual_cost?.toFixed(6) || '0.000000' }}
+                    <span
+                      v-if="row.long_context_billing_applied"
+                      data-testid="long-context-billing-marker"
+                      class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
+                    >x2</span>
+                  </span>
                 </div>
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('usage.upstreamCost') }}</span>

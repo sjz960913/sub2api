@@ -7,6 +7,7 @@
 - WebSocket：`wss://{site_host}/api/v1/collaboration/ws`。
 - JSON 字段使用 `snake_case`，Flutter/Rust 内部类型可映射为各自惯例。
 - 时间使用 RFC 3339 UTC；金额在 JSON 中使用十进制字符串，例如 `"0.100000"`。
+- MVP 协同任务费率固定为每次 `0.10 USD`；所有 command/charge 响应返回 `amount = "0.100000"`、`currency = "USD"`，客户端不得提交或换算该金额。
 - ID 使用 UUID v4/v7 或 Codex 返回的不透明字符串；客户端不得解析 thread/turn/item ID。
 - REST 成功继续使用 Sub2API envelope：`{"code":0,"message":"success","data":...}`。
 - 错误继续使用 HTTP status + `code/message/reason/metadata`；新增稳定 `reason` 作为客户端分支依据。

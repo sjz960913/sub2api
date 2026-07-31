@@ -140,6 +140,8 @@ docs/*
 !docs/legal/*.md
 !docs/mobile-codex/
 !docs/mobile-codex/*.md
+!docs/mobile-codex/ui-mockups/
+!docs/mobile-codex/ui-mockups/*.png
 .serena/
 .codex/
 frontend/coverage/

@@ -385,6 +385,8 @@ go test ./internal/server/...
 
 ## 8. 配置建议
 
+原需求中的“0.1 元”已确认指 `0.10 USD`，不是 CNY。以下金额是 MVP 协同任务的固定服务端费率；UI 必须显示 `$0.10 USD`，普通聊天和图片生成仍使用各自的站点渠道费率。
+
 ```yaml
 collaboration:
   enabled: false

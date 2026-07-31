@@ -340,8 +340,8 @@ handler/collaboration
 | id | UUID | charge_id |
 | command_id | UUID UNIQUE | 一任务一账单 |
 | user_id | BIGINT | 所属用户 |
-| amount | NUMERIC | 后端配置费率 |
-| currency | VARCHAR | MVP 固定 USD 或站点定义单位 |
+| amount | NUMERIC | MVP 固定 `0.100000` |
+| currency | VARCHAR | MVP 固定 `USD`，不做 CNY 换算 |
 | status | VARCHAR | held/settled/refunded |
 | balance_before/after | NUMERIC | 对账快照 |
 | held_at/settled_at/refunded_at | TIMESTAMPTZ | 时间 |
@@ -364,6 +364,8 @@ collab:rate:{userId}:{action}                         限流
 Redis 丢失时允许在线状态短暂失真，但不能丢失账务最终状态。未启动的 held 账单由 PostgreSQL sweeper 退款。
 
 ## 7. 计费事务设计
+
+MVP 协同任务费率为每个成功提交的任务 `0.10 USD`。服务端配置和账本使用 `amount = "0.100000"`、`currency = "USD"`；客户端只把该值格式化为 `$0.10 USD`，不得自行换算、覆盖或传入费率。普通聊天和 GPT Image 继续使用 Sub2API 现有渠道费率，不与协同固定费用混用。
 
 ### 7.1 创建与冻结
 

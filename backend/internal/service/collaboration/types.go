@@ -18,6 +18,7 @@ var (
 	ErrConnectionLimit     = errors.New("collaboration connection limit reached")
 	ErrIdempotencyConflict = errors.New("collaboration idempotency conflict")
 	ErrInvariantViolation  = errors.New("collaboration persistence invariant violated")
+	ErrPayloadNotFound     = errors.New("collaboration ephemeral payload not found")
 )
 
 type InsufficientBalanceError struct {
@@ -151,6 +152,14 @@ type ConnectionLeaseStore interface {
 	Acquire(context.Context, ConnectionLease) (bool, error)
 	Renew(context.Context, ConnectionLease) (bool, error)
 	Release(context.Context, ConnectionLease) error
+}
+
+type PayloadStore interface {
+	PutCommand(context.Context, int64, uuid.UUID, string) error
+	GetCommand(context.Context, int64, uuid.UUID) (string, error)
+	PutSync(context.Context, int64, uuid.UUID, collabdomain.SyncKind, []byte) error
+	GetSync(context.Context, int64, uuid.UUID, collabdomain.SyncKind) ([]byte, error)
+	DeleteSync(context.Context, int64, uuid.UUID, collabdomain.SyncKind) error
 }
 
 type EventEnvelope struct {

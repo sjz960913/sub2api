@@ -107,6 +107,7 @@ var ProviderSet = wire.NewSet(
 	NewCollaborationPresenceStore,
 	NewCollaborationConnectionLeaseStore,
 	NewCollaborationEventBus,
+	NewCollaborationPayloadStore,
 
 	// Cache implementations
 	NewGatewayCache,

@@ -106,19 +106,22 @@ type Config struct {
 // The feature is disabled by default so existing deployments keep their
 // current attack surface until the collaboration migrations are installed.
 type CollaborationConfig struct {
-	Enabled                  bool   `mapstructure:"enabled"`
-	ProtocolVersion          int    `mapstructure:"protocol_version"`
-	HeartbeatIntervalSeconds int    `mapstructure:"heartbeat_interval_seconds"`
-	PresenceTTLSeconds       int    `mapstructure:"presence_ttl_seconds"`
-	TaskFeeAmount            string `mapstructure:"task_fee_amount"`
-	TaskFeeCurrency          string `mapstructure:"task_fee_currency"`
-	CommandTTLSeconds        int    `mapstructure:"command_ttl_seconds"`
-	SyncTTLSeconds           int    `mapstructure:"sync_ttl_seconds"`
-	MaxPromptBytes           int    `mapstructure:"max_prompt_bytes"`
-	MaxEventBytes            int64  `mapstructure:"max_event_bytes"`
-	MaxCommandsPerUserMinute int    `mapstructure:"max_commands_per_user_per_minute"`
-	MaxConnectionsPerUser    int    `mapstructure:"max_connections_per_user"`
-	MaxConnectionsPerDevice  int    `mapstructure:"max_connections_per_device"`
+	Enabled                   bool   `mapstructure:"enabled"`
+	ProtocolVersion           int    `mapstructure:"protocol_version"`
+	HeartbeatIntervalSeconds  int    `mapstructure:"heartbeat_interval_seconds"`
+	PresenceTTLSeconds        int    `mapstructure:"presence_ttl_seconds"`
+	TaskFeeAmount             string `mapstructure:"task_fee_amount"`
+	TaskFeeCurrency           string `mapstructure:"task_fee_currency"`
+	CommandTTLSeconds         int    `mapstructure:"command_ttl_seconds"`
+	SyncTTLSeconds            int    `mapstructure:"sync_ttl_seconds"`
+	SessionSnapshotTTLSeconds int    `mapstructure:"session_snapshot_ttl_seconds"`
+	ThreadSnapshotTTLSeconds  int    `mapstructure:"thread_snapshot_ttl_seconds"`
+	CommandPayloadTTLSeconds  int    `mapstructure:"command_payload_ttl_seconds"`
+	MaxPromptBytes            int    `mapstructure:"max_prompt_bytes"`
+	MaxEventBytes             int64  `mapstructure:"max_event_bytes"`
+	MaxCommandsPerUserMinute  int    `mapstructure:"max_commands_per_user_per_minute"`
+	MaxConnectionsPerUser     int    `mapstructure:"max_connections_per_user"`
+	MaxConnectionsPerDevice   int    `mapstructure:"max_connections_per_device"`
 }
 
 type LogConfig struct {
@@ -1877,6 +1880,9 @@ func setDefaults() {
 	viper.SetDefault("collaboration.task_fee_currency", "USD")
 	viper.SetDefault("collaboration.command_ttl_seconds", 300)
 	viper.SetDefault("collaboration.sync_ttl_seconds", 10)
+	viper.SetDefault("collaboration.session_snapshot_ttl_seconds", 300)
+	viper.SetDefault("collaboration.thread_snapshot_ttl_seconds", 600)
+	viper.SetDefault("collaboration.command_payload_ttl_seconds", 300)
 	viper.SetDefault("collaboration.max_prompt_bytes", 32*1024)
 	viper.SetDefault("collaboration.max_event_bytes", 1024*1024)
 	viper.SetDefault("collaboration.max_commands_per_user_per_minute", 20)

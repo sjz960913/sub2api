@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/auth/user_role.dart';
 import '../features/admin_placeholder/presentation/admin_placeholder_page.dart';
 import '../features/api_keys/presentation/api_keys_page.dart';
+import '../features/auth/application/session_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/chat/presentation/chat_page.dart';
 import '../features/chat/presentation/chat_thread_page.dart';
@@ -18,16 +19,34 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final role = ref.watch(currentUserRoleProvider);
+  final sessionPhase = ref.watch(
+    sessionControllerProvider.select((session) => session.phase),
+  );
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/app/chat',
+    initialLocation: '/launch',
     redirect: (context, state) {
+      final location = state.matchedLocation;
+      switch (sessionPhase) {
+        case SessionPhase.booting:
+          return location == '/launch' ? null : '/launch';
+        case SessionPhase.needsSite:
+          return location == '/site/setup' ? null : '/site/setup';
+        case SessionPhase.signedOut:
+        case SessionPhase.requiresTwoFactor:
+          return location == '/auth/login' ? null : '/auth/login';
+        case SessionPhase.authenticated:
+          if (location == '/launch' || location == '/site/setup' || location == '/auth/login') {
+            return '/app/chat';
+          }
+      }
       if (state.matchedLocation.startsWith('/admin') && role != UserRole.admin) {
         return '/app/profile';
       }
       return null;
     },
     routes: [
+      GoRoute(path: '/launch', builder: (_, _) => const _LaunchPage()),
       GoRoute(path: '/site/setup', builder: (_, _) => const SiteSetupPage()),
       GoRoute(path: '/auth/login', builder: (_, _) => const LoginPage()),
       StatefulShellRoute.indexedStack(
@@ -85,3 +104,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+class _LaunchPage extends StatelessWidget {
+  const _LaunchPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+}

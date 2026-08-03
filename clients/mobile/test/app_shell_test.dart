@@ -4,11 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sub2api_mobile/app/app.dart';
 import 'package:sub2api_mobile/app/router.dart';
 import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dart';
+import 'package:sub2api_mobile/features/auth/application/session_controller.dart';
+import 'package:sub2api_mobile/features/auth/domain/panel_session.dart';
 import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
+
+const _authenticatedSession = SessionState(
+  phase: SessionPhase.authenticated,
+  siteUrl: 'https://panel.example.com/',
+  user: PanelUser(
+    id: 1,
+    email: 'user@example.com',
+    username: 'user',
+    role: PanelRole.user,
+  ),
+);
 
 void main() {
   testWidgets('main shell exposes exactly the four product tabs', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: Sub2ApiApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+        child: const Sub2ApiApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationDestination), findsNWidgets(4));
@@ -22,7 +40,9 @@ void main() {
   });
 
   testWidgets('ordinary user cannot deep-link into admin routes', (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const Sub2ApiApp()));
     await tester.pumpAndSettle();
@@ -35,7 +55,9 @@ void main() {
   });
 
   testWidgets('selected key is shared by key catalog and chat', (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
@@ -51,7 +73,9 @@ void main() {
   });
 
   testWidgets('collaboration stays minimal and reveals sessions on query', (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
@@ -72,7 +96,9 @@ void main() {
   });
 
   testWidgets('profile exposes redeem recharge and announcement entries', (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),

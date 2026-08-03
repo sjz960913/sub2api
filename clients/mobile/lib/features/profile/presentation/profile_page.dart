@@ -7,6 +7,7 @@ import '../../../app/theme.dart';
 import '../../../core/auth/user_role.dart';
 import '../../../core/widgets/app_icon_tile.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../auth/application/session_controller.dart';
 
 const rechargeUri = 'https://pay.ldxp.cn/shop/codecodeai';
 
@@ -23,6 +24,11 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdmin = ref.watch(currentUserRoleProvider) == UserRole.admin;
+    final session = ref.watch(sessionControllerProvider);
+    final user = session.user;
+    final displayName = user?.email ?? '未登录';
+    final avatarSource = user?.username.isNotEmpty == true ? user!.username : displayName;
+    final avatarText = avatarSource.substring(0, 1).toUpperCase();
     return PageFrame(
       title: '我的',
       child: Column(
@@ -33,17 +39,17 @@ class ProfilePage extends ConsumerWidget {
               child: Center(
                 child: Column(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 38,
                       backgroundColor: AppColors.iconTile,
                       child: Text(
-                        'A',
-                        style: TextStyle(fontSize: 30, color: AppColors.primary),
+                        avatarText,
+                        style: const TextStyle(fontSize: 30, color: AppColors.primary),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      isAdmin ? 'admin@••••.com' : 'user@••••.com',
+                      displayName,
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
@@ -117,7 +123,7 @@ class ProfilePage extends ConsumerWidget {
               _ProfileRow(
                 icon: Icons.logout_rounded,
                 label: '退出登录',
-                onTap: () => _confirmLogout(context),
+                onTap: session.isBusy ? () {} : () => _confirmLogout(context, ref),
               ),
             ],
           ),
@@ -176,7 +182,7 @@ Future<void> _showSettings(BuildContext context) {
   );
 }
 
-Future<void> _confirmLogout(BuildContext context) async {
+Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -189,7 +195,7 @@ Future<void> _confirmLogout(BuildContext context) async {
     ),
   );
   if (confirmed == true && context.mounted) {
-    context.go('/auth/login');
+    await ref.read(sessionControllerProvider.notifier).logout();
   }
 }
 

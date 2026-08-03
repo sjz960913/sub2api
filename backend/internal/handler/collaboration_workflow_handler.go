@@ -248,6 +248,30 @@ func (h *CollaborationHandler) GetCommand(c *gin.Context) {
 	response.Success(c, collaborationCommandDTO(command))
 }
 
+func (h *CollaborationHandler) CancelCommand(c *gin.Context) {
+	subject, ok := servermiddleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if _, ok := collaborationIdempotencyKey(c); !ok {
+		return
+	}
+	commandID, err := uuid.Parse(c.Param("command_id"))
+	if err != nil {
+		response.BadRequest(c, "Invalid command ID")
+		return
+	}
+	result, err := h.service.CancelCommand(c.Request.Context(), subject.UserID, commandID)
+	if err != nil {
+		writeCollaborationError(c, err)
+		return
+	}
+	data := collaborationCommandDTO(result.Command)
+	data["cancel_requested"] = result.Requested
+	response.Success(c, data)
+}
+
 func collaborationCommandDTO(command collaborationservice.Command) gin.H {
 	return gin.H{
 		"command_id": command.ID,

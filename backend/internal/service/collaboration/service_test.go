@@ -565,6 +565,63 @@ func TestHandleDeviceEventAdvancesCommandAndRejectsConflictingReplay(t *testing.
 	}
 }
 
+func TestCancelCommandPublishesInterruptWithoutChangingChargeState(t *testing.T) {
+	t.Parallel()
+	deviceID := uuid.New()
+	commandID := uuid.New()
+	turnID := "turn_123"
+	repository := &repositoryStub{command: Command{
+		ID: commandID, UserID: 42, DeviceID: deviceID, ThreadID: "thread_123",
+		Status: collabdomain.CommandStatusStarted, TurnID: &turnID,
+	}}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetRealtime(events, nil)
+
+	result, err := service.CancelCommand(context.Background(), 42, commandID)
+	if err != nil {
+		t.Fatalf("CancelCommand() error = %v", err)
+	}
+	if !result.Requested || result.Command.Status != collabdomain.CommandStatusStarted || len(events.deviceEvents) != 1 {
+		t.Fatalf("cancel result/events = %#v / %#v", result, events.deviceEvents)
+	}
+	event := events.deviceEvents[0]
+	if event.Type != "command.cancel_requested" || event.Payload["command_id"] != commandID.String() || event.Payload["turn_id"] != turnID {
+		t.Fatalf("cancel event = %#v", event)
+	}
+	for _, forbidden := range []string{"fee", "charge", "amount", "currency", "refund", "balance"} {
+		if _, exposed := event.Payload[forbidden]; exposed {
+			t.Fatalf("cancel event exposed billing field %q: %#v", forbidden, event.Payload)
+		}
+	}
+	if len(repository.commandTransitions) != 0 {
+		t.Fatalf("cancellation changed command or charge state: %#v", repository.commandTransitions)
+	}
+}
+
+func TestCancelCommandIsIdempotentForTerminalCommand(t *testing.T) {
+	t.Parallel()
+	commandID := uuid.New()
+	repository := &repositoryStub{command: Command{
+		ID: commandID, UserID: 42, DeviceID: uuid.New(), ThreadID: "thread_123",
+		Status: collabdomain.CommandStatusCompleted,
+	}}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetRealtime(events, nil)
+
+	result, err := service.CancelCommand(context.Background(), 42, commandID)
+	if err != nil || result.Requested || len(events.deviceEvents) != 0 {
+		t.Fatalf("terminal cancel result/error/events = %#v / %v / %#v", result, err, events.deviceEvents)
+	}
+}
+
 func TestRegisterDeviceNormalizesMetadataAndChecksProtocol(t *testing.T) {
 	t.Parallel()
 

@@ -66,4 +66,5 @@ func RegisterCollaborationRoutes(
 	enabled.GET("/thread-syncs/:sync_id", h.GetThreadSync)
 	enabled.POST("/commands", h.CreateCommand)
 	enabled.GET("/commands/:command_id", h.GetCommand)
+	enabled.POST("/commands/:command_id/cancel", h.CancelCommand)
 }

@@ -219,6 +219,57 @@ func TestCollaborationCreateCommandDispatchesWithoutExposingBackendFee(t *testin
 	}
 }
 
+func TestCollaborationCancelCommandRequestsInterruptWithoutBillingFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	commandID := uuid.New()
+	deviceID := uuid.New()
+	turnID := "turn_123"
+	repository := &collaborationHandlerRepositoryStub{command: collaborationservice.Command{
+		ID: commandID, UserID: 42, DeviceID: deviceID, ThreadID: "thread_123",
+		Status: collaborationdomain.CommandStatusStarted, TurnID: &turnID,
+	}}
+	eventBus := &collaborationHandlerEventBusStub{
+		deviceEvents: make(chan collaborationservice.EventEnvelope, 1),
+		userEvents:   make(chan collaborationservice.EventEnvelope, 1),
+	}
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{
+		ProtocolVersion: 1, TaskFeeAmount: "0.100000", TaskFeeCurrency: "USD",
+		CommandTTLSeconds: 300, MaxPromptBytes: 32 * 1024,
+	}}
+	service, err := collaborationservice.NewService(repository, cfg.Collaboration)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetRealtime(eventBus, nil)
+	handler := NewCollaborationHandler(service, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
+	router := gin.New()
+	router.POST("/commands/:command_id/cancel", func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 42})
+		c.Next()
+	}, handler.CancelCommand)
+	request := httptest.NewRequest(http.MethodPost, "/commands/"+commandID.String()+"/cancel", nil)
+	request.Header.Set("Idempotency-Key", uuid.NewString())
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"cancel_requested":true`) {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	for _, forbidden := range []string{"0.100000", "USD", "refund", "charge", "balance", "fee"} {
+		if strings.Contains(recorder.Body.String(), forbidden) {
+			t.Fatalf("cancel response exposed billing data %q: %s", forbidden, recorder.Body.String())
+		}
+	}
+	select {
+	case event := <-eventBus.deviceEvents:
+		if event.Type != "command.cancel_requested" || event.Payload["turn_id"] != turnID {
+			t.Fatalf("cancel event = %#v", event)
+		}
+	default:
+		t.Fatal("cancel request was not relayed to the PC")
+	}
+}
+
 type collaborationHandlerPresenceStub struct {
 	touched chan collaborationservice.DevicePresence
 	items   map[uuid.UUID]collaborationservice.DevicePresence

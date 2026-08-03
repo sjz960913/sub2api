@@ -652,6 +652,46 @@ func (s *Service) GetCommand(
 	return s.repository.GetCommand(ctx, userID, commandID)
 }
 
+type CancelCommandResult struct {
+	Command   Command
+	Requested bool
+}
+
+// CancelCommand requests interruption of an active Codex turn. The original
+// command charge is immutable; cancellation never creates a refund operation.
+func (s *Service) CancelCommand(
+	ctx context.Context,
+	userID int64,
+	commandID uuid.UUID,
+) (CancelCommandResult, error) {
+	command, err := s.GetCommand(ctx, userID, commandID)
+	if err != nil {
+		return CancelCommandResult{}, err
+	}
+	result := CancelCommandResult{Command: command}
+	if command.Status.Terminal() {
+		return result, nil
+	}
+	if s.eventBus == nil {
+		s.metrics.relayPublishFailure.Add(1)
+		return result, ErrRelayUnavailable
+	}
+	requestID := command.ID.String()
+	payload := map[string]any{
+		"command_id": command.ID.String(),
+		"thread_id":  command.ThreadID,
+	}
+	if command.TurnID != nil {
+		payload["turn_id"] = *command.TurnID
+	}
+	if _, err := s.eventBus.PublishDevice(ctx, userID, command.DeviceID, "command.cancel_requested", &requestID, payload); err != nil {
+		s.metrics.relayPublishFailure.Add(1)
+		return result, ErrRelayUnavailable
+	}
+	result.Requested = true
+	return result, nil
+}
+
 func (s *Service) HandleDeviceEvent(
 	ctx context.Context,
 	userID int64,

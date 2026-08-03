@@ -19,6 +19,7 @@
 4. [AI Coding 开发指南](04-ai-coding-guide.md)：里程碑、任务拆分、编码约束、测试、CI/CD 与交付定义。
 5. [UI 生成提示词](05-ui-generation-prompts.md)：移动端与 PC 端可直接复制到 UI 生成工具的提示词。
 6. [测试、安全与发布清单](06-test-security-release.md)：端到端场景、安全基线、性能指标和灰度发布。
+7. [开发进度](07-development-progress.md)：已落盘实现、验证证据、环境限制和下一步。
 
 ## 已确认可复用的现有能力
 

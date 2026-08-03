@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Codex PC Companion",
+  "version": "0.1.0",
+  "identifier": "cn.ldxp.sub2api.codexpc",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{"title": "Codex PC Companion", "width": 1180, "height": 760, "minWidth": 960, "minHeight": 640}],
+    "security": {"csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"}
+  },
+  "bundle": {"active": true, "targets": "all"}
+}

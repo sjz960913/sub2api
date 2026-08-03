@@ -99,6 +99,23 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	Collaboration           CollaborationConfig           `mapstructure:"collaboration"`
+}
+
+// CollaborationConfig controls the mobile/PC Codex collaboration feature.
+// The feature is disabled by default so existing deployments keep their
+// current attack surface until the collaboration migrations are installed.
+type CollaborationConfig struct {
+	Enabled                     bool   `mapstructure:"enabled"`
+	ProtocolVersion             int    `mapstructure:"protocol_version"`
+	HeartbeatIntervalSeconds    int    `mapstructure:"heartbeat_interval_seconds"`
+	TaskFeeAmount               string `mapstructure:"task_fee_amount"`
+	TaskFeeCurrency             string `mapstructure:"task_fee_currency"`
+	CommandTTLSeconds           int    `mapstructure:"command_ttl_seconds"`
+	SyncTTLSeconds              int    `mapstructure:"sync_ttl_seconds"`
+	MaxPromptBytes              int    `mapstructure:"max_prompt_bytes"`
+	MaxConnectionsPerUser       int    `mapstructure:"max_connections_per_user"`
+	MaxConnectionsPerDevice    int    `mapstructure:"max_connections_per_device"`
 }
 
 type LogConfig struct {
@@ -1846,6 +1863,19 @@ func configureConfigSource(setConfigFile, addConfigPath func(string)) {
 
 func setDefaults() {
 	viper.SetDefault("run_mode", RunModeStandard)
+
+	// Mobile/PC Codex collaboration. Keep disabled until the collaboration
+	// database migration and realtime relay are deployed together.
+	viper.SetDefault("collaboration.enabled", false)
+	viper.SetDefault("collaboration.protocol_version", 1)
+	viper.SetDefault("collaboration.heartbeat_interval_seconds", 20)
+	viper.SetDefault("collaboration.task_fee_amount", "0.100000")
+	viper.SetDefault("collaboration.task_fee_currency", "USD")
+	viper.SetDefault("collaboration.command_ttl_seconds", 300)
+	viper.SetDefault("collaboration.sync_ttl_seconds", 10)
+	viper.SetDefault("collaboration.max_prompt_bytes", 32*1024)
+	viper.SetDefault("collaboration.max_connections_per_user", 5)
+	viper.SetDefault("collaboration.max_connections_per_device", 1)
 
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")

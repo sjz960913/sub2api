@@ -1,0 +1,15 @@
+{
+  "installation_id_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "name": "Workstation",
+  "platform": "linux",
+  "platform_version": "Linux",
+  "companion_version": "0.1.0",
+  "codex_version": "codex-cli",
+  "protocol_version": 1,
+  "capabilities": {
+    "app_server": true,
+    "thread_read": true,
+    "thread_write": true,
+    "image_input": false
+  }
+}

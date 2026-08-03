@@ -1,0 +1,10 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "enabled": true,
+    "protocol_version": 1,
+    "heartbeat_interval_seconds": 20,
+    "websocket_path": "/api/v1/collaboration/ws"
+  }
+}

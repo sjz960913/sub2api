@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "type": "command.dispatched",
+  "event_id": "01J00000000000000000000000",
+  "request_id": "018f7f3e-86f6-7cc8-98ec-4f56dc1f2322",
+  "sequence": 42,
+  "occurred_at": "2026-08-03T00:00:00Z",
+  "payload": {
+    "command_id": "018f7f3e-86f6-7cc8-98ec-4f56dc1f2322",
+    "device_id": "018f7f3e-86f6-7cc8-98ec-4f56dc1f2321",
+    "thread_id": "thread_redacted",
+    "input_ref": "redis:opaque"
+  }
+}

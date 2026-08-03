@@ -1,0 +1,8 @@
+{
+  "@@locale": "en",
+  "appName": "Sub2API",
+  "chatTab": "Chat",
+  "collaborationTab": "Collaboration",
+  "apiKeysTab": "Keys",
+  "profileTab": "Profile"
+}

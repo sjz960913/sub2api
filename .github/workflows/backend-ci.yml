@@ -60,6 +60,51 @@ jobs:
       - name: Frontend typecheck and critical vitest
         run: make test-frontend
 
+  collaboration-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Generate and validate collaboration protocol
+        run: |
+          node protocol/scripts/generate.mjs
+          git diff --exit-code -- protocol/generated clients/mobile/lib/core/protocol clients/codex-pc/src-tauri/src/protocol
+          node protocol/scripts/validate.mjs
+          node protocol/scripts/mock-smoke.mjs
+
+  codex-pc-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/codex-pc
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: clients/codex-pc/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/mobile
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: flutter analyze
+      - run: flutter test
+
   golangci-lint:
     runs-on: ubuntu-latest
     steps:

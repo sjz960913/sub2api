@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sub2api.example/schemas/collaboration-events-v1.json",
+  "title": "Sub2API collaboration event envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "type", "event_id", "sequence", "occurred_at", "payload"],
+  "properties": {
+    "v": {"type": "integer", "const": 1},
+    "type": {
+      "type": "string",
+      "enum": [
+        "heartbeat", "heartbeat.ack",
+        "session_sync.requested", "session_sync.completed", "session_sync.failed",
+        "thread_sync.requested", "thread_sync.completed", "thread_sync.failed",
+        "command.dispatched", "command.received", "command.started", "command.item", "command.completed", "command.failed", "command.cancelled",
+        "device.presence_changed", "announcement.invalidated"
+      ]
+    },
+    "event_id": {"type": "string", "minLength": 8, "maxLength": 80},
+    "request_id": {"type": ["string", "null"], "maxLength": 80},
+    "sequence": {"type": "integer", "minimum": 0},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object", "maxProperties": 64}
+  }
+}

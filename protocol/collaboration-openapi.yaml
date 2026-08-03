@@ -1,0 +1,266 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sub2API Collaboration API",
+    "version": "1.0.0",
+    "description": "Panel-JWT API used by the Android client and PC Codex companion."
+  },
+  "servers": [{"url": "/api/v1/collaboration"}],
+  "security": [{"panelBearer": []}],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getCollaborationHealth",
+        "responses": {
+          "200": {
+            "description": "Feature capability",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CollaborationHealthEnvelope"}}}
+          }
+        }
+      }
+    },
+    "/devices/register": {
+      "post": {
+        "operationId": "registerCollaborationDevice",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RegisterDeviceRequest"}}}},
+        "responses": {
+          "200": {"description": "Registered or refreshed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RegisterDeviceEnvelope"}}}}
+        }
+      }
+    },
+    "/devices": {
+      "get": {
+        "operationId": "listCollaborationDevices",
+        "responses": {
+          "200": {"description": "Owned active devices", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceListEnvelope"}}}}
+        }
+      }
+    },
+    "/devices/{device_id}": {
+      "parameters": [{"$ref": "#/components/parameters/DeviceId"}],
+      "patch": {
+        "operationId": "renameCollaborationDevice",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RenameDeviceRequest"}}}},
+        "responses": {"200": {"description": "Renamed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceEnvelope"}}}}}
+      },
+      "delete": {
+        "operationId": "revokeCollaborationDevice",
+        "responses": {"204": {"description": "Revoked"}}
+      }
+    },
+    "/devices/{device_id}/session-syncs": {
+      "parameters": [{"$ref": "#/components/parameters/DeviceId"}],
+      "post": {
+        "operationId": "createSessionSync",
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionSyncRequest"}}}},
+        "responses": {"202": {"description": "Accepted", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SyncAcceptedEnvelope"}}}}}
+      }
+    },
+    "/session-syncs/{sync_id}": {
+      "get": {
+        "operationId": "getSessionSync",
+        "parameters": [{"$ref": "#/components/parameters/SyncId"}],
+        "responses": {"200": {"description": "Current sync state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionSyncEnvelope"}}}}}
+      }
+    },
+    "/devices/{device_id}/threads/{thread_id}/syncs": {
+      "parameters": [{"$ref": "#/components/parameters/DeviceId"}, {"$ref": "#/components/parameters/ThreadId"}],
+      "post": {
+        "operationId": "createThreadSync",
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ThreadSyncRequest"}}}},
+        "responses": {"202": {"description": "Accepted", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SyncAcceptedEnvelope"}}}}}
+      }
+    },
+    "/thread-syncs/{sync_id}": {
+      "get": {
+        "operationId": "getThreadSync",
+        "parameters": [{"$ref": "#/components/parameters/SyncId"}],
+        "responses": {"200": {"description": "Current thread sync state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ThreadSyncEnvelope"}}}}}
+      }
+    },
+    "/commands": {
+      "post": {
+        "operationId": "createCollaborationCommand",
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateCommandRequest"}}}},
+        "responses": {"202": {"description": "Accepted and charged on the server", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommandEnvelope"}}}}}
+      }
+    },
+    "/commands/{command_id}": {
+      "get": {
+        "operationId": "getCollaborationCommand",
+        "parameters": [{"$ref": "#/components/parameters/CommandId"}],
+        "responses": {"200": {"description": "Current command state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommandEnvelope"}}}}}
+      }
+    },
+    "/commands/{command_id}/cancel": {
+      "post": {
+        "operationId": "cancelCollaborationCommand",
+        "parameters": [{"$ref": "#/components/parameters/CommandId"}, {"$ref": "#/components/parameters/IdempotencyKey"}],
+        "responses": {"200": {"description": "Cancellation state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CommandEnvelope"}}}}}
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "panelBearer": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    },
+    "parameters": {
+      "DeviceId": {"name": "device_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "SyncId": {"name": "sync_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "CommandId": {"name": "command_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "ThreadId": {"name": "thread_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 512}},
+      "IdempotencyKey": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}}
+    },
+    "schemas": {
+      "CollaborationHealth": {
+        "type": "object",
+        "required": ["enabled", "protocol_version", "heartbeat_interval_seconds", "websocket_path"],
+        "properties": {
+          "enabled": {"type": "boolean"},
+          "protocol_version": {"type": "integer", "minimum": 1},
+          "heartbeat_interval_seconds": {"type": "integer", "minimum": 5},
+          "websocket_path": {"type": "string", "const": "/api/v1/collaboration/ws"}
+        }
+      },
+      "CollaborationHealthEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/CollaborationHealth"}}}]},
+      "SuccessEnvelope": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {"code": {"type": "integer", "const": 0}, "message": {"type": "string"}}
+      },
+      "DeviceCapabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["app_server", "thread_read", "thread_write", "image_input"],
+        "properties": {
+          "app_server": {"type": "boolean"}, "thread_read": {"type": "boolean"},
+          "thread_write": {"type": "boolean"}, "image_input": {"type": "boolean"}
+        }
+      },
+      "RegisterDeviceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["installation_id_hash", "name", "platform", "companion_version", "protocol_version", "capabilities"],
+        "properties": {
+          "installation_id_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 80},
+          "platform": {"type": "string", "enum": ["linux", "windows", "macos"]},
+          "platform_version": {"type": "string", "maxLength": 120},
+          "companion_version": {"type": "string", "minLength": 1, "maxLength": 40},
+          "codex_version": {"type": "string", "maxLength": 80},
+          "protocol_version": {"type": "integer", "const": 1},
+          "capabilities": {"$ref": "#/components/schemas/DeviceCapabilities"}
+        }
+      },
+      "RegisterDeviceResult": {
+        "type": "object", "required": ["device_id", "heartbeat_interval_seconds", "event_protocol_version", "server_time"],
+        "properties": {
+          "device_id": {"type": "string", "format": "uuid"},
+          "heartbeat_interval_seconds": {"type": "integer", "minimum": 5},
+          "event_protocol_version": {"type": "integer", "const": 1},
+          "server_time": {"type": "string", "format": "date-time"}
+        }
+      },
+      "RegisterDeviceEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/RegisterDeviceResult"}}}]},
+      "Device": {
+        "type": "object",
+        "required": ["id", "name", "platform", "status", "capabilities"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"}, "name": {"type": "string"},
+          "platform": {"type": "string", "enum": ["linux", "windows", "macos"]},
+          "companion_version": {"type": "string"}, "codex_version": {"type": "string"},
+          "status": {"type": "string", "enum": ["online", "offline"]},
+          "last_seen_at": {"type": ["string", "null"], "format": "date-time"},
+          "capabilities": {"$ref": "#/components/schemas/DeviceCapabilities"}
+        }
+      },
+      "RenameDeviceRequest": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 80}}},
+      "DeviceEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/Device"}}}]},
+      "DeviceList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Device"}}}},
+      "DeviceListEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/DeviceList"}}}]},
+      "SessionSyncRequest": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "search_term": {"type": ["string", "null"], "maxLength": 200}, "cwd": {"type": ["string", "null"], "maxLength": 1024},
+          "archived": {"type": "boolean", "default": false}, "cursor": {"type": ["string", "null"], "maxLength": 1024},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}
+        }
+      },
+      "ThreadSyncRequest": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "after_item_id": {"type": ["string", "null"], "maxLength": 512}, "cursor": {"type": ["string", "null"], "maxLength": 1024},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 100},
+          "include_tool_output": {"type": "string", "enum": ["none", "summary"], "default": "summary"}
+        }
+      },
+      "SyncAccepted": {
+        "type": "object", "required": ["sync_id", "status", "expires_at"],
+        "properties": {"sync_id": {"type": "string", "format": "uuid"}, "status": {"type": "string", "const": "pending"}, "expires_at": {"type": "string", "format": "date-time"}}
+      },
+      "SyncAcceptedEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/SyncAccepted"}}}]},
+      "CodexSession": {
+        "type": "object", "required": ["thread_id", "title", "updated_at", "archived", "write_state"],
+        "properties": {
+          "thread_id": {"type": "string"}, "title": {"type": "string"}, "preview": {"type": "string"},
+          "cwd_display": {"type": ["string", "null"]}, "created_at": {"type": ["string", "null"], "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}, "status": {"type": "string"}, "archived": {"type": "boolean"},
+          "write_state": {"type": "string", "enum": ["writable_loaded", "writable_resumable", "read_only", "busy"]},
+          "write_state_reason": {"type": ["string", "null"]}
+        }
+      },
+      "SessionSync": {
+        "type": "object", "required": ["sync_id", "status", "device_id", "items"],
+        "properties": {
+          "sync_id": {"type": "string", "format": "uuid"}, "status": {"$ref": "#/components/schemas/SyncStatus"},
+          "device_id": {"type": "string", "format": "uuid"}, "snapshot_version": {"type": "integer"},
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/CodexSession"}}, "next_cursor": {"type": ["string", "null"]},
+          "error": {"$ref": "#/components/schemas/ErrorSummary"}
+        }
+      },
+      "SessionSyncEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/SessionSync"}}}]},
+      "ThreadSummary": {"type": "object", "required": ["thread_id", "title", "status", "write_state"], "properties": {"thread_id": {"type": "string"}, "title": {"type": "string"}, "status": {"type": "string"}, "write_state": {"type": "string"}}},
+      "ThreadItem": {
+        "type": "object", "required": ["item_id", "sequence", "type", "status", "created_at"],
+        "properties": {
+          "item_id": {"type": "string"}, "turn_id": {"type": ["string", "null"]}, "sequence": {"type": "integer", "minimum": 0},
+          "type": {"type": "string", "enum": ["user_message", "agent_message", "reasoning_summary", "command_execution", "file_change", "tool_call", "tool_result", "plan", "error", "unsupported"]},
+          "role": {"type": ["string", "null"], "enum": ["user", "assistant", null]}, "title": {"type": ["string", "null"]},
+          "summary": {"type": ["string", "null"]}, "content": {"type": "array", "items": {"$ref": "#/components/schemas/ContentPart"}},
+          "status": {"type": "string"}, "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ContentPart": {"type": "object", "required": ["type", "text"], "properties": {"type": {"type": "string", "enum": ["text", "markdown"]}, "text": {"type": "string"}}},
+      "ThreadSync": {
+        "type": "object", "required": ["sync_id", "status", "items"],
+        "properties": {"sync_id": {"type": "string", "format": "uuid"}, "status": {"$ref": "#/components/schemas/SyncStatus"}, "thread": {"$ref": "#/components/schemas/ThreadSummary"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/ThreadItem"}}, "next_cursor": {"type": ["string", "null"]}, "error": {"$ref": "#/components/schemas/ErrorSummary"}}
+      },
+      "ThreadSyncEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/ThreadSync"}}}]},
+      "SyncStatus": {"type": "string", "enum": ["pending", "dispatched", "completed", "failed", "expired"]},
+      "CreateCommandRequest": {
+        "type": "object", "additionalProperties": false, "required": ["device_id", "thread_id", "input"],
+        "properties": {
+          "device_id": {"type": "string", "format": "uuid"}, "thread_id": {"type": "string", "minLength": 1, "maxLength": 512},
+          "input": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/components/schemas/CommandInput"}},
+          "client_context": {"$ref": "#/components/schemas/ClientContext"}
+        }
+      },
+      "CommandInput": {"type": "object", "additionalProperties": false, "required": ["type", "text"], "properties": {"type": {"type": "string", "const": "text"}, "text": {"type": "string", "minLength": 1, "maxLength": 32768}}},
+      "ClientContext": {"type": "object", "additionalProperties": false, "properties": {"locale": {"type": "string", "maxLength": 20}, "source": {"type": "string", "const": "android"}}},
+      "Command": {
+        "type": "object", "required": ["command_id", "status", "created_at"],
+        "properties": {
+          "command_id": {"type": "string", "format": "uuid"},
+          "status": {"type": "string", "enum": ["accepted", "dispatched", "started", "completed", "failed", "cancelled", "expired"]},
+          "turn_id": {"type": ["string", "null"]}, "error": {"$ref": "#/components/schemas/ErrorSummary"},
+          "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": ["string", "null"], "format": "date-time"}
+        }
+      },
+      "CommandEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/Command"}}}]},
+      "ErrorSummary": {"type": ["object", "null"], "required": ["reason", "message"], "properties": {"reason": {"type": "string"}, "message": {"type": "string"}}}
+    }
+  }
+}

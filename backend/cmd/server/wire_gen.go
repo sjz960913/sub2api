@@ -310,7 +310,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		return nil, err
 	}
 	eventBus := repository.NewCollaborationEventBus(redisClient)
-	collaborationHandler := handler.NewCollaborationHandler(collaborationService, configConfig, eventBus)
+	connectionLeaseStore := repository.NewCollaborationConnectionLeaseStore(redisClient, configConfig)
+	collaborationHandler := handler.NewCollaborationHandler(collaborationService, configConfig, eventBus, connectionLeaseStore)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
 	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, passkeyHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, modelPlazaHandler, asyncImageHandler, batchImageHandler, collaborationHandler, idempotencyCoordinator, idempotencyCleanupService)

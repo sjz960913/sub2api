@@ -1,6 +1,42 @@
-import {useState} from 'react';
+import {invoke} from '@tauri-apps/api/core';
+import {FormEvent, useEffect, useRef, useState} from 'react';
 
 type Section = 'overview' | 'sessions' | 'tasks' | 'settings';
+
+type PublicSession = {
+  site_url: string;
+  user_id: number;
+  email: string;
+  role: string;
+  expires_at_epoch_seconds: number;
+};
+
+type AuthStatus = {
+  authenticated: boolean;
+  requires_two_factor: boolean;
+  session: PublicSession | null;
+};
+
+type LoginResult =
+  | {status: 'authenticated'; session: PublicSession}
+  | {status: 'requires_two_factor'; email_masked: string};
+
+type CodexThread = {
+  id: string;
+  title: string;
+  cwdLabel: string | null;
+  status: string;
+  canWrite: boolean;
+  updatedAt: number | null;
+};
+
+type ThreadPage = {
+  data: CodexThread[];
+  nextCursor: string | null;
+};
+
+const SITE_KEY = 'codexPc.siteUrl';
+const EMAIL_KEY = 'codexPc.email';
 
 const sections: Array<{id: Section; label: string; icon: string}> = [
   {id: 'overview', label: '概览', icon: '⌂'},
@@ -10,7 +46,44 @@ const sections: Array<{id: Section; label: string; icon: string}> = [
 ];
 
 export function App() {
+  const bootstrapped = useRef(false);
+  const [session, setSession] = useState<PublicSession | null>(null);
+  const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>('overview');
+  const [threads, setThreads] = useState<CodexThread[]>([]);
+  const [codexReady, setCodexReady] = useState(false);
+  const [codexError, setCodexError] = useState('');
+
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    void bootstrapSession().then(setSession).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    void invoke('codex_start')
+      .then(() => setCodexReady(true))
+      .catch((error) => setCodexError(errorMessage(error)));
+  }, [session]);
+
+  async function refreshThreads(searchTerm = '') {
+    setCodexError('');
+    try {
+      const page = await invoke<ThreadPage>('codex_list_threads', {
+        limit: 50,
+        cursor: null,
+        searchTerm: searchTerm.trim() || null,
+        archived: false,
+      });
+      setThreads(page.data);
+    } catch (error) {
+      setCodexError(errorMessage(error));
+    }
+  }
+
+  if (loading) return <LoadingScreen />;
+  if (!session) return <LoginScreen onAuthenticated={setSession} />;
 
   return (
     <div className="app-shell">
@@ -31,55 +104,171 @@ export function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-status"><span className="status-dot" />已连接</div>
+        <div className="sidebar-account">
+          <strong>{maskEmail(session.email)}</strong>
+          <small>{siteHost(session.site_url)}</small>
+        </div>
+        <div className="sidebar-status">
+          <span className={codexReady ? 'status-dot' : 'status-dot muted'} />
+          {codexReady ? 'Codex 已就绪' : '正在连接 Codex'}
+        </div>
       </aside>
-      <main className="content">{renderSection(section)}</main>
+      <main className="content">
+        {renderSection({
+          section,
+          session,
+          threads,
+          codexReady,
+          codexError,
+          refreshThreads,
+          onLogout: () => setSession(null),
+        })}
+      </main>
     </div>
   );
 }
 
-function renderSection(section: Section) {
-  switch (section) {
-    case 'sessions': return <Sessions />;
-    case 'tasks': return <Tasks />;
-    case 'settings': return <Settings />;
-    default: return <Overview />;
+async function bootstrapSession(): Promise<PublicSession | null> {
+  try {
+    const status = await invoke<AuthStatus>('panel_auth_status');
+    if (status.authenticated && status.session) return status.session;
+    const siteUrl = localStorage.getItem(SITE_KEY);
+    const email = localStorage.getItem(EMAIL_KEY);
+    if (!siteUrl || !email) return null;
+    return await invoke<PublicSession>('panel_restore_session', {siteUrl, email});
+  } catch {
+    return null;
   }
 }
 
-function Overview() {
+function renderSection(props: {
+  section: Section;
+  session: PublicSession;
+  threads: CodexThread[];
+  codexReady: boolean;
+  codexError: string;
+  refreshThreads: (searchTerm?: string) => Promise<void>;
+  onLogout: () => void;
+}) {
+  switch (props.section) {
+    case 'sessions':
+      return <Sessions threads={props.threads} error={props.codexError} onRefresh={props.refreshThreads} />;
+    case 'tasks':
+      return <Tasks />;
+    case 'settings':
+      return <Settings session={props.session} codexReady={props.codexReady} onLogout={props.onLogout} />;
+    default:
+      return <Overview threads={props.threads} codexReady={props.codexReady} error={props.codexError} onRefresh={props.refreshThreads} />;
+  }
+}
+
+function LoginScreen({onAuthenticated}: {onAuthenticated: (session: PublicSession) => void}) {
+  const [siteUrl, setSiteUrl] = useState(localStorage.getItem(SITE_KEY) ?? '');
+  const [email, setEmail] = useState(localStorage.getItem(EMAIL_KEY) ?? '');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [emailMasked, setEmailMasked] = useState('');
+  const [step, setStep] = useState<'login' | 'twoFactor'>('login');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      if (step === 'login') {
+        const result = await invoke<LoginResult>('panel_login', {
+          siteUrl,
+          email,
+          password,
+          turnstileToken: null,
+        });
+        setPassword('');
+        if (result.status === 'requires_two_factor') {
+          setEmailMasked(result.email_masked);
+          setStep('twoFactor');
+          return;
+        }
+        rememberIdentity(result.session);
+        onAuthenticated(result.session);
+        return;
+      }
+      const session = await invoke<PublicSession>('panel_complete_two_factor', {code});
+      setCode('');
+      rememberIdentity(session);
+      onAuthenticated(session);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-card">
+        <div className="auth-brand"><span className="brand-mark">C</span><strong>Codex PC</strong></div>
+        <h1>{step === 'login' ? '登录 Sub2API' : '两步验证'}</h1>
+        <p>{step === 'login' ? '登录同一账号后，手机才能发现这台电脑。' : `请输入发送至 ${emailMasked || '你的验证器'} 的 6 位验证码。`}</p>
+        <form onSubmit={submit}>
+          {step === 'login' ? (
+            <>
+              <label>站点地址<input value={siteUrl} onChange={(event) => setSiteUrl(event.target.value)} placeholder="https://your-sub2api.example" required autoFocus /></label>
+              <label>邮箱<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="username" required /></label>
+              <label>密码<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" required /></label>
+            </>
+          ) : (
+            <label>验证码<input className="code-input" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} required autoFocus /></label>
+          )}
+          {error && <div className="error-banner" role="alert">{error}</div>}
+          <button className="primary full" type="submit" disabled={submitting}>{submitting ? '请稍候…' : step === 'login' ? '登录' : '验证'}</button>
+          {step === 'twoFactor' && <button className="text-button" type="button" onClick={() => { setStep('login'); setCode(''); setError(''); }}>返回登录</button>}
+        </form>
+        <small className="security-note">密码不会保存；Refresh Token 仅存入系统安全凭据库。</small>
+      </section>
+    </main>
+  );
+}
+
+function LoadingScreen() {
+  return <main className="auth-shell"><div className="loading-mark"><span className="brand-mark">C</span><span>正在恢复安全会话…</span></div></main>;
+}
+
+function Overview({threads, codexReady, error, onRefresh}: {threads: CodexThread[]; codexReady: boolean; error: string; onRefresh: () => Promise<void>}) {
   return (
     <>
       <PageHeader title="概览" description="保持电脑在线，即可从手机继续 Codex 会话。" />
       <section className="device-card">
         <div className="icon-tile">▣</div>
-        <div className="grow"><span className="eyebrow">当前设备</span><h2>Workstation</h2><p><span className="status-dot" />Linux · 在线</p></div>
-        <button className="secondary" type="button">设备设置</button>
+        <div className="grow"><span className="eyebrow">当前设备</span><h2>这台电脑</h2><p><span className={codexReady ? 'status-dot' : 'status-dot muted'} />{codexReady ? 'Codex CLI 已就绪' : '正在连接 Codex CLI'}</p></div>
+        <button className="secondary" type="button" onClick={() => void onRefresh()} disabled={!codexReady}>检查会话</button>
       </section>
+      {error && <div className="error-banner spaced" role="alert">{error}</div>}
       <div className="metric-grid">
-        <Metric label="可发现会话" value="12" />
-        <Metric label="运行任务" value="1" />
-        <Metric label="今日同步" value="8" />
+        <Metric label="已发现会话" value={String(threads.length)} />
+        <Metric label="手机任务" value="0" />
+        <Metric label="连接状态" value={codexReady ? '就绪' : '等待'} compact />
       </div>
-      <section className="panel">
-        <div className="panel-heading"><h3>最近事件</h3><button type="button" className="link-button">刷新</button></div>
-        <Event title="会话列表已同步" meta="刚刚 · 12 个会话" />
-        <Event title="任务已完成" meta="10:18 · 修复支付回调" />
-        <Event title="设备重新连接" meta="09:42 · 网络已恢复" />
-      </section>
+      <section className="panel empty-panel"><span className="event-icon">✓</span><div><strong>无需电脑确认</strong><p>手机发送任务后将直接转交所选 Codex 会话。</p></div></section>
     </>
   );
 }
 
-function Sessions() {
+function Sessions({threads, error, onRefresh}: {threads: CodexThread[]; error: string; onRefresh: (search?: string) => Promise<void>}) {
+  const [search, setSearch] = useState('');
   return (
     <>
-      <PageHeader title="会话" description="只同步脱敏后的会话元数据与所选消息。" />
-      <div className="toolbar"><input aria-label="搜索会话" placeholder="搜索会话" /><button className="primary" type="button">同步会话</button></div>
+      <PageHeader title="会话" description="仅展示脱敏后的会话名称、状态和路径末级。" />
+      <form className="toolbar" onSubmit={(event) => { event.preventDefault(); void onRefresh(search); }}>
+        <input aria-label="搜索会话" placeholder="搜索会话" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <button className="primary" type="submit">查询</button>
+      </form>
+      {error && <div className="error-banner spaced" role="alert">{error}</div>}
       <section className="panel session-list">
-        <Session title="修复支付回调" path="~/works/sub2api" state="可继续" />
-        <Session title="更新登录流程" path="~/works/sub2api" state="可继续" />
-        <Session title="整理 API 文档" path="~/works/docs" state="只读" />
+        {threads.length === 0 ? <Empty title="暂无会话" description="点击查询，从本机 Codex 获取会话列表。" /> : threads.map((thread) => (
+          <Session key={thread.id} title={thread.title} path={thread.cwdLabel ?? '路径已隐藏'} state={thread.canWrite ? '可继续' : '只读'} />
+        ))}
       </section>
     </>
   );
@@ -88,26 +277,42 @@ function Sessions() {
 function Tasks() {
   return (
     <>
-      <PageHeader title="实时任务" description="显示从手机发送到本机 Codex 的执行状态。" />
-      <section className="panel">
-        <Task title="补上失败重试，并更新相关测试" session="修复支付回调" state="运行中" active />
-        <Task title="检查登录模块" session="更新登录流程" state="已完成" />
-      </section>
+      <PageHeader title="实时任务" description="手机发送的任务会在这里显示执行状态。" />
+      <section className="panel"><Empty title="等待手机任务" description="任务无需在电脑端审批或确认。" /></section>
     </>
   );
 }
 
-function Settings() {
+function Settings({session, codexReady, onLogout}: {session: PublicSession; codexReady: boolean; onLogout: () => void}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function logout() {
+    setBusy(true);
+    setError('');
+    try {
+      await invoke('panel_logout');
+      localStorage.removeItem(SITE_KEY);
+      localStorage.removeItem(EMAIL_KEY);
+      onLogout();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <>
       <PageHeader title="设置" description="账号、设备与本机 Codex 安全策略。" />
       <section className="panel settings-list">
-        <Setting label="Sub2API 站点" value="https://••••.example" />
-        <Setting label="登录账号" value="admin@••••.com" />
-        <Setting label="Codex CLI" value="已发现" />
+        <Setting label="Sub2API 站点" value={siteHost(session.site_url)} />
+        <Setting label="登录账号" value={maskEmail(session.email)} />
+        <Setting label="账号角色" value={session.role === 'admin' ? '管理员' : '用户'} />
+        <Setting label="Codex CLI" value={codexReady ? '已发现' : '未连接'} />
         <Setting label="同步隐私" value="路径脱敏" />
-        <Setting label="本机安全策略" value="非交互 · 不自动扩大权限" />
+        <Setting label="本机安全策略" value="非交互 · 不扩大权限" />
       </section>
+      {error && <div className="error-banner spaced" role="alert">{error}</div>}
+      <button className="danger-button" type="button" disabled={busy} onClick={() => void logout()}>{busy ? '正在退出…' : '退出登录'}</button>
     </>
   );
 }
@@ -116,22 +321,60 @@ function PageHeader({title, description}: {title: string; description: string}) 
   return <header className="page-header"><div><h1>{title}</h1><p>{description}</p></div></header>;
 }
 
-function Metric({label, value}: {label: string; value: string}) {
-  return <article className="metric"><span>{label}</span><strong>{value}</strong></article>;
-}
-
-function Event({title, meta}: {title: string; meta: string}) {
-  return <div className="row"><span className="event-icon">✓</span><div className="grow"><strong>{title}</strong><small>{meta}</small></div></div>;
+function Metric({label, value, compact = false}: {label: string; value: string; compact?: boolean}) {
+  return <article className="metric"><span>{label}</span><strong className={compact ? 'compact' : ''}>{value}</strong></article>;
 }
 
 function Session({title, path, state}: {title: string; path: string; state: string}) {
-  return <div className="row"><span className="event-icon">▤</span><div className="grow"><strong>{title}</strong><small>{path}</small></div><span className="tag">{state}</span><span>›</span></div>;
-}
-
-function Task({title, session, state, active = false}: {title: string; session: string; state: string; active?: boolean}) {
-  return <div className="row"><span className={active ? 'pulse' : 'event-icon'}>{active ? '' : '✓'}</span><div className="grow"><strong>{title}</strong><small>{session}</small></div><span className={active ? 'tag blue' : 'tag'}>{state}</span></div>;
+  return <div className="row"><span className="event-icon">▤</span><div className="grow"><strong>{title}</strong><small>{path}</small></div><span className="tag">{state}</span></div>;
 }
 
 function Setting({label, value}: {label: string; value: string}) {
-  return <button type="button" className="setting"><span>{label}</span><span>{value}　›</span></button>;
+  return <div className="setting"><span>{label}</span><span>{value}</span></div>;
+}
+
+function Empty({title, description}: {title: string; description: string}) {
+  return <div className="empty"><span className="event-icon">·</span><strong>{title}</strong><p>{description}</p></div>;
+}
+
+function rememberIdentity(session: PublicSession) {
+  localStorage.setItem(SITE_KEY, session.site_url);
+  localStorage.setItem(EMAIL_KEY, session.email);
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split('@');
+  if (!domain) return email;
+  return `${name.slice(0, 2)}•••@${domain}`;
+}
+
+function siteHost(siteUrl: string) {
+  try {
+    return new URL(siteUrl).host;
+  } catch {
+    return 'Sub2API';
+  }
+}
+
+function errorMessage(reason: unknown) {
+  const code = typeof reason === 'string' ? reason : String(reason);
+  const messages: Record<string, string> = {
+    PANEL_INVALID_SITE: '请输入有效的 Sub2API 站点地址。',
+    PANEL_INSECURE_SITE: '远程站点必须使用 HTTPS。',
+    PANEL_INVALID_EMAIL: '请输入有效邮箱。',
+    PANEL_INVALID_PASSWORD: '请输入密码。',
+    PANEL_INVALID_TWO_FACTOR_CODE: '请输入 6 位验证码。',
+    PANEL_NO_PENDING_TWO_FACTOR: '验证已失效，请重新登录。',
+    PANEL_SESSION_NOT_FOUND: '本机没有可恢复的登录会话。',
+    PANEL_UNAUTHORIZED: '邮箱、密码或验证码不正确。',
+    PANEL_FORBIDDEN: '当前账号无权登录。',
+    PANEL_RATE_LIMITED: '请求过于频繁，请稍后再试。',
+    PANEL_NETWORK_ERROR: '无法连接 Sub2API 站点，请检查网络和地址。',
+    PANEL_SERVER_ERROR: 'Sub2API 站点暂时不可用。',
+    SECURE_STORE_UNAVAILABLE: '系统安全凭据库不可用。',
+    CODEX_NOT_FOUND: '未找到 Codex CLI，请先安装并确保命令可用。',
+    CODEX_INCOMPATIBLE: '当前 Codex CLI 版本不兼容，请升级后重试。',
+    CODEX_TIMEOUT: 'Codex 响应超时，请重试。',
+  };
+  return messages[code] ?? '操作失败，请重试。';
 }

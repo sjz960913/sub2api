@@ -156,12 +156,13 @@ func (m *Metrics) observePresence(deviceID uuid.UUID, status collabdomain.Device
 	if previous == collabdomain.DeviceStatusOnline {
 		decrementNonnegative(&m.onlineDevices)
 	}
-	if status == collabdomain.DeviceStatusOnline {
+	switch status {
+	case collabdomain.DeviceStatusOnline:
 		m.onlineDevices.Add(1)
 		m.presenceOnline.Add(1)
-	} else if status == collabdomain.DeviceStatusDegraded {
+	case collabdomain.DeviceStatusDegraded:
 		m.presenceDegraded.Add(1)
-	} else {
+	default:
 		m.presenceOffline.Add(1)
 	}
 	if status == collabdomain.DeviceStatusOffline || status == collabdomain.DeviceStatusRevoked {
@@ -189,14 +190,15 @@ func (m *Metrics) observeSyncTerminal(syncRequest SyncRequest) {
 	if m == nil {
 		return
 	}
-	if syncRequest.Status == collabdomain.SyncStatusCompleted {
+	switch syncRequest.Status {
+	case collabdomain.SyncStatusCompleted:
 		m.syncCompleted.Add(1)
 		if syncRequest.ResultCount > 0 {
 			m.syncResultItems.Add(uint64(syncRequest.ResultCount))
 		}
-	} else if syncRequest.Status == collabdomain.SyncStatusFailed || syncRequest.Status == collabdomain.SyncStatusExpired {
+	case collabdomain.SyncStatusFailed, collabdomain.SyncStatusExpired:
 		m.syncFailed.Add(1)
-	} else {
+	default:
 		return
 	}
 	m.syncDurationCount.Add(1)

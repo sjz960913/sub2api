@@ -90,6 +90,26 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  codex-pc-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - name: Verify Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - name: Check Tauri shell
+        run: cargo check --manifest-path clients/codex-pc/src-tauri/Cargo.toml
+
   mobile:
     runs-on: ubuntu-latest
     defaults:

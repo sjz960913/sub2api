@@ -30,6 +30,19 @@ function lowerCamel(value) {
   return first + rest.map((part) => part[0].toUpperCase() + part.slice(1)).join('');
 }
 
+const rustKeywords = new Set([
+  'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern',
+  'false', 'fn', 'for', 'if', 'impl', 'in', 'let', 'loop', 'match', 'mod',
+  'move', 'mut', 'pub', 'ref', 'return', 'self', 'Self', 'static', 'struct',
+  'super', 'trait', 'true', 'type', 'unsafe', 'use', 'where', 'while', 'async',
+  'await', 'dyn', 'abstract', 'become', 'box', 'do', 'final', 'macro',
+  'override', 'priv', 'typeof', 'unsized', 'virtual', 'yield', 'try',
+]);
+
+function rustIdentifier(value) {
+  return rustKeywords.has(value) ? `r#${value}` : value;
+}
+
 function resolved(schema) {
   return schema.$ref ? schemas[refName(schema.$ref)] : schema;
 }
@@ -153,7 +166,7 @@ function generateRust() {
       let type = rustType(value);
       if (!required.has(key) && !type.startsWith('Option<')) type = `Option<${type}>`;
       const attribute = type.startsWith('Option<') ? '    #[serde(skip_serializing_if = "Option::is_none")]\n' : '';
-      return `${attribute}    pub ${key}: ${type},`;
+      return `${attribute}    pub ${rustIdentifier(key)}: ${type},`;
     }).join('\n');
     return `#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\npub struct ${name} {\n${fields}\n}`;
   });

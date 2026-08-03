@@ -137,7 +137,7 @@ pub struct ThreadSummary {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContentPart {
-    pub type: String,
+    pub r#type: String,
     pub text: String,
 }
 
@@ -147,7 +147,7 @@ pub struct ThreadItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub turn_id: Option<String>,
     pub sequence: i64,
-    pub type: String,
+    pub r#type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -184,7 +184,7 @@ pub struct CreateCommandRequest {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommandInput {
-    pub type: String,
+    pub r#type: String,
     pub text: String,
 }
 
@@ -218,7 +218,7 @@ pub struct ErrorSummary {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventEnvelope {
     pub v: i64,
-    pub type: String,
+    pub r#type: String,
     pub event_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,

@@ -14,7 +14,7 @@
 
 | 角色 | 权限与职责 |
 |---|---|
-| 普通用户 | 登录站点、选择自己的 Key、聊天、生图、看公告、绑定自己的 PC、读写自己的 Codex 会话 |
+| 普通用户 | 登录站点、管理和选择自己的 Key、聊天、生图、看公告、兑换/充值、绑定自己的 PC、读写自己的 Codex 会话 |
 | 管理员 | 拥有普通用户能力；后续进入管理员导航分支；当前仅预留入口和资源 |
 | Mobile Client | 发起业务请求、保存本地聊天、订阅设备和 Codex 事件 |
 | PC Companion | 登录同一站点、维护设备在线状态、控制本机 app-server、上报会话与事件 |
@@ -34,12 +34,12 @@
 
 ### FR-KEY API Key 与分组
 
-- FR-KEY-01：列出当前用户的 API Key，展示名称、脱敏/可见 key、状态、所属分组、额度、用量与有效期。
-- FR-KEY-02：按 OpenAI 分组筛选 API Key。
-- FR-KEY-03：只允许选择 `active`、未过期、有分组且分组 `platform=openai` 的 Key 进入聊天。
-- FR-KEY-04：分组选择器是 Key 列表的过滤条件；最终路由仍由 Key 已绑定的 `group_id` 决定。
-- FR-KEY-05：不得为了聊天临时修改已有 Key 的分组，否则会影响该 Key 的其他客户端。
-- FR-KEY-06：明文 Key 不进入日志、Crash Report、路由参数或普通 SharedPreferences。
+- FR-KEY-01：底部主导航提供独立“秘钥”页，以卡片列表展示当前用户的 API Key。
+- FR-KEY-02：每张卡片展示 Key 名称、脱敏 Key、状态、当前分组、额度/用量和有效期。
+- FR-KEY-03：卡片内提供分组下拉栏；只列出当前站点可用且 `platform=openai` 的分组，修改后通过服务端 Key 更新接口持久化绑定关系。
+- FR-KEY-04：每张卡片提供“设为当前”操作；全局同一时间只有一个“当前聊天使用”的 Key，普通聊天和 GPT Image 都通过该 Key 调用网关。
+- FR-KEY-05：只允许将 `active`、未过期、有可用 OpenAI 分组的 Key 设为当前；当前 Key 失效时清除选择并引导用户重新选择。
+- FR-KEY-06：当前 Key 选择保存 `key_id` 与安全存储 alias，不在 Drift、日志、Crash Report、路由参数或普通 SharedPreferences 保存明文 Key。
 
 ### FR-CHAT 普通聊天
 
@@ -64,8 +64,15 @@
 - FR-ANN-01：登录后和 App 回到前台时拉取用户可见公告。
 - FR-ANN-02：支持全部/未读列表与标记已读。
 - FR-ANN-03：`notify_mode=popup` 的未读公告在前台弹窗；同一公告同一设备会话只弹一次，用户确认后调用已读接口。
-- FR-ANN-04：`silent` 公告只显示在公告中心和未读角标。
+- FR-ANN-04：“公告”入口位于“我的”页，点击后弹出公告列表；`silent` 公告只显示在该列表和未读角标中。
 - FR-ANN-05：MVP 不承诺 App 被系统杀死后的后台推送；FCM/APNs 单独立项。
+
+### FR-NAV 主导航与账户操作
+
+- FR-NAV-01：底部主导航固定为“聊天、协同、秘钥、我的”，顺序不可因用户角色改变。
+- FR-NAV-02：“兑换”位于“我的”页，点击后弹出兑换码输入 Dialog，提交既有兑换接口并刷新余额。
+- FR-NAV-03：“充值”位于“我的”页，点击后使用系统外部浏览器打开 `https://pay.ldxp.cn/shop/codecodeai`；不得在内嵌 WebView 中携带 JWT、Refresh Token 或 API Key。
+- FR-NAV-04：“我的”页同时提供公告、设置、关于与退出登录；管理员入口仍作为额外菜单项，不新增底栏项目。
 
 ### FR-DEVICE PC 设备
 
@@ -89,29 +96,29 @@
 
 - FR-COMMAND-01：用户输入文本并发送，客户端生成 UUID `idempotency_key`。
 - FR-COMMAND-02：后端验证移动端用户、PC 用户、设备所有者和 thread 所有者均为同一 `user_id`。
-- FR-COMMAND-03：PC 在线且 thread 可写时，后端冻结一次任务费并中继任务。
+- FR-COMMAND-03：后端先完成 PC 在线、thread 可写、余额和幂等预检；接收任务时由后台原子扣取一次固定任务费并中继任务。
 - FR-COMMAND-04：PC 对未加载 thread 先执行 `thread/resume`，成功后调用 `turn/start`。
-- FR-COMMAND-05：`turn/start` 返回成功并产生 turn ID 后结算；离线、外部占用、协议失败和超时释放冻结金额。
+- FR-COMMAND-05：MVP 不设计冻结、结算或退款流程；任务一旦被后端成功接收即完成扣费，后续执行失败不退款。
 - FR-COMMAND-06：相同用户和相同 `idempotency_key` 永远只创建一条任务、最多扣一次费用。
-- FR-COMMAND-07：实时显示 queued、delivered、started、waiting_approval、completed、failed、refunded。
-- FR-COMMAND-08：MVP 审批由 PC 端完成；移动端可看到等待状态，但不能默许危险操作。
+- FR-COMMAND-07：实时状态只包括 queued、delivered、started、completed、failed；App 不显示任何账务状态。
+- FR-COMMAND-08：产品不提供电脑审批流程。PC Companion 使用本机明确配置的非交互安全策略；若 app-server 仍返回 approval request，立即以 `approval_required` 结束任务，不弹出 PC 确认界面，也不自动扩大权限。
 - FR-COMMAND-09：同一 thread 同时只允许一个普通 turn；正在执行时，新消息默认排队，不自动调用 `turn/steer`。
 
 ### FR-BILL 计费
 
-- FR-BILL-00：每次由移动端向 PC Codex 会话成功提交的协同任务费率固定为 `0.10 USD`；原需求中的“0.1 元”指 USD，不是 CNY。客户端必须显示 `$0.10 USD`，服务端金额使用十进制字符串 `"0.100000"`。
+- FR-BILL-00：每次被后端成功接收的移动端协同任务费率固定为 `0.10 USD`；原需求中的“0.1 元”指 USD，不是 CNY。该费用是后台行为，App 不展示金额、确认条或账务状态。
 - FR-BILL-01：费率由后端设置，不信任客户端传入金额。
 - FR-BILL-02：金额使用数据库现有余额精度策略；禁止 float 在协议层反复换算，内部建议用十进制定点/最小单位。
 - FR-BILL-03：余额不足时不创建可执行任务，返回明确错误和当前可用余额。
-- FR-BILL-04：冻结、结算、退款与任务状态在同一数据库事务/幂等流程内更新。
-- FR-BILL-05：用户可查询协同收费记录；管理员后续可查看聚合和手工处理异常。
-- FR-BILL-06：任务执行成功与否不决定是否收费；只要 Codex 已接受并启动 turn 即结算。Codex 最终回答失败仍属于已经消费的协同任务。
+- FR-BILL-04：扣费、command 创建与幂等键写入在同一数据库事务内完成；不创建 held/refunded 状态。
+- FR-BILL-05：协同收费记录仅供后端审计和管理员后续能力使用，移动端 MVP 不提供收费记录界面。
+- FR-BILL-06：后端成功接收任务后即扣费；PC 中继或 Codex 后续执行失败不触发退款。
 
 ### FR-ADMIN 管理员预留
 
 - FR-ADMIN-01：登录结果角色为 admin 时，在导航和路由表中注册 Admin 入口。
 - FR-ADMIN-02：MVP 入口显示开发中，占位页面使用正式 Design Token、图标和本地化 key。
-- FR-ADMIN-03：预留功能：在线设备、协同任务、收费账本、费率开关、异常退款、公告管理和服务健康。
+- FR-ADMIN-03：预留功能：在线设备、协同任务、收费账本、费率开关、公告管理和服务健康。
 - FR-ADMIN-04：普通用户无法通过深链进入管理员路由。
 
 ## 4. 非功能需求
@@ -154,7 +161,7 @@
 | Codex 消息读取 | 可实现 | `thread/read`/分页接口；旧 Codex 可降级只读 JSONL |
 | 向会话发消息 | 有条件可实现 | PC 工具必须拥有 thread 写锁；外部活跃会话不能透明注入 |
 | 实时同步 | 可实现 | app-server item/turn 通知 → PC → Sub2API WS → App |
-| 每条任务扣费 | 可实现 | 需要新增专用冻结、结算、退款账本和幂等键 |
+| 每条任务扣费 | 可实现 | 需要新增 command + charge 原子直接扣费事务和幂等键 |
 | 同用户链路 | 可实现 | 所有资源由 JWT 的 `user_id` 绑定；设备注册归属用户 |
 | 管理员功能预留 | 可实现 | 先做路由、资源、权限和 Design Token 占位 |
 
@@ -163,7 +170,7 @@
 1. **不能保证控制任意正在运行的 Codex TUI。** app-server 对活跃 thread 有所有权约束；另一个进程占用时应只读、重试或 fork。
 2. **cc-switch 不是写入方案。** 它当前扫描 JSONL、读取 state DB 标题并执行 `codex resume <id>`，没有结构化远程发送能力。
 3. **不能把 Key 与分组当作两个独立路由参数。** Sub2API 的网关分组绑定在 Key 上；App 的“分组选择”应筛选可用 Key。
-4. **不能使用 CNY 文案或进行币种换算。** 协同任务的计价已经明确为 `0.10 USD`，UI、API、账本和对账必须始终使用 USD。
+4. **不能使用 CNY 或进行币种换算。** 协同任务计价明确为 `0.10 USD`；后台配置、账本和对账始终使用 USD，App 不展示该金额。
 5. **不能依赖 WebSocket 恰好送达来计费。** 计费必须基于 PostgreSQL 状态机和幂等键。
 6. **不能默认在服务端永久保存源码和会话全文。** MVP 只短暂中继，持久审计保存 hash、长度、状态和时间。
 

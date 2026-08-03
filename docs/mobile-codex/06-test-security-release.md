@@ -14,16 +14,16 @@
 - 同 installation 重新登录不同 user 不继承设备。
 - 所有 device/sync/command/charge 查询都带 user scope。
 - command 状态只允许文档定义的转换；非法/乱序转换不改变数据库。
-- 50 个并发相同 Idempotency-Key 只产生一个 command 和一个 held charge。
+- 50 个并发相同 Idempotency-Key 只产生一个 command、一个 charged 记录和一次余额扣减。
 - 不同用户可使用相同 Idempotency-Key，互不影响。
-- reserve 同事务更新 balance、frozen balance、command、charge。
-- 余额等于 fee 时允许 reserve，结果 balance=0。
+- accepted 同事务更新 balance、command、charge。
+- 余额等于 fee 时允许 accepted，结果 balance=0。
 - 余额小于 fee 时完全不写 command/charge。
-- settle 重放、refund 重放、settle/refund 竞争均最多生效一次。
-- started 后的 failed/interrupted 保持 settled。
-- 未 started 的 dispatch timeout 退款。
-- 进程在 reserve 提交后、Redis publish 前崩溃，sweeper 最终退款。
-- 设备撤销和用户禁用会关闭/拒绝新任务，并处理 held 状态。
+- command/charge 重放和并发竞争均最多扣费一次。
+- accepted 后的 failed/interrupted 保持 charged，不退款。
+- dispatch timeout 只标记失败，不修改已扣余额。
+- 进程在 accepted 提交后、Redis publish 前崩溃，恢复任务只更新失败状态且不重复扣费。
+- 设备撤销和用户禁用会关闭/拒绝新任务；已 accepted 任务不退款。
 - Billing cache/auth cache 在余额变化后按现有机制失效。
 
 ### 2.2 REST
@@ -76,7 +76,7 @@
 - turn/start 返回 turn ID 后才上报 started。
 - item delta 累积，item completed 覆盖最终值。
 - turn completed 后执行最终轻量 sync。
-- command/file/permission approval 显示并返回准确 decision。
+- command/file/permission approval request 立即拒绝/unsupported，并映射为 `approval_required` 普通失败；没有审批界面。
 - app-server 版本缺 method 时 capability 降级，不崩溃。
 - app-server 不可用时只读 JSONL，不显示发送能力。
 
@@ -105,7 +105,8 @@
 ### 4.2 Key、聊天与图片
 
 - inactive、expired、无 group、非 OpenAI group Key 不可选。
-- 分组选择只过滤 Key，不调用 Update Key。
+- 秘钥卡片分组下拉调用 `PUT /api/v1/keys/{id}`；成功刷新卡片，失败不污染本地状态。
+- 当前聊天 Key 是单选偏好；聊天和生图请求都使用该 Key，失效时清除选择。
 - Key 明文只在 Secure Storage，界面/无障碍 label 均脱敏。
 - SSE 任意 chunk、UTF-8 边界、JSON event、错误、EOF、取消。
 - App 被杀死/恢复后本地 message 状态收敛。
@@ -120,18 +121,25 @@
 - mark-read 失败后台重试，不连续弹窗。
 - 超长 Markdown、链接、代码、恶意 HTML 安全渲染。
 - targeting 由服务端决定，客户端不自行判断资格。
+- 公告入口只从“我的”打开，未读 badge 与列表一致。
 
-### 4.4 协同
+### 4.4 我的与主导航
+
+- 底部菜单始终只有“聊天、协同、秘钥、我的”，顺序和选中状态正确。
+- 兑换 Dialog 校验空值、提交中、成功刷新余额、失败重试。
+- 充值使用系统外部浏览器打开且仅打开 `https://pay.ldxp.cn/shop/codecodeai`。
+- 充值 Intent 不携带 JWT、Refresh Token、API Key 或其他 query 参数；无法打开时显示错误 Toast。
+
+### 4.5 协同
 
 - 多 PC 同 thread ID 使用 device ID 组合主键。
 - session 查询时 PC 离线/中途离线/超时。
 - thread items 以稳定 item ID 去重，delta 与 completed 收敛。
 - 重连错过事件后通过 GET command + sync 补齐。
 - 连点发送与 Dio retry 使用同一 Idempotency-Key。
-- 发送确认准确展示后端 quote/config fee，不信任本地常量。
-- held、settled、refunded UI 与后端状态一致。
+- App 不显示 fee、charge、held、settled、refunded 或二次确认。
 - 外部占用/只读状态禁用输入。
-- 等待审批时不显示“仍在生成”的假进度。
+- `approval_required` 显示为普通任务失败，不出现等待电脑确认。
 
 ## 5. 端到端场景
 
@@ -143,12 +151,12 @@
 4. 发布 popup 公告 → App 拉取 → mark read → 不再弹。
 5. PC 登录同一用户 → App 显示 online。
 6. 查询 100+ Codex threads → 搜索 → 读取大 thread 分页历史。
-7. 向空闲 thread 发送 → held → started/settled → completed → 消息补齐。
+7. 向空闲 thread 发送 → accepted/后台直接扣费 → started → completed → 消息补齐。
 8. 相同 Idempotency-Key 重放 10 次，余额只变化一次。
-9. PC 在 dispatch 前退出，命令超时退款。
-10. thread 被另一个 Codex 占用，返回 busy 并退款。
-11. turn started 后执行失败，费用保持 settled，状态显示失败。
-12. 命令触发审批，在 PC 拒绝，turn 正确收尾；若已经 started，费用保持 settled。
+9. PC 在 accepted 后、dispatch 前退出，命令失败且不退款、不重复扣费。
+10. thread 在预检时发现被另一个 Codex 占用，返回 busy 且不创建 charge。
+11. turn started 后执行失败，charged 记录不变，App 只显示业务失败。
+12. 命令触发 approval request，Companion 自动拒绝并返回 `approval_required`，没有 PC 确认界面。
 13. 服务端滚动升级，App/PC 重连并从 REST 状态恢复。
 14. user A 尝试访问 user B 的所有资源均失败。
 
@@ -157,11 +165,11 @@
 | 威胁 | 例子 | 缓解 |
 |---|---|---|
 | Spoofing | 攻击者伪装 PC device | JWT + 设备归属 + 撤销状态；installation hash 不是凭证 |
-| Tampering | 伪造 started 触发结算 | 事件必须来自设备连接，command 状态/CAS/turn_id 校验，审计异常 |
-| Repudiation | 用户否认发送/退款 | command/charge 状态、idempotency、时间和 prompt hash 审计 |
+| Tampering | 伪造 command/started 状态 | 事件必须来自设备连接，command 状态/CAS/turn_id 校验，审计异常；扣费只发生在 REST accepted 事务 |
+| Repudiation | 用户否认发送/扣费 | command/charge 状态、idempotency、时间和 prompt hash 审计 |
 | Information disclosure | Key/token/prompt/源码泄漏 | Secure Storage/Keyring、日志脱敏、正文 Redis TTL、默认不进 PostgreSQL |
 | Denial of service | 海量 sync/WS/frame | 用户/设备限流、大小上限、bounded queue、timeout、backpressure |
-| Elevation of privilege | 普通用户进 admin、手机绕过 Codex 审批 | 服务端 role guard；审批仍由 app-server/PC 明确决策 |
+| Elevation of privilege | 普通用户进 admin、远程任务扩大本机权限 | 服务端 role guard；Companion 使用预配置安全策略并拒绝意外 approval request |
 
 ### 必测攻击面
 
@@ -207,7 +215,7 @@
 - 10,000 PC presence、每 20 秒 heartbeat，跨 3 个后端实例。
 - 1,000 Mobile 同时订阅，10% 正在接收 Codex delta。
 - 单 user 2 台 PC、10,000 thread 元数据分页。
-- 100 个并发相同 idempotency reserve 竞争。
+- 100 个并发相同 idempotency direct-charge 竞争。
 - 1% Redis publish 丢失/延迟、后端实例 kill -9、PostgreSQL 主从切换模拟。
 - 256 KiB item、32 KiB prompt、最大 WS frame 和截断路径。
 
@@ -215,8 +223,8 @@
 
 - 在线 PC command dispatch P95 < 1 s，P99 < 3 s。
 - session sync P95 < 3 s，P99 < 8 s。
-- 错误永久扣费率为 0；自动退款 P99 < 3 分钟。
 - duplicate charge count = 0。
+- accepted command 与 charged 记录不一致计数 = 0。
 - Hub queue overflow < 0.1%，且所有 overflow 可通过 REST/sync 恢复。
 
 ## 9. 可观测性与告警
@@ -228,9 +236,8 @@ collab_ws_connections{client_type,status}
 collab_device_presence_total{status}
 collab_sync_duration_seconds{kind,result}
 collab_commands_total{status,error_code}
-collab_charge_transitions_total{from,to,result}
-collab_held_age_seconds
-collab_refunds_total{reason}
+collab_charges_total{result}
+collab_charge_command_mismatch_total
 collab_app_server_errors_total{kind,codex_version}
 collab_relay_queue_depth{instance}
 collab_payload_truncated_total{item_type}
@@ -238,8 +245,7 @@ collab_payload_truncated_total{item_type}
 
 ### 告警
 
-- 任意 duplicate settlement/refund invariant 失败：P0。
-- held 超过 TTL + grace：P1。
+- 任意 duplicate charge 或 command/charge 原子性 invariant 失败：P0。
 - WS 认证失败突增、跨用户授权失败：P1 安全告警。
 - Redis relay error > 1% 持续 5 分钟：P1。
 - app-server incompatible > 5%：P2，检查 Codex 更新兼容。
@@ -253,31 +259,30 @@ collab_payload_truncated_total{item_type}
 
 - 新表先以 collaboration feature flag disabled 发布。
 - 索引与唯一约束在启用流量前完成。
-- 余额/frozen_balance 复用前先验证现有数据库精度和负数历史。
+- 余额字段复用前先验证现有数据库精度和负数历史。
 - Migration 向前兼容上一版本服务；滚动部署期间旧实例应忽略新表。
 
 ### 回滚
 
 - 关闭 `collaboration.enabled`：拒绝新 command，保持 status/charges 只读。
 - 连接中的 PC/Mobile 收 server.shutdown 并断开。
-- 后台 sweeper 继续运行，退款所有未 started held command。
-- 已 started/settled 的 turn 不退款，不强制停止本机 Codex。
+- 后台 sweeper 继续清理过期 command/payload，不修改已扣余额。
+- 已 started 的 turn 不强制停止本机 Codex。
 - 不立即 drop 表；至少保留一个审计周期。
 
 ## 11. 灰度发布
 
-1. 内部单用户、单 PC，task fee 设置为 0 但完整跑 charge 状态机。
+1. 内部单用户、单 PC，task fee 设置为 0 但完整跑 direct-charge 状态机。
 2. 内部多 PC/多实例，模拟断线和外部占用。
 3. 小白名单启用真实低费率，人工每日对账。
 4. 5% 用户开启，只允许 companion 最小支持版本。
-5. 25%/50%/100%，每阶段至少观察一个 held TTL 周期。
+5. 25%/50%/100%，每阶段至少观察一个 command TTL 周期。
 
 Feature flags：
 
 - `collaboration.enabled`
 - `collaboration.mobile_command_enabled`
 - `collaboration.billing_enabled`
-- `collaboration.mobile_approvals_enabled`
 - `collaboration.content_persistence_enabled`
 - `collaboration.allowed_user_ids`（灰度）
 
@@ -314,8 +319,7 @@ Feature flags：
 
 ### 产品与客服
 
-- [ ] 明确展示收费单位、金额和扣费时点。
-- [ ] 明确“已启动后失败仍收费”的规则。
+- [ ] 帮助文档说明协同任务由后台固定扣费，App 不显示金额或账务状态。
+- [ ] 明确“后端成功接收后即收费，后续失败不退款”的规则。
 - [ ] 明确外部活跃 Codex 会话无法强制接管。
-- [ ] 提供退款异常 command ID 查询流程。
 - [ ] 提供 PC offline、Codex incompatible、thread busy 的用户帮助。

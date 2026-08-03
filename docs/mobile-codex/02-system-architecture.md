@@ -12,7 +12,7 @@
 | 实时传输 | HTTPS REST 做命令；WSS 做事件/中继 | REST 易做幂等和计费，WS 适合在线状态和流式事件 |
 | 权威存储 | PostgreSQL 保存设备/任务/账本；Redis 保存在线路由和短暂 payload | 计费可靠，源码/会话内容最小化持久化 |
 | 普通聊天历史 | 默认只保存在移动设备 | 不扩大 Sub2API 数据责任边界 |
-| 协同计费 | 冻结 → 启动 turn 后结算 → 失败退款 | 防止重复扣费、离线误扣和免费执行 |
+| 协同计费 | 预检成功后在 command 创建事务中直接扣费 | 后台固定收费、幂等且不向 App 暴露账务流程 |
 | 活跃会话冲突 | 只读、重试或显式 fork | 尊重 app-server thread 所有权，不破坏 rollout |
 
 ## 2. 总体架构
@@ -34,7 +34,7 @@ flowchart LR
 - App 只信任用户配置的 Sub2API HTTPS Origin。
 - PC 只接收后端定义的协同协议，不接收任意 shell 命令。
 - Sub2API 以 JWT 的 `user_id` 为唯一租户边界。
-- app-server 仍然是本机文件、命令、审批和 Codex thread 的权威；PC 工具不能绕过其权限模型。
+- app-server 仍然是本机文件、命令和 Codex thread 的权威；PC 工具不能绕过其沙箱与权限模型，也不提供审批界面。
 
 ## 3. 核心业务流
 
@@ -62,10 +62,10 @@ sequenceDiagram
 
 ### 3.2 Key/分组与普通聊天
 
-1. App 使用 JWT 拉取 `/keys` 和 `/groups/available`。
-2. 先选 OpenAI 分组，再从已经绑定该分组的 Key 中选择。
-3. 使用选中 Key 作为 `Authorization: Bearer sk-...` 调用 `/v1/models`。
-4. 新建本地 conversation，保存 `site_id/key_id/group_id/model` 快照。
+1. App 使用 JWT 拉取 `/keys` 和 `/groups/available`，在底部“秘钥”页渲染卡片列表。
+2. 卡片内的分组下拉栏通过服务端更新接口修改 Key 的绑定分组；完成后刷新 Key 与能力状态。
+3. 用户选择唯一“当前聊天使用”的 Key；App 使用其安全存储凭证调用 `/v1/models` 和网关接口。
+4. 新建本地 conversation，保存 `site_id/key_id/group_id/model` 快照；当前 Key 选择独立保存为用户偏好。
 5. 文本请求调用 `/v1/responses` 并消费 SSE；实现层保留 Chat Completions adapter。
 6. 消息和生成状态写入本地数据库；Key 只引用安全存储中的别名。
 
@@ -73,7 +73,7 @@ sequenceDiagram
 
 ### 3.3 公告
 
-1. App 冷启动登录完成、回前台、用户下拉刷新时调用 `/announcements`。
+1. App 冷启动登录完成、回前台、用户从“我的 → 公告”打开列表或下拉刷新时调用 `/announcements`。
 2. Store 先合并本地已展示集合，再选择最早的未读 `popup` 公告。
 3. 用户点击“我知道了”后调用 `POST /announcements/{id}/read`。
 4. 网络失败时本地记录 dismissed，后台重试 mark-read；下一次进程启动仍以服务端 read state 为准。
@@ -105,7 +105,7 @@ PC 返回的是规范化 DTO，不返回本机 `source_path`、绝对 rollout �
 
 1. App 创建 thread sync request，携带 `after_item_id` 或本地 cursor。
 2. PC 对未加载 thread 调用只读 `thread/read`；大历史优先分页 `thread/turns/list`/`thread/items/list`。
-3. PC 将 app-server item 映射为移动 DTO：message、reasoning summary、command、file change、tool、approval、error。
+3. PC 将 app-server item 映射为移动 DTO：message、reasoning summary、command、file change、tool、error。
 4. 后端仅用 Redis 短暂中继/缓存，PostgreSQL 不保存正文。
 5. App 以 `(device_id, thread_id, item_id)` 去重并写入本地数据库。
 
@@ -113,23 +113,18 @@ PC 返回的是规范化 DTO，不返回本机 `source_path`、绝对 rollout �
 
 ```mermaid
 stateDiagram-v2
-    [*] --> reserved: 校验在线/余额并冻结
-    reserved --> dispatched: 推送到 PC
-    dispatched --> accepted: PC 校验 thread
-    accepted --> started: thread/resume + turn/start 成功
+    [*] --> accepted: 预检并原子扣费
+    accepted --> dispatched: 推送到 PC
+    dispatched --> started: thread/resume + turn/start 成功
     started --> completed: turn/completed
     started --> failed: turn/completed failed/interrupted
-    reserved --> refunded: 离线/TTL/中继失败
-    dispatched --> refunded: PC 拒绝/外部占用/启动失败
-    accepted --> refunded: turn/start 未创建 turn
-    completed --> settled
-    failed --> settled
-    started --> settled: 启动成功即完成收费结算
-    refunded --> [*]
-    settled --> [*]
+    accepted --> failed: 中继失败/超时
+    dispatched --> failed: PC 拒绝/外部占用/启动失败
+    completed --> [*]
+    failed --> [*]
 ```
 
-实现注意：业务状态和账务状态应分列。`command.status=completed` 不等于 `billing.status=settled`；状态转换由数据库 CAS/事务保护。
+实现注意：扣费在 `accepted` 创建事务内一次完成，不存在 held/settled/refunded 状态。App 仅消费业务状态，账务明细只用于后台审计。
 
 ## 4. Flutter App 架构
 
@@ -155,8 +150,8 @@ stateDiagram-v2
 
 - `activeSiteProvider`：当前站点 Origin 和站点 ID。
 - `authSessionProvider`：未认证、登录中、待 2FA、已认证、刷新中、失效。
-- `apiKeyCatalogProvider`：Key 列表和分组筛选；State 中只保留 Key ID/脱敏值。
-- `selectedChatProfileProvider`：`keyId + groupId + model`。
+- `apiKeyCatalogProvider`：秘钥卡片列表、分组下拉更新和用量；State 中只保留 Key ID/脱敏值。
+- `selectedChatProfileProvider`：全局当前聊天 Key 的 `keyId + groupId + model`；聊天和生图统一读取。
 - `conversationControllerProvider.family(conversationId)`：消息、流式 buffer、错误、停止句柄。
 - `announcementControllerProvider`：公告、未读和 popup 队列。
 - `deviceListProvider`：设备在线状态。
@@ -176,11 +171,13 @@ stateDiagram-v2
   /chat
   /chat/:conversationId
   /images/new
-  /announcements
-  /collab/devices
+  /collab
   /collab/devices/:deviceId/sessions
   /collab/devices/:deviceId/threads/:threadId
+  /keys
   /profile
+    /announcements
+    /settings
 /admin                 # role=admin 才可进入
   /coming-soon         # MVP 占位
 ```
@@ -211,10 +208,8 @@ flowchart TB
     CMD --> AUTH[Auth Service]
     CMD --> DEV[Device Service]
     CMD --> SES[Session Service]
-    CMD --> APR[Approval Service]
     DEV --> WS[Relay WebSocket Client]
     SES --> ADP[Codex AppServer Adapter]
-    APR --> ADP
     ADP --> PROC[Managed codex app-server process]
     AUTH --> KR[OS Keyring]
     SES --> DB[(Local SQLite metadata/spool)]
@@ -228,8 +223,8 @@ flowchart TB
 - 完成 `initialize` request + `initialized` notification。
 - 维护 JSON-RPC request ID → oneshot response map。
 - 调用 thread/list/read/resume、turn/start/interrupt；消费 item/turn 和 server request。
-- 将服务端请求（审批、request_user_input）交给 Approval Service。
-- 子进程退出时标记设备 degraded，指数退避重启；正在执行的未确认任务交由后端退款/人工核对。
+- 不提供 Approval Service 或审批 UI。启动时使用用户在本机预先配置的非交互安全策略；遇到 approval/request_user_input 时返回拒绝/unsupported，并把任务标记为 `approval_required` 失败，不自动扩大权限。
+- 子进程退出时标记设备 degraded，指数退避重启；正在执行的任务标记失败并保留审计状态。
 
 ### 5.3 会话可写性
 
@@ -268,7 +263,7 @@ flowchart TB
 - Service/Domain：设备归属、sync、command 状态机、计费策略、事件授权。
 - Repository：PostgreSQL 事务、CAS、分页；不得把业务状态机散落在 Handler。
 - Realtime Hub：进程内连接表 + Redis pub/sub/stream，支持多实例。
-- Sweepers：过期设备状态、未开始指令退款、短暂 payload 清理。
+- Sweepers：过期设备状态、过期 command 状态和短暂 payload 清理；不执行退款。
 
 建议依赖方向：
 
@@ -326,7 +321,7 @@ handler/collaboration
 | idempotency_key | UUID | 客户端重试键 |
 | prompt_sha256 | CHAR(64) | 审计去重，不存明文 |
 | prompt_bytes | INT | 大小审计 |
-| status | VARCHAR | reserved/dispatched/accepted/started/completed/failed/refunded/expired |
+| status | VARCHAR | accepted/dispatched/started/completed/failed/expired |
 | turn_id | VARCHAR nullable | app-server turn ID |
 | error_code | VARCHAR nullable | 规范化错误 |
 | created_at/started_at/completed_at | TIMESTAMPTZ | 生命周期 |
@@ -342,10 +337,10 @@ handler/collaboration
 | user_id | BIGINT | 所属用户 |
 | amount | NUMERIC | MVP 固定 `0.100000` |
 | currency | VARCHAR | MVP 固定 `USD`，不做 CNY 换算 |
-| status | VARCHAR | held/settled/refunded |
+| status | VARCHAR | charged |
 | balance_before/after | NUMERIC | 对账快照 |
-| held_at/settled_at/refunded_at | TIMESTAMPTZ | 时间 |
-| reason | VARCHAR nullable | 退款/异常原因 |
+| charged_at | TIMESTAMPTZ | 扣费时间 |
+| reason | VARCHAR nullable | 审计原因 |
 
 不得使用 `float64 ==` 做账务幂等判断；迁移中明确 NUMERIC 精度，并在 Go 领域使用 decimal 或最小单位。
 
@@ -361,42 +356,32 @@ collab:events:user:{userId}                           Redis Stream（短保留�
 collab:rate:{userId}:{action}                         限流
 ```
 
-Redis 丢失时允许在线状态短暂失真，但不能丢失账务最终状态。未启动的 held 账单由 PostgreSQL sweeper 退款。
+Redis 丢失时允许在线状态短暂失真，但不能重复扣费；command 与 charge 的唯一约束仍以 PostgreSQL 为准。
 
 ## 7. 计费事务设计
 
-MVP 协同任务费率为每个成功提交的任务 `0.10 USD`。服务端配置和账本使用 `amount = "0.100000"`、`currency = "USD"`；客户端只把该值格式化为 `$0.10 USD`，不得自行换算、覆盖或传入费率。普通聊天和 GPT Image 继续使用 Sub2API 现有渠道费率，不与协同固定费用混用。
+MVP 协同任务费率为每个被后端成功接收的任务 `0.10 USD`。服务端配置和账本使用 `amount = "0.100000"`、`currency = "USD"`；客户端不得传入、展示或换算该金额。普通聊天和 GPT Image 继续使用 Sub2API 现有渠道费率。
 
-### 7.1 创建与冻结
+### 7.1 预检与直接扣费
 
 一个事务内：
 
 1. 按 `(user_id, idempotency_key)` 查询；存在则返回原 command。
 2. 验证设备未撤销，并以 Redis presence 判断在线（在线只作为前置优化）。
-3. 读取服务端费率，锁定用户余额行。
-4. `balance >= fee` 才执行 `balance -= fee, frozen_balance += fee`。
-5. 插入 command(reserved) 与 charge(held)。
-6. 提交后将 prompt payload 写 Redis 并派发；写 Redis 失败立即走幂等退款。
+3. 验证最近一次同步快照中的 thread 可写且无外部占用；失败时不创建任务、不扣费。
+4. 读取服务端费率并锁定用户余额行；`balance >= fee` 才执行 `balance -= fee`。
+5. 在同一事务插入 command(accepted) 与 charge(charged)，二者都受幂等键/唯一约束保护。
+6. 提交后将 prompt payload 写 Redis 并派发；后续中继或 Codex 执行失败只更新 command 状态，不退款。
 
-### 7.2 结算
+### 7.2 后续状态
 
-PC 调用 `turn/start` 获得 turn ID 后上报 started。一个事务内 CAS：
+PC 调用 `turn/start` 获得 turn ID 后，仅更新业务状态：
 
 - `command accepted/dispatched -> started`
-- `charge held -> settled`
-- `users.frozen_balance -= fee`
+- `command started -> completed/failed`
+- `charge` 始终保持 `charged`
 
-无需再次减少 balance，因为创建时已经从可用余额扣除。
-
-### 7.3 退款
-
-对从未进入 started 的命令：
-
-- `charge held -> refunded`
-- `balance += fee, frozen_balance -= fee`
-- `command -> refunded/expired`
-
-每个 UPDATE 都带旧状态条件并检查 affected rows，重复事件返回当前结果，不重复加余额。
+每个 UPDATE 都带旧状态条件并检查 affected rows。产品不提供冻结、结算或退款状态机。
 
 ## 8. 安全架构
 
@@ -404,7 +389,7 @@ PC 调用 `turn/start` 获得 turn ID 后上报 started。一个事务内 CAS：
 - Site Origin 规范化为 scheme + host + optional port，拒绝路径、userinfo、fragment。
 - PC WebSocket 使用 Access JWT 的 Authorization header；Refresh Token 永不走 WS。
 - 每条 WS event 由服务端基于连接 subject 重写 user/device 上下文，忽略客户端声明的 user_id。
-- 设备撤销立即关闭连接，并使未开始任务退款。
+- 设备撤销立即关闭连接并拒绝新任务；已经成功接收并扣费的任务不退款。
 - PC 收到 task 后再次校验 command_id、thread_id 来自已同步列表，prompt 字节上限建议 32 KiB。
 - 移动端上传参考图设置像素/文件大小上限；服务端继续使用现有 body limit 和内容审核。
 - 协同审计保存 hash、长度、状态、错误，不保存源码、命令输出和完整 prompt。
@@ -475,7 +460,7 @@ sub2api/
 - 在线设备数、WS 连接/重连数。
 - session/thread sync 延迟、超时率和结果数量。
 - command 各状态数量与状态停留时间。
-- held 超时退款次数、重复幂等请求次数、结算失败次数。
+- 重复幂等请求次数、duplicate charge 次数、command/charge 不一致次数。
 - app-server 启动失败、协议不兼容、thread busy external 次数。
 - 普通聊天和图片仍使用现有 usage/billing 指标，不混入协同固定费账本。
 

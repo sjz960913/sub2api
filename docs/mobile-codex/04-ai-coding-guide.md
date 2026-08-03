@@ -110,17 +110,16 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 
 - Ent schemas/migrations：devices、sync requests、commands、charges。
 - Domain enums 和合法 transition 表。
-- Repository 事务：register/revoke device、reserve、settle、refund。
+- Repository 事务：register/revoke device、command + charge 原子直接扣费。
 - `shopspring/decimal` 或明确最小单位策略。
 - 配置：feature enabled、fee、currency、TTL、rate limit。
-- 后台 sweeper：超时 held 自动退款。
+- 后台 sweeper：过期 command 状态和短暂 payload 清理，不执行退款。
 
 关键测试：
 
-- 相同 `(user_id,idempotency_key)` 并发 50 次只冻结一次。
-- settle 事件重放不重复减少 frozen balance。
-- refund 事件重放不重复增加 balance。
-- reserve 与用户余额更新是原子事务。
+- 相同 `(user_id,idempotency_key)` 并发 50 次只扣费一次。
+- command 事件重放不重复减少 balance。
+- command、charge 与用户余额更新是原子事务。
 - 余额不足不产生 command/charge。
 - 用户删除/设备撤销/服务重启后的状态可收敛。
 - 用户 A 不能读取用户 B 的 UUID 资源。
@@ -143,11 +142,11 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 
 - PC 连接到实例 A、Mobile 连接到实例 B 仍可中继。
 - token 过期 4401，刷新重连后状态恢复。
-- 设备撤销立即断线，未 started command 退款。
+- 设备撤销立即断线并拒绝新 command；已 accepted command 不退款。
 - 慢消费者不拖垮 hub；溢出时可重建状态。
-- Redis 发布失败不会留下永远 held 的余额。
+- Redis 发布失败只更新 command 失败状态，不重复扣费或回补余额。
 
-完成定义：使用 fake PC 完成 session sync 和 command started/settled 的端到端后端测试。
+完成定义：使用 fake PC 完成 session sync、command accepted 原子扣费和 started/completed 的端到端后端测试。
 
 ### M3：PC Codex Adapter
 
@@ -162,7 +161,7 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 5. thread/list + thread/read。
 6. thread/resume + turn/start。
 7. item/turn notification mapper。
-8. approval request center。
+8. 非交互安全策略与意外 approval request 的立即拒绝映射。
 9. Schema/version capability cache。
 10. app-server 不可用时的 JSONL 只读降级。
 
@@ -175,7 +174,7 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 - thread `-32600` 外部占用。
 - `canAcceptDirectInput=false`。
 - turn/start 成功后立即断线，仍能凭 turn_id 对账。
-- 审批 request 未响应时不阻塞整个 reader loop。
+- approval/request_user_input 立即返回拒绝/unsupported 并映射为 `approval_required`，不阻塞 reader loop，也不显示审批 UI。
 
 完成定义：真实本机 Codex smoke test 能创建临时 thread、列出、读回、启动一轮并收到 completed；测试不得改动用户生产 thread。
 
@@ -189,8 +188,9 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 - 登录、TOTP、恢复会话、登出。
 - Dio panel client 的单飞 refresh 和 token rotation。
 - Secure Storage key namespace。
-- API Key/分组目录、Key 详情脱敏、可用性校验。
-- 公告列表、未读角标、popup 队列。
+- 四项底部导航：聊天、协同、秘钥、我的。
+- 秘钥卡片列表、分组更新、用量展示、当前聊天 Key 单选与可用性校验。
+- “我的”中的公告列表/未读角标/popup 队列、兑换 Dialog、外部充值 URL launcher。
 - user/admin 路由分支和 admin placeholder。
 
 关键测试：
@@ -199,10 +199,12 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 - refresh 轮换后旧 token 不再存储。
 - 登录失败/站点切换不串用旧 token。
 - redirect 不携带 Authorization 到其他 host。
-- inactive/expired/non-openai Key 不可进入聊天。
+- inactive/expired/non-openai Key 不可设为当前聊天 Key。
+- 修改 Key 分组后刷新卡片与当前聊天选择；失败时不污染本地状态。
+- 充值只允许外部打开 `https://pay.ldxp.cn/shop/codecodeai`，不携带任何凭证。
 - popup 公告在 mark-read 重试期间不重复轰炸。
 
-完成定义：Android debug build 在真实 Sub2API 测试站点完成登录、Key 列表和公告。
+完成定义：Android debug build 在真实 Sub2API 测试站点完成登录、秘钥卡片/分组/当前选择、兑换和公告；充值链接由外部浏览器接管。
 
 ### M5：普通聊天与图片
 
@@ -236,9 +238,9 @@ Codex app-server Schema 不纳入本仓库固定真相。PC 端使用本机 `cod
 - Device list + online status。
 - Session query/search/filter/list。
 - Thread item timeline 和增量 sync。
-- Command compose、二次价格确认、状态轨迹、退款反馈。
+- 简洁 Command compose 和业务状态轨迹；不显示价格、账务或退款信息。
 - 当前 thread 的实时 item/turn event 消费。
-- PC approval 等待状态。
+- `approval_required` 普通失败状态，不进入等待或确认流程。
 - 断线重连后 command GET + thread sync 收敛。
 
 关键测试：
@@ -323,7 +325,6 @@ clients/codex-pc/
 │   ├── features/device/
 │   ├── features/sessions/
 │   ├── features/live_thread/
-│   ├── features/approvals/
 │   ├── features/settings/
 │   ├── lib/api/
 │   ├── lib/query/
@@ -334,7 +335,7 @@ clients/codex-pc/
     │   ├── auth_service.rs
     │   ├── device_service.rs
     │   ├── session_service.rs
-    │   └── approval_service.rs
+    │   └── safety_policy_service.rs
     ├── adapters/
     │   └── codex_app_server/
     │       ├── process.rs
@@ -359,7 +360,7 @@ Rust service 层不依赖 Tauri Window；这样可在无 GUI 测试中运行 fak
 1. Domain types + transition unit tests。
 2. Ent schema/migration + repository integration tests。
 3. Device REST。
-4. Billing reserve/settle/refund REST-internal API。
+4. Billing direct-charge REST-internal API，和 command 创建同事务且幂等。
 5. WebSocket auth/presence。
 6. Sync request relay。
 7. Command relay + sweeper。
@@ -385,7 +386,7 @@ go test ./internal/server/...
 
 ## 8. 配置建议
 
-原需求中的“0.1 元”已确认指 `0.10 USD`，不是 CNY。以下金额是 MVP 协同任务的固定服务端费率；UI 必须显示 `$0.10 USD`，普通聊天和图片生成仍使用各自的站点渠道费率。
+原需求中的“0.1 元”已确认指 `0.10 USD`，不是 CNY。以下金额只用于 MVP 协同任务的后台固定费率；App 不显示该金额。普通聊天和图片生成仍使用各自的站点渠道费率。
 
 ```yaml
 collaboration:
@@ -409,14 +410,14 @@ collaboration:
     postgres_enabled: false
 ```
 
-环境变量使用项目既有命名映射。费率变更只影响新建 command；已 held command 保存自己的 amount/currency 快照。
+环境变量使用项目既有命名映射。费率变更只影响新建 command；已 charged command 保存自己的 amount/currency 快照。
 
 ## 9. AI Coding 任务模板
 
 复制后只替换方括号：
 
 ```text
-目标：实现 docs/mobile-codex/04-ai-coding-guide.md 的 [M1 子任务：reserve/settle/refund repository]。
+目标：实现 docs/mobile-codex/04-ai-coding-guide.md 的 [M1 子任务：command + charge 原子直接扣费 repository]。
 
 开始前必须阅读：
 - docs/mobile-codex/01-requirements-feasibility.md
@@ -431,7 +432,7 @@ collaboration:
 
 验收：
 - [列出并发幂等、失败回滚、重放测试]
-- 余额、frozen_balance、command、charge 在事务后完全一致
+- 余额、command、charge 在事务后完全一致，现有 `frozen_balance` 保持不变
 - 日志不包含 secret/prompt
 
 交付：
@@ -454,10 +455,10 @@ collaboration:
 ### 计费
 
 - 金额是否由服务端决定并使用 decimal/NUMERIC？
-- reserve/settle/refund 是否 CAS 且幂等？
-- Redis/WS 失败是否最终退款？
-- turn/start 之前是否绝不 settle？
-- started 后最终 Codex 失败是否保持 settled？
+- command 创建与直接扣费是否同事务且幂等？
+- Redis/WS 失败是否只更新业务状态且不会二次扣费？
+- 后端预检失败是否不创建 command/charge？
+- accepted 后最终 Codex 失败是否保持唯一 charged 记录？
 
 ### Codex Adapter
 
@@ -484,5 +485,5 @@ collaboration:
 - 只在客户端扣费或传入 `fee=0.1`。
 - 以 `float64` 直接做余额精确相等判断。
 - 在 Mobile 数据库保存全部 API Key/Refresh Token。
-- 把 `approvalPolicy` 改成 never/danger full access 来避免审批 UI。
-- 为了选择分组，静默修改用户现有 API Key 的 group。
+- 为了避免审批 UI，自动开启 danger full access 或扩大本机目录/网络权限。
+- 修改 API Key 分组时不调用服务端更新接口，只在客户端伪造显示。

@@ -26,6 +26,8 @@ const (
 	FieldDeviceID = "device_id"
 	// FieldIdempotencyKey holds the string denoting the idempotency_key field in the database.
 	FieldIdempotencyKey = "idempotency_key"
+	// FieldRequestSha256 holds the string denoting the request_sha256 field in the database.
+	FieldRequestSha256 = "request_sha256"
 	// FieldKind holds the string denoting the kind field in the database.
 	FieldKind = "kind"
 	// FieldThreadID holds the string denoting the thread_id field in the database.
@@ -74,6 +76,7 @@ var Columns = []string{
 	FieldUserID,
 	FieldDeviceID,
 	FieldIdempotencyKey,
+	FieldRequestSha256,
 	FieldKind,
 	FieldThreadID,
 	FieldCursor,
@@ -102,6 +105,8 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// RequestSha256Validator is a validator for the "request_sha256" field. It is called by the builders before save.
+	RequestSha256Validator func(string) error
 	// ThreadIDValidator is a validator for the "thread_id" field. It is called by the builders before save.
 	ThreadIDValidator func(string) error
 	// CursorValidator is a validator for the "cursor" field. It is called by the builders before save.
@@ -197,6 +202,11 @@ func ByDeviceID(opts ...sql.OrderTermOption) OrderOption {
 // ByIdempotencyKey orders the results by the idempotency_key field.
 func ByIdempotencyKey(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIdempotencyKey, opts...).ToFunc()
+}
+
+// ByRequestSha256 orders the results by the request_sha256 field.
+func ByRequestSha256(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestSha256, opts...).ToFunc()
 }
 
 // ByKind orders the results by the kind field.

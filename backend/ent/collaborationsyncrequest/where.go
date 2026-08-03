@@ -81,6 +81,11 @@ func IdempotencyKey(v uuid.UUID) predicate.CollaborationSyncRequest {
 	return predicate.CollaborationSyncRequest(sql.FieldEQ(FieldIdempotencyKey, v))
 }
 
+// RequestSha256 applies equality check predicate on the "request_sha256" field. It's identical to RequestSha256EQ.
+func RequestSha256(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldEQ(FieldRequestSha256, v))
+}
+
 // ThreadID applies equality check predicate on the "thread_id" field. It's identical to ThreadIDEQ.
 func ThreadID(v string) predicate.CollaborationSyncRequest {
 	return predicate.CollaborationSyncRequest(sql.FieldEQ(FieldThreadID, v))
@@ -274,6 +279,71 @@ func IdempotencyKeyLT(v uuid.UUID) predicate.CollaborationSyncRequest {
 // IdempotencyKeyLTE applies the LTE predicate on the "idempotency_key" field.
 func IdempotencyKeyLTE(v uuid.UUID) predicate.CollaborationSyncRequest {
 	return predicate.CollaborationSyncRequest(sql.FieldLTE(FieldIdempotencyKey, v))
+}
+
+// RequestSha256EQ applies the EQ predicate on the "request_sha256" field.
+func RequestSha256EQ(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldEQ(FieldRequestSha256, v))
+}
+
+// RequestSha256NEQ applies the NEQ predicate on the "request_sha256" field.
+func RequestSha256NEQ(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldNEQ(FieldRequestSha256, v))
+}
+
+// RequestSha256In applies the In predicate on the "request_sha256" field.
+func RequestSha256In(vs ...string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldIn(FieldRequestSha256, vs...))
+}
+
+// RequestSha256NotIn applies the NotIn predicate on the "request_sha256" field.
+func RequestSha256NotIn(vs ...string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldNotIn(FieldRequestSha256, vs...))
+}
+
+// RequestSha256GT applies the GT predicate on the "request_sha256" field.
+func RequestSha256GT(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldGT(FieldRequestSha256, v))
+}
+
+// RequestSha256GTE applies the GTE predicate on the "request_sha256" field.
+func RequestSha256GTE(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldGTE(FieldRequestSha256, v))
+}
+
+// RequestSha256LT applies the LT predicate on the "request_sha256" field.
+func RequestSha256LT(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldLT(FieldRequestSha256, v))
+}
+
+// RequestSha256LTE applies the LTE predicate on the "request_sha256" field.
+func RequestSha256LTE(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldLTE(FieldRequestSha256, v))
+}
+
+// RequestSha256Contains applies the Contains predicate on the "request_sha256" field.
+func RequestSha256Contains(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldContains(FieldRequestSha256, v))
+}
+
+// RequestSha256HasPrefix applies the HasPrefix predicate on the "request_sha256" field.
+func RequestSha256HasPrefix(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldHasPrefix(FieldRequestSha256, v))
+}
+
+// RequestSha256HasSuffix applies the HasSuffix predicate on the "request_sha256" field.
+func RequestSha256HasSuffix(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldHasSuffix(FieldRequestSha256, v))
+}
+
+// RequestSha256EqualFold applies the EqualFold predicate on the "request_sha256" field.
+func RequestSha256EqualFold(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldEqualFold(FieldRequestSha256, v))
+}
+
+// RequestSha256ContainsFold applies the ContainsFold predicate on the "request_sha256" field.
+func RequestSha256ContainsFold(v string) predicate.CollaborationSyncRequest {
+	return predicate.CollaborationSyncRequest(sql.FieldContainsFold(FieldRequestSha256, v))
 }
 
 // KindEQ applies the EQ predicate on the "kind" field.

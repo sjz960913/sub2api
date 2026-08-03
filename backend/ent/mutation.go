@@ -23183,6 +23183,7 @@ type CollaborationSyncRequestMutation struct {
 	created_at          *time.Time
 	updated_at          *time.Time
 	idempotency_key     *uuid.UUID
+	request_sha256      *string
 	kind                *collaborationsyncrequest.Kind
 	thread_id           *string
 	cursor              *string
@@ -23486,6 +23487,42 @@ func (m *CollaborationSyncRequestMutation) OldIdempotencyKey(ctx context.Context
 // ResetIdempotencyKey resets all changes to the "idempotency_key" field.
 func (m *CollaborationSyncRequestMutation) ResetIdempotencyKey() {
 	m.idempotency_key = nil
+}
+
+// SetRequestSha256 sets the "request_sha256" field.
+func (m *CollaborationSyncRequestMutation) SetRequestSha256(s string) {
+	m.request_sha256 = &s
+}
+
+// RequestSha256 returns the value of the "request_sha256" field in the mutation.
+func (m *CollaborationSyncRequestMutation) RequestSha256() (r string, exists bool) {
+	v := m.request_sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestSha256 returns the old "request_sha256" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldRequestSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestSha256: %w", err)
+	}
+	return oldValue.RequestSha256, nil
+}
+
+// ResetRequestSha256 resets all changes to the "request_sha256" field.
+func (m *CollaborationSyncRequestMutation) ResetRequestSha256() {
+	m.request_sha256 = nil
 }
 
 // SetKind sets the "kind" field.
@@ -24006,7 +24043,7 @@ func (m *CollaborationSyncRequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CollaborationSyncRequestMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.created_at != nil {
 		fields = append(fields, collaborationsyncrequest.FieldCreatedAt)
 	}
@@ -24021,6 +24058,9 @@ func (m *CollaborationSyncRequestMutation) Fields() []string {
 	}
 	if m.idempotency_key != nil {
 		fields = append(fields, collaborationsyncrequest.FieldIdempotencyKey)
+	}
+	if m.request_sha256 != nil {
+		fields = append(fields, collaborationsyncrequest.FieldRequestSha256)
 	}
 	if m.kind != nil {
 		fields = append(fields, collaborationsyncrequest.FieldKind)
@@ -24067,6 +24107,8 @@ func (m *CollaborationSyncRequestMutation) Field(name string) (ent.Value, bool) 
 		return m.DeviceID()
 	case collaborationsyncrequest.FieldIdempotencyKey:
 		return m.IdempotencyKey()
+	case collaborationsyncrequest.FieldRequestSha256:
+		return m.RequestSha256()
 	case collaborationsyncrequest.FieldKind:
 		return m.Kind()
 	case collaborationsyncrequest.FieldThreadID:
@@ -24104,6 +24146,8 @@ func (m *CollaborationSyncRequestMutation) OldField(ctx context.Context, name st
 		return m.OldDeviceID(ctx)
 	case collaborationsyncrequest.FieldIdempotencyKey:
 		return m.OldIdempotencyKey(ctx)
+	case collaborationsyncrequest.FieldRequestSha256:
+		return m.OldRequestSha256(ctx)
 	case collaborationsyncrequest.FieldKind:
 		return m.OldKind(ctx)
 	case collaborationsyncrequest.FieldThreadID:
@@ -24165,6 +24209,13 @@ func (m *CollaborationSyncRequestMutation) SetField(name string, value ent.Value
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetIdempotencyKey(v)
+		return nil
+	case collaborationsyncrequest.FieldRequestSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestSha256(v)
 		return nil
 	case collaborationsyncrequest.FieldKind:
 		v, ok := value.(collaborationsyncrequest.Kind)
@@ -24352,6 +24403,9 @@ func (m *CollaborationSyncRequestMutation) ResetField(name string) error {
 		return nil
 	case collaborationsyncrequest.FieldIdempotencyKey:
 		m.ResetIdempotencyKey()
+		return nil
+	case collaborationsyncrequest.FieldRequestSha256:
+		m.ResetRequestSha256()
 		return nil
 	case collaborationsyncrequest.FieldKind:
 		m.ResetKind()

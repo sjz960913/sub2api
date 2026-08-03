@@ -970,6 +970,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "idempotency_key", Type: field.TypeUUID},
+		{Name: "request_sha256", Type: field.TypeString, Size: 64},
 		{Name: "kind", Type: field.TypeEnum, Enums: []string{"session_list", "thread_snapshot"}},
 		{Name: "thread_id", Type: field.TypeString, Nullable: true, Size: 512},
 		{Name: "cursor", Type: field.TypeString, Nullable: true, Size: 1024},
@@ -990,13 +991,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "collaboration_sync_requests_collaboration_devices_sync_requests",
-				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[13]},
+				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[14]},
 				RefColumns: []*schema.Column{CollaborationDevicesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "collaboration_sync_requests_users_collaboration_sync_requests",
-				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[14]},
+				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1005,22 +1006,22 @@ var (
 			{
 				Name:    "collaborationsyncrequest_user_id_idempotency_key",
 				Unique:  true,
-				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[3]},
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[15], CollaborationSyncRequestsColumns[3]},
 			},
 			{
 				Name:    "collaborationsyncrequest_user_id_device_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[13], CollaborationSyncRequestsColumns[1]},
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[15], CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[1]},
 			},
 			{
 				Name:    "collaborationsyncrequest_user_id_id",
 				Unique:  false,
-				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[0]},
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[15], CollaborationSyncRequestsColumns[0]},
 			},
 			{
 				Name:    "collaborationsyncrequest_status_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{CollaborationSyncRequestsColumns[7], CollaborationSyncRequestsColumns[11]},
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[8], CollaborationSyncRequestsColumns[12]},
 			},
 		},
 	}

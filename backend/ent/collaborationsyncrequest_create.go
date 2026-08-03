@@ -72,6 +72,12 @@ func (_c *CollaborationSyncRequestCreate) SetIdempotencyKey(v uuid.UUID) *Collab
 	return _c
 }
 
+// SetRequestSha256 sets the "request_sha256" field.
+func (_c *CollaborationSyncRequestCreate) SetRequestSha256(v string) *CollaborationSyncRequestCreate {
+	_c.mutation.SetRequestSha256(v)
+	return _c
+}
+
 // SetKind sets the "kind" field.
 func (_c *CollaborationSyncRequestCreate) SetKind(v collaborationsyncrequest.Kind) *CollaborationSyncRequestCreate {
 	_c.mutation.SetKind(v)
@@ -280,6 +286,14 @@ func (_c *CollaborationSyncRequestCreate) check() error {
 	if _, ok := _c.mutation.IdempotencyKey(); !ok {
 		return &ValidationError{Name: "idempotency_key", err: errors.New(`ent: missing required field "CollaborationSyncRequest.idempotency_key"`)}
 	}
+	if _, ok := _c.mutation.RequestSha256(); !ok {
+		return &ValidationError{Name: "request_sha256", err: errors.New(`ent: missing required field "CollaborationSyncRequest.request_sha256"`)}
+	}
+	if v, ok := _c.mutation.RequestSha256(); ok {
+		if err := collaborationsyncrequest.RequestSha256Validator(v); err != nil {
+			return &ValidationError{Name: "request_sha256", err: fmt.Errorf(`ent: validator failed for field "CollaborationSyncRequest.request_sha256": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Kind(); !ok {
 		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "CollaborationSyncRequest.kind"`)}
 	}
@@ -370,6 +384,10 @@ func (_c *CollaborationSyncRequestCreate) createSpec() (*CollaborationSyncReques
 	if value, ok := _c.mutation.IdempotencyKey(); ok {
 		_spec.SetField(collaborationsyncrequest.FieldIdempotencyKey, field.TypeUUID, value)
 		_node.IdempotencyKey = value
+	}
+	if value, ok := _c.mutation.RequestSha256(); ok {
+		_spec.SetField(collaborationsyncrequest.FieldRequestSha256, field.TypeString, value)
+		_node.RequestSha256 = value
 	}
 	if value, ok := _c.mutation.Kind(); ok {
 		_spec.SetField(collaborationsyncrequest.FieldKind, field.TypeEnum, value)
@@ -635,6 +653,9 @@ func (u *CollaborationSyncRequestUpsertOne) UpdateNewValues() *CollaborationSync
 		}
 		if _, exists := u.create.mutation.IdempotencyKey(); exists {
 			s.SetIgnore(collaborationsyncrequest.FieldIdempotencyKey)
+		}
+		if _, exists := u.create.mutation.RequestSha256(); exists {
+			s.SetIgnore(collaborationsyncrequest.FieldRequestSha256)
 		}
 		if _, exists := u.create.mutation.Kind(); exists {
 			s.SetIgnore(collaborationsyncrequest.FieldKind)
@@ -1003,6 +1024,9 @@ func (u *CollaborationSyncRequestUpsertBulk) UpdateNewValues() *CollaborationSyn
 			}
 			if _, exists := b.mutation.IdempotencyKey(); exists {
 				s.SetIgnore(collaborationsyncrequest.FieldIdempotencyKey)
+			}
+			if _, exists := b.mutation.RequestSha256(); exists {
+				s.SetIgnore(collaborationsyncrequest.FieldRequestSha256)
 			}
 			if _, exists := b.mutation.Kind(); exists {
 				s.SetIgnore(collaborationsyncrequest.FieldKind)

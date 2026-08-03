@@ -1062,20 +1062,38 @@ func init() {
 	collaborationsyncrequest.DefaultUpdatedAt = collaborationsyncrequestDescUpdatedAt.Default.(func() time.Time)
 	// collaborationsyncrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	collaborationsyncrequest.UpdateDefaultUpdatedAt = collaborationsyncrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collaborationsyncrequestDescRequestSha256 is the schema descriptor for request_sha256 field.
+	collaborationsyncrequestDescRequestSha256 := collaborationsyncrequestFields[4].Descriptor()
+	// collaborationsyncrequest.RequestSha256Validator is a validator for the "request_sha256" field. It is called by the builders before save.
+	collaborationsyncrequest.RequestSha256Validator = func() func(string) error {
+		validators := collaborationsyncrequestDescRequestSha256.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(request_sha256 string) error {
+			for _, fn := range fns {
+				if err := fn(request_sha256); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// collaborationsyncrequestDescThreadID is the schema descriptor for thread_id field.
-	collaborationsyncrequestDescThreadID := collaborationsyncrequestFields[5].Descriptor()
+	collaborationsyncrequestDescThreadID := collaborationsyncrequestFields[6].Descriptor()
 	// collaborationsyncrequest.ThreadIDValidator is a validator for the "thread_id" field. It is called by the builders before save.
 	collaborationsyncrequest.ThreadIDValidator = collaborationsyncrequestDescThreadID.Validators[0].(func(string) error)
 	// collaborationsyncrequestDescCursor is the schema descriptor for cursor field.
-	collaborationsyncrequestDescCursor := collaborationsyncrequestFields[6].Descriptor()
+	collaborationsyncrequestDescCursor := collaborationsyncrequestFields[7].Descriptor()
 	// collaborationsyncrequest.CursorValidator is a validator for the "cursor" field. It is called by the builders before save.
 	collaborationsyncrequest.CursorValidator = collaborationsyncrequestDescCursor.Validators[0].(func(string) error)
 	// collaborationsyncrequestDescErrorCode is the schema descriptor for error_code field.
-	collaborationsyncrequestDescErrorCode := collaborationsyncrequestFields[8].Descriptor()
+	collaborationsyncrequestDescErrorCode := collaborationsyncrequestFields[9].Descriptor()
 	// collaborationsyncrequest.ErrorCodeValidator is a validator for the "error_code" field. It is called by the builders before save.
 	collaborationsyncrequest.ErrorCodeValidator = collaborationsyncrequestDescErrorCode.Validators[0].(func(string) error)
 	// collaborationsyncrequestDescResultCount is the schema descriptor for result_count field.
-	collaborationsyncrequestDescResultCount := collaborationsyncrequestFields[10].Descriptor()
+	collaborationsyncrequestDescResultCount := collaborationsyncrequestFields[11].Descriptor()
 	// collaborationsyncrequest.DefaultResultCount holds the default value on creation for the result_count field.
 	collaborationsyncrequest.DefaultResultCount = collaborationsyncrequestDescResultCount.Default.(int)
 	// collaborationsyncrequestDescID is the schema descriptor for id field.

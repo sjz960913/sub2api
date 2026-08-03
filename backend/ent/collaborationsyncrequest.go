@@ -30,6 +30,8 @@ type CollaborationSyncRequest struct {
 	DeviceID uuid.UUID `json:"device_id,omitempty"`
 	// IdempotencyKey holds the value of the "idempotency_key" field.
 	IdempotencyKey uuid.UUID `json:"idempotency_key,omitempty"`
+	// RequestSha256 holds the value of the "request_sha256" field.
+	RequestSha256 string `json:"request_sha256,omitempty"`
 	// Kind holds the value of the "kind" field.
 	Kind collaborationsyncrequest.Kind `json:"kind,omitempty"`
 	// ThreadID holds the value of the "thread_id" field.
@@ -94,7 +96,7 @@ func (*CollaborationSyncRequest) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case collaborationsyncrequest.FieldUserID, collaborationsyncrequest.FieldSnapshotVersion, collaborationsyncrequest.FieldResultCount:
 			values[i] = new(sql.NullInt64)
-		case collaborationsyncrequest.FieldKind, collaborationsyncrequest.FieldThreadID, collaborationsyncrequest.FieldCursor, collaborationsyncrequest.FieldStatus, collaborationsyncrequest.FieldErrorCode:
+		case collaborationsyncrequest.FieldRequestSha256, collaborationsyncrequest.FieldKind, collaborationsyncrequest.FieldThreadID, collaborationsyncrequest.FieldCursor, collaborationsyncrequest.FieldStatus, collaborationsyncrequest.FieldErrorCode:
 			values[i] = new(sql.NullString)
 		case collaborationsyncrequest.FieldCreatedAt, collaborationsyncrequest.FieldUpdatedAt, collaborationsyncrequest.FieldExpiresAt, collaborationsyncrequest.FieldCompletedAt:
 			values[i] = new(sql.NullTime)
@@ -150,6 +152,12 @@ func (_m *CollaborationSyncRequest) assignValues(columns []string, values []any)
 				return fmt.Errorf("unexpected type %T for field idempotency_key", values[i])
 			} else if value != nil {
 				_m.IdempotencyKey = *value
+			}
+		case collaborationsyncrequest.FieldRequestSha256:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field request_sha256", values[i])
+			} else if value.Valid {
+				_m.RequestSha256 = value.String
 			}
 		case collaborationsyncrequest.FieldKind:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -270,6 +278,9 @@ func (_m *CollaborationSyncRequest) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("idempotency_key=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IdempotencyKey))
+	builder.WriteString(", ")
+	builder.WriteString("request_sha256=")
+	builder.WriteString(_m.RequestSha256)
 	builder.WriteString(", ")
 	builder.WriteString("kind=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Kind))

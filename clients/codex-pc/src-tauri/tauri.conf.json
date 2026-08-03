@@ -13,5 +13,18 @@
     "windows": [{"title": "Codex PC Companion", "width": 1180, "height": 760, "minWidth": 960, "minHeight": 640}],
     "security": {"csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"}
   },
-  "bundle": {"active": true, "targets": "all"}
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Sub2API Codex CLI collaboration companion",
+    "longDescription": "Securely relays selected local Codex CLI sessions to the authenticated Sub2API mobile app.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
 }

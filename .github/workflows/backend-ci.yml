@@ -121,6 +121,16 @@ jobs:
         run: cargo check --manifest-path clients/codex-pc/src-tauri/Cargo.toml
       - name: Test Tauri adapter
         run: cargo test --manifest-path clients/codex-pc/src-tauri/Cargo.toml --lib
+      - name: Build Tauri Debian package
+        working-directory: clients/codex-pc
+        run: npm run tauri -- build --bundles deb
+      - name: Preserve Codex PC Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sub2api-codex-pc-deb
+          path: clients/codex-pc/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+          retention-days: 7
       - name: Preserve Cargo lockfile
         uses: actions/upload-artifact@v4
         with:

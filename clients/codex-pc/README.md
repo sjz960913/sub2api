@@ -13,11 +13,17 @@ npm run build
 npm run tauri build
 ```
 
+CI builds a Linux Debian installer and publishes `sub2api-codex-pc-deb` as a seven-day workflow
+artifact. Windows and macOS bundles use the generated `.ico` and `.icns` assets in
+`src-tauri/icons`.
+
 The Rust shell now includes a bounded stdio adapter for the stable Codex
 app-server API. It initializes with `experimentalApi: false`, normalizes thread
 metadata before exposing it to the desktop UI, starts turns without changing
 the configured sandbox, and rejects unexpected approval/user-input requests.
 There is no PC approval or confirmation flow.
 
-The OS-secret-store facade still does not persist secrets until a real platform
-keyring adapter is wired and tested.
+Panel email/password login, TOTP, refresh rotation, device registration, WebSocket relay, and the
+Codex app-server adapter are connected. Refresh tokens are stored through the native platform
+credential backend: Windows Credential Manager, macOS Keychain, or Linux Secret Service. Access
+tokens remain process-local, and passwords are never persisted.

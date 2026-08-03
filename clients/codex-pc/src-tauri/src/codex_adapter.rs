@@ -22,6 +22,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_PROMPT_BYTES: usize = 32 * 1024;
@@ -109,6 +110,24 @@ pub struct StartedTask {
     pub thread_id: String,
     pub turn_id: String,
     pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalizedCompletedItem {
+    pub item_id: String,
+    pub item_type: String,
+    pub role: Option<String>,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub text: Option<String>,
+    pub status: String,
+    pub completed_at_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TurnCompletion {
+    pub status: String,
+    pub items: Vec<NormalizedCompletedItem>,
 }
 
 impl AppServerClient {
@@ -263,6 +282,53 @@ impl AppServerClient {
             json!({"threadId": thread_id, "turnId": turn_id}),
         )?;
         Ok(())
+    }
+
+    pub fn wait_for_turn_completion(
+        &self,
+        turn_id: &str,
+        timeout: Duration,
+    ) -> Result<TurnCompletion, AdapterError> {
+        if turn_id.trim().is_empty() || turn_id.len() > 512 || timeout.is_zero() {
+            return Err(AdapterError::InvalidInput);
+        }
+        let deadline = Instant::now() + timeout;
+        let receiver = self.events.lock().map_err(|_| AdapterError::Disconnected)?;
+        let mut items = Vec::new();
+        loop {
+            let remaining = deadline
+                .checked_duration_since(Instant::now())
+                .ok_or(AdapterError::Timeout)?;
+            let event = receiver
+                .recv_timeout(remaining)
+                .map_err(|error| match error {
+                    mpsc::RecvTimeoutError::Timeout => AdapterError::Timeout,
+                    mpsc::RecvTimeoutError::Disconnected => AdapterError::Disconnected,
+                })?;
+            if event.params.get("turnId").and_then(Value::as_str) != Some(turn_id) {
+                continue;
+            }
+            if event.method == "item/completed" {
+                if items.len() < 200 {
+                    if let Some(item) = normalize_completed_item(&event.params) {
+                        items.push(item);
+                    }
+                }
+                continue;
+            }
+            if event.method != "turn/completed" {
+                continue;
+            }
+            let status = event
+                .params
+                .pointer("/turn/status")
+                .and_then(Value::as_str)
+                .ok_or(AdapterError::Protocol)?;
+            return Ok(TurnCompletion {
+                status: status.to_owned(),
+                items,
+            });
+        }
     }
 
     #[allow(dead_code)]
@@ -436,6 +502,153 @@ fn normalize_thread_page(raw: &Value) -> Result<ThreadPage, AdapterError> {
     })
 }
 
+fn normalize_completed_item(params: &Value) -> Option<NormalizedCompletedItem> {
+    let item = params.get("item")?;
+    let item_id = item.get("id")?.as_str()?;
+    if item_id.is_empty() || item_id.len() > 512 {
+        return None;
+    }
+    let completed_at_ms = params
+        .get("completedAtMs")
+        .and_then(Value::as_i64)
+        .unwrap_or_default();
+    let raw_type = item.get("type").and_then(Value::as_str).unwrap_or_default();
+    let (item_type, role, title, summary, text, status) = match raw_type {
+        "userMessage" => {
+            let text = item
+                .get("content")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter(|part| part.get("type").and_then(Value::as_str) == Some("text"))
+                .filter_map(|part| part.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join("\n");
+            (
+                "user_message",
+                Some("user"),
+                None,
+                None,
+                bounded_text(&text),
+                "completed",
+            )
+        }
+        "agentMessage" => (
+            "agent_message",
+            Some("assistant"),
+            None,
+            None,
+            item.get("text")
+                .and_then(Value::as_str)
+                .and_then(bounded_text),
+            "completed",
+        ),
+        "reasoning" => {
+            let summary = item
+                .get("summary")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\n");
+            (
+                "reasoning_summary",
+                None,
+                Some("推理摘要"),
+                bounded_text(&summary),
+                None,
+                "completed",
+            )
+        }
+        "plan" => (
+            "plan",
+            None,
+            Some("计划"),
+            None,
+            item.get("text")
+                .and_then(Value::as_str)
+                .and_then(bounded_text),
+            "completed",
+        ),
+        "commandExecution" => {
+            let item_status = item
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("completed");
+            let mut safe_summary = item_status.to_owned();
+            if let Some(exit_code) = item.get("exitCode").and_then(Value::as_i64) {
+                safe_summary.push_str(&format!(" · exit {exit_code}"));
+            }
+            if let Some(duration_ms) = item.get("durationMs").and_then(Value::as_i64) {
+                safe_summary.push_str(&format!(" · {duration_ms} ms"));
+            }
+            (
+                "command_execution",
+                None,
+                Some("命令执行"),
+                bounded_text(&safe_summary),
+                None,
+                item_status,
+            )
+        }
+        "fileChange" => {
+            let count = item
+                .get("changes")
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len);
+            (
+                "file_change",
+                None,
+                Some("文件变更"),
+                Some(format!("{count} 项变更")),
+                None,
+                item.get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("completed"),
+            )
+        }
+        "mcpToolCall" | "dynamicToolCall" => (
+            "tool_call",
+            None,
+            Some("工具调用"),
+            item.get("status")
+                .and_then(Value::as_str)
+                .and_then(bounded_text),
+            None,
+            item.get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("completed"),
+        ),
+        _ => (
+            "unsupported",
+            None,
+            Some("未支持的事件"),
+            None,
+            None,
+            "completed",
+        ),
+    };
+    Some(NormalizedCompletedItem {
+        item_id: item_id.to_owned(),
+        item_type: item_type.to_owned(),
+        role: role.map(str::to_owned),
+        title: title.map(str::to_owned),
+        summary,
+        text,
+        status: truncate_chars(status, 64),
+        completed_at_ms,
+    })
+}
+
+fn bounded_text(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(truncate_chars(value, 64_000))
+}
+
 fn sanitize_path_label(path: &str) -> String {
     let normalized = path.replace('\\', "/");
     let leaf = normalized
@@ -467,6 +680,7 @@ fn remove_pending(inner: &AppServerInner, id: u64) {
 #[cfg(test)]
 mod tests {
     use super::non_interactive_server_response;
+    use super::normalize_completed_item;
     use super::normalize_thread_page;
     use serde_json::json;
 
@@ -498,5 +712,44 @@ mod tests {
         assert_eq!(page.data[0].cwd_label.as_deref(), Some("…/project"));
         assert!(page.data[0].can_write);
         assert_eq!(page.next_cursor.as_deref(), Some("next"));
+    }
+
+    #[test]
+    fn completed_command_item_drops_command_paths_and_output() {
+        let item = normalize_completed_item(&json!({
+            "threadId": "thread_1",
+            "turnId": "turn_1",
+            "completedAtMs": 123,
+            "item": {
+                "type": "commandExecution",
+                "id": "item_1",
+                "command": "cat /home/alice/private.txt",
+                "cwd": "/home/alice",
+                "aggregatedOutput": "refresh_token=secret",
+                "status": "completed",
+                "exitCode": 0,
+                "durationMs": 80
+            }
+        }))
+        .unwrap();
+        assert_eq!(item.item_type, "command_execution");
+        assert_eq!(item.title.as_deref(), Some("命令执行"));
+        assert_eq!(item.summary.as_deref(), Some("completed · exit 0 · 80 ms"));
+        let debug = format!("{item:?}");
+        assert!(!debug.contains("private.txt"));
+        assert!(!debug.contains("refresh_token"));
+    }
+
+    #[test]
+    fn completed_agent_item_keeps_only_bounded_text() {
+        let item = normalize_completed_item(&json!({
+            "turnId": "turn_1",
+            "completedAtMs": 123,
+            "item": {"type": "agentMessage", "id": "item_2", "text": "Done"}
+        }))
+        .unwrap();
+        assert_eq!(item.item_type, "agent_message");
+        assert_eq!(item.role.as_deref(), Some("assistant"));
+        assert_eq!(item.text.as_deref(), Some("Done"));
     }
 }

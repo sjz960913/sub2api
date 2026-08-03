@@ -35,10 +35,10 @@ type ThreadPage = {
   nextCursor: string | null;
 };
 
-type RegisteredDevice = {
-  device_id: string;
-  heartbeat_interval_seconds: number;
-  event_protocol_version: number;
+type RelayStatus = {
+  state: string;
+  device_id: string | null;
+  last_error: string | null;
 };
 
 const SITE_KEY = 'codexPc.siteUrl';
@@ -59,6 +59,7 @@ export function App() {
   const [threads, setThreads] = useState<CodexThread[]>([]);
   const [codexReady, setCodexReady] = useState(false);
   const [deviceRegistered, setDeviceRegistered] = useState(false);
+  const [relayState, setRelayState] = useState('disconnected');
   const [codexError, setCodexError] = useState('');
 
   useEffect(() => {
@@ -70,11 +71,27 @@ export function App() {
   useEffect(() => {
     if (!session) return;
     void invoke('codex_start')
-      .then(() => setCodexReady(true))
+      .then(async () => {
+        setCodexReady(true);
+        const status = await invoke<RelayStatus>('collaboration_connect');
+        setDeviceRegistered(Boolean(status.device_id));
+        setRelayState(status.state);
+      })
       .catch((error) => setCodexError(errorMessage(error)));
-    void invoke<RegisteredDevice>('collaboration_register_device')
-      .then(() => setDeviceRegistered(true))
-      .catch((error) => setCodexError(errorMessage(error)));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setInterval(() => {
+      void invoke<RelayStatus>('collaboration_status').then((status) => {
+        setDeviceRegistered(Boolean(status.device_id));
+        setRelayState(status.state);
+        if (status.last_error && status.state !== 'connected') {
+          setCodexError(errorMessage(status.last_error));
+        }
+      });
+    }, 2000);
+    return () => window.clearInterval(timer);
   }, [session]);
 
   async function refreshThreads(searchTerm = '') {
@@ -119,8 +136,8 @@ export function App() {
           <small>{siteHost(session.site_url)}</small>
         </div>
         <div className="sidebar-status">
-          <span className={codexReady ? 'status-dot' : 'status-dot muted'} />
-          {codexReady ? 'Codex 已就绪' : '正在连接 Codex'}
+          <span className={relayState === 'connected' ? 'status-dot' : 'status-dot muted'} />
+          {relayState === 'connected' ? '协同已连接' : codexReady ? '协同连接中' : '正在连接 Codex'}
         </div>
       </aside>
       <main className="content">
@@ -130,6 +147,7 @@ export function App() {
           threads,
           codexReady,
           deviceRegistered,
+          relayState,
           codexError,
           refreshThreads,
           onLogout: () => setSession(null),
@@ -158,6 +176,7 @@ function renderSection(props: {
   threads: CodexThread[];
   codexReady: boolean;
   deviceRegistered: boolean;
+  relayState: string;
   codexError: string;
   refreshThreads: (searchTerm?: string) => Promise<void>;
   onLogout: () => void;
@@ -168,9 +187,9 @@ function renderSection(props: {
     case 'tasks':
       return <Tasks />;
     case 'settings':
-      return <Settings session={props.session} codexReady={props.codexReady} deviceRegistered={props.deviceRegistered} onLogout={props.onLogout} />;
+      return <Settings session={props.session} codexReady={props.codexReady} deviceRegistered={props.deviceRegistered} relayState={props.relayState} onLogout={props.onLogout} />;
     default:
-      return <Overview threads={props.threads} codexReady={props.codexReady} deviceRegistered={props.deviceRegistered} error={props.codexError} onRefresh={props.refreshThreads} />;
+      return <Overview threads={props.threads} codexReady={props.codexReady} deviceRegistered={props.deviceRegistered} relayState={props.relayState} error={props.codexError} onRefresh={props.refreshThreads} />;
   }
 }
 
@@ -247,7 +266,7 @@ function LoadingScreen() {
   return <main className="auth-shell"><div className="loading-mark"><span className="brand-mark">C</span><span>正在恢复安全会话…</span></div></main>;
 }
 
-function Overview({threads, codexReady, deviceRegistered, error, onRefresh}: {threads: CodexThread[]; codexReady: boolean; deviceRegistered: boolean; error: string; onRefresh: () => Promise<void>}) {
+function Overview({threads, codexReady, deviceRegistered, relayState, error, onRefresh}: {threads: CodexThread[]; codexReady: boolean; deviceRegistered: boolean; relayState: string; error: string; onRefresh: () => Promise<void>}) {
   return (
     <>
       <PageHeader title="概览" description="保持电脑在线，即可从手机继续 Codex 会话。" />
@@ -260,7 +279,7 @@ function Overview({threads, codexReady, deviceRegistered, error, onRefresh}: {th
       <div className="metric-grid">
         <Metric label="已发现会话" value={String(threads.length)} />
         <Metric label="手机任务" value="0" />
-        <Metric label="设备状态" value={deviceRegistered ? '已注册' : '等待'} compact />
+        <Metric label="设备状态" value={relayState === 'connected' ? '在线' : deviceRegistered ? '已注册' : '等待'} compact />
       </div>
       <section className="panel empty-panel"><span className="event-icon">✓</span><div><strong>无需电脑确认</strong><p>手机发送任务后将直接转交所选 Codex 会话。</p></div></section>
     </>
@@ -295,7 +314,7 @@ function Tasks() {
   );
 }
 
-function Settings({session, codexReady, deviceRegistered, onLogout}: {session: PublicSession; codexReady: boolean; deviceRegistered: boolean; onLogout: () => void}) {
+function Settings({session, codexReady, deviceRegistered, relayState, onLogout}: {session: PublicSession; codexReady: boolean; deviceRegistered: boolean; relayState: string; onLogout: () => void}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function logout() {
@@ -320,7 +339,7 @@ function Settings({session, codexReady, deviceRegistered, onLogout}: {session: P
         <Setting label="登录账号" value={maskEmail(session.email)} />
         <Setting label="账号角色" value={session.role === 'admin' ? '管理员' : '用户'} />
         <Setting label="Codex CLI" value={codexReady ? '已发现' : '未连接'} />
-        <Setting label="协同设备" value={deviceRegistered ? '已注册' : '未注册'} />
+        <Setting label="协同设备" value={relayState === 'connected' ? '在线' : deviceRegistered ? '已注册' : '未注册'} />
         <Setting label="同步隐私" value="路径脱敏" />
         <Setting label="本机安全策略" value="非交互 · 不扩大权限" />
       </section>
@@ -388,6 +407,10 @@ function errorMessage(reason: unknown) {
     COLLAB_UNAUTHORIZED: '登录已过期，请重新登录。',
     COLLAB_FORBIDDEN: '当前账号无法注册协同设备。',
     COLLAB_NETWORK_ERROR: '无法连接协同服务，请检查网络。',
+    COLLAB_CONNECT_FAILED: '协同连接失败，正在自动重试。',
+    COLLAB_DISCONNECTED: '协同连接已断开，正在自动重试。',
+    COLLAB_DEVICE_REVOKED: '这台设备已被撤销，请重新登录注册。',
+    COLLAB_PROTOCOL_ERROR: '协同协议不兼容，请升级应用。',
     COLLAB_INSTALLATION_ID_CORRUPT: '本机安装身份损坏，请重新安装或清理系统凭据。',
     CODEX_NOT_FOUND: '未找到 Codex CLI，请先安装并确保命令可用。',
     CODEX_INCOMPATIBLE: '当前 Codex CLI 版本不兼容，请升级后重试。',

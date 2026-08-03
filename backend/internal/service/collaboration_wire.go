@@ -10,12 +10,14 @@ func ProvideCollaborationService(
 	cfg *config.Config,
 	billingCache *BillingCacheService,
 	authCache APIKeyAuthCacheInvalidator,
+	presence collaborationservice.PresenceStore,
 ) (*collaborationservice.Service, error) {
 	service, err := collaborationservice.NewService(repository, cfg.Collaboration)
 	if err != nil {
 		return nil, err
 	}
 	service.SetChargeCacheInvalidators(billingCache, authCache)
+	service.SetPresenceStore(presence)
 	return service, nil
 }
 

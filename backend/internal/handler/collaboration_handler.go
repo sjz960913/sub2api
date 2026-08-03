@@ -151,12 +151,12 @@ func (h *CollaborationHandler) RevokeDevice(c *gin.Context) {
 	if !ok {
 		return
 	}
-	device, err := h.service.RevokeDevice(c.Request.Context(), subject.UserID, deviceID)
+	_, err := h.service.RevokeDevice(c.Request.Context(), subject.UserID, deviceID)
 	if err != nil {
 		writeCollaborationError(c, err)
 		return
 	}
-	response.Success(c, gin.H{"device_id": device.ID, "status": device.Status})
+	c.Status(http.StatusNoContent)
 }
 
 func collaborationDeviceRequestContext(c *gin.Context) (servermiddleware.AuthSubject, uuid.UUID, bool) {

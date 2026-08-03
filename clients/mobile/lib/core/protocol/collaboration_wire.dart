@@ -1,4 +1,4 @@
-// GENERATED FILE. Source digest: aaf4bdd8430cbee8
+// GENERATED FILE. Source digest: 3d0a26f5d2232072
 // Run: node protocol/scripts/generate.mjs
 
 class CollaborationHealth {

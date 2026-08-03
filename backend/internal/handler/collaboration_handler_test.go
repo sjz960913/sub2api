@@ -38,6 +38,14 @@ func (r *collaborationHandlerRepositoryStub) RevokeDevice(context.Context, int64
 	return collaborationservice.Device{}, nil
 }
 
+func (r *collaborationHandlerRepositoryStub) GetDevice(context.Context, int64, uuid.UUID) (collaborationservice.Device, error) {
+	return collaborationservice.Device{}, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) UpdateDevicePresence(context.Context, int64, uuid.UUID, collaborationdomain.DeviceStatus, time.Time) error {
+	return nil
+}
+
 func (r *collaborationHandlerRepositoryStub) CreateCommandAndCharge(context.Context, collaborationservice.CreateCommandInput) (collaborationservice.CreateCommandResult, error) {
 	return collaborationservice.CreateCommandResult{}, nil
 }

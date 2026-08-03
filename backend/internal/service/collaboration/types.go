@@ -46,6 +46,15 @@ type Device struct {
 	UpdatedAt          time.Time
 }
 
+type DevicePresence struct {
+	DeviceID          uuid.UUID
+	UserID            int64
+	Status            collabdomain.DeviceStatus
+	AppServerStatus   string
+	ActiveThreadCount int
+	LastSeenAt        time.Time
+}
+
 type RegisterDeviceInput struct {
 	InstallationIDHash string
 	Name               string
@@ -118,8 +127,16 @@ type Repository interface {
 	ListDevices(context.Context, int64) ([]Device, error)
 	RenameDevice(context.Context, int64, uuid.UUID, string) (Device, error)
 	RevokeDevice(context.Context, int64, uuid.UUID) (Device, error)
+	GetDevice(context.Context, int64, uuid.UUID) (Device, error)
+	UpdateDevicePresence(context.Context, int64, uuid.UUID, collabdomain.DeviceStatus, time.Time) error
 	CreateCommandAndCharge(context.Context, CreateCommandInput) (CreateCommandResult, error)
 	ExpirePending(context.Context, time.Time) (SweepResult, error)
+}
+
+type PresenceStore interface {
+	Touch(context.Context, DevicePresence) error
+	GetMany(context.Context, []uuid.UUID) (map[uuid.UUID]DevicePresence, error)
+	Remove(context.Context, uuid.UUID) error
 }
 
 // BalanceCacheInvalidator removes the cached balance snapshot after a committed

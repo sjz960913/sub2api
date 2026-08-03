@@ -113,6 +113,54 @@ func (r *collaborationRepository) ListDevices(ctx context.Context, userID int64)
 	return devices, nil
 }
 
+func (r *collaborationRepository) GetDevice(
+	ctx context.Context,
+	userID int64,
+	deviceID uuid.UUID,
+) (collabservice.Device, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT
+			id, user_id, installation_id_hash, name, platform, platform_version,
+			companion_version, codex_version, protocol_version, status,
+			capabilities, last_seen_at, revoked_at, registered_at, created_at, updated_at
+		FROM collaboration_devices
+		WHERE user_id = $1 AND id = $2
+	`, userID, deviceID)
+	device, err := scanCollaborationDevice(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return collabservice.Device{}, collabservice.ErrNotFound
+	}
+	return device, err
+}
+
+func (r *collaborationRepository) UpdateDevicePresence(
+	ctx context.Context,
+	userID int64,
+	deviceID uuid.UUID,
+	status collabdomain.DeviceStatus,
+	seenAt time.Time,
+) error {
+	if status != collabdomain.DeviceStatusOffline && status != collabdomain.DeviceStatusOnline && status != collabdomain.DeviceStatusDegraded {
+		return collabservice.ErrInvariantViolation
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE collaboration_devices
+		SET status = $3, last_seen_at = $4, updated_at = $4
+		WHERE user_id = $1 AND id = $2 AND status <> 'revoked'
+	`, userID, deviceID, status, seenAt.UTC())
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return collabservice.ErrNotFound
+	}
+	return nil
+}
+
 func (r *collaborationRepository) RenameDevice(
 	ctx context.Context,
 	userID int64,

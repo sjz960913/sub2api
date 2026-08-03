@@ -13,6 +13,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	collabdomain "github.com/Wei-Shaw/sub2api/internal/domain/collaboration"
 	collabservice "github.com/Wei-Shaw/sub2api/internal/service/collaboration"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -145,6 +146,23 @@ func TestCollaborationDeviceQueriesAreUserScoped(t *testing.T) {
 	other := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
 	repository := NewCollaborationRepository(integrationDB)
 	device := registerCollaborationTestDevice(t, repository, owner.ID)
+	if _, err := repository.GetDevice(context.Background(), other.ID, device.ID); !errors.Is(err, collabservice.ErrNotFound) {
+		t.Fatalf("GetDevice() cross-user error = %v, want ErrNotFound", err)
+	}
+	if err := repository.UpdateDevicePresence(context.Background(), other.ID, device.ID, collabdomain.DeviceStatusOnline, time.Now()); !errors.Is(err, collabservice.ErrNotFound) {
+		t.Fatalf("UpdateDevicePresence() cross-user error = %v, want ErrNotFound", err)
+	}
+	seenAt := time.Now().UTC().Truncate(time.Microsecond)
+	if err := repository.UpdateDevicePresence(context.Background(), owner.ID, device.ID, collabdomain.DeviceStatusOnline, seenAt); err != nil {
+		t.Fatalf("UpdateDevicePresence() owner error = %v", err)
+	}
+	updatedDevice, err := repository.GetDevice(context.Background(), owner.ID, device.ID)
+	if err != nil {
+		t.Fatalf("GetDevice() owner error = %v", err)
+	}
+	if updatedDevice.Status != collabdomain.DeviceStatusOnline || updatedDevice.LastSeenAt == nil || !updatedDevice.LastSeenAt.Equal(seenAt) {
+		t.Fatalf("updated device = %#v", updatedDevice)
+	}
 
 	if _, err := repository.RenameDevice(context.Background(), other.ID, device.ID, "stolen"); !errors.Is(err, collabservice.ErrNotFound) {
 		t.Fatalf("RenameDevice() cross-user error = %v, want ErrNotFound", err)

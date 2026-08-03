@@ -119,6 +119,12 @@ jobs:
           npm run build
       - name: Check Tauri shell
         run: cargo check --manifest-path clients/codex-pc/src-tauri/Cargo.toml
+      - name: Preserve Cargo lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-pc-cargo-lock
+          path: clients/codex-pc/src-tauri/Cargo.lock
+          if-no-files-found: error
 
   mobile:
     runs-on: ubuntu-latest
@@ -135,6 +141,12 @@ jobs:
       - run: flutter gen-l10n
       - run: flutter analyze
       - run: flutter test
+      - name: Preserve Flutter lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-pubspec-lock
+          path: clients/mobile/pubspec.lock
+          if-no-files-found: error
 
   golangci-lint:
     runs-on: ubuntu-latest
@@ -149,11 +161,12 @@ jobs:
       - name: Verify Go version
         run: |
           go version | grep -q 'go1.26.5'
-      - name: Verify generated Ent client
+      - name: Verify generated Go sources
         working-directory: backend
         run: |
           go generate ./ent
-          git diff --exit-code -- ent
+          go run github.com/google/wire/cmd/wire@v0.7.0 ./cmd/server
+          git diff --exit-code -- ent cmd/server/wire_gen.go
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:

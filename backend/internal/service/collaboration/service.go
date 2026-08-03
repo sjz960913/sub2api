@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	collabdomain "github.com/Wei-Shaw/sub2api/internal/domain/collaboration"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -33,7 +34,12 @@ type Service struct {
 	maxPromptBytes  int
 	balanceCache    BalanceCacheInvalidator
 	authCache       AuthCacheInvalidator
+	presence        PresenceStore
 	now             func() time.Time
+}
+
+func (s *Service) SetPresenceStore(presence PresenceStore) {
+	s.presence = presence
 }
 
 func NewService(repository Repository, cfg config.CollaborationConfig) (*Service, error) {
@@ -112,7 +118,33 @@ func (s *Service) ListDevices(ctx context.Context, userID int64) ([]Device, erro
 	if userID <= 0 {
 		return nil, ErrInvalidArgument
 	}
-	return s.repository.ListDevices(ctx, userID)
+	devices, err := s.repository.ListDevices(ctx, userID)
+	if err != nil || s.presence == nil || len(devices) == 0 {
+		return devices, err
+	}
+	deviceIDs := make([]uuid.UUID, 0, len(devices))
+	for _, device := range devices {
+		deviceIDs = append(deviceIDs, device.ID)
+	}
+	presenceByDevice, presenceErr := s.presence.GetMany(ctx, deviceIDs)
+	if presenceErr != nil {
+		slog.Warn("read collaboration presence failed", "user_id", userID, "error", presenceErr)
+		for index := range devices {
+			devices[index].Status = collabdomain.DeviceStatusOffline
+		}
+		return devices, nil
+	}
+	for index := range devices {
+		presence, online := presenceByDevice[devices[index].ID]
+		if !online || presence.UserID != userID {
+			devices[index].Status = collabdomain.DeviceStatusOffline
+			continue
+		}
+		devices[index].Status = presence.Status
+		lastSeenAt := presence.LastSeenAt
+		devices[index].LastSeenAt = &lastSeenAt
+	}
+	return devices, nil
 }
 
 func (s *Service) RenameDevice(
@@ -136,7 +168,86 @@ func (s *Service) RevokeDevice(
 	if userID <= 0 || deviceID == uuid.Nil {
 		return Device{}, ErrInvalidArgument
 	}
-	return s.repository.RevokeDevice(ctx, userID, deviceID)
+	device, err := s.repository.RevokeDevice(ctx, userID, deviceID)
+	if err == nil && s.presence != nil {
+		if removeErr := s.presence.Remove(ctx, deviceID); removeErr != nil {
+			slog.Warn("remove revoked collaboration presence failed", "device_id", deviceID, "error", removeErr)
+		}
+	}
+	return device, err
+}
+
+func (s *Service) AuthenticateDevice(ctx context.Context, userID int64, deviceID uuid.UUID) (Device, error) {
+	if userID <= 0 || deviceID == uuid.Nil {
+		return Device{}, ErrInvalidArgument
+	}
+	device, err := s.repository.GetDevice(ctx, userID, deviceID)
+	if err != nil {
+		return Device{}, err
+	}
+	if device.Status == collabdomain.DeviceStatusRevoked {
+		return Device{}, ErrDeviceRevoked
+	}
+	if device.ProtocolVersion != s.protocolVersion {
+		return Device{}, ErrProtocolMismatch
+	}
+	return device, nil
+}
+
+func (s *Service) RecordHeartbeat(
+	ctx context.Context,
+	userID int64,
+	deviceID uuid.UUID,
+	appServerStatus string,
+	activeThreadCount int,
+) (DevicePresence, error) {
+	appServerStatus = strings.ToLower(strings.TrimSpace(appServerStatus))
+	if userID <= 0 || deviceID == uuid.Nil || activeThreadCount < 0 || activeThreadCount > 10000 {
+		return DevicePresence{}, ErrInvalidArgument
+	}
+	if appServerStatus != "ready" && appServerStatus != "starting" && appServerStatus != "unavailable" {
+		return DevicePresence{}, ErrInvalidArgument
+	}
+	if _, err := s.AuthenticateDevice(ctx, userID, deviceID); err != nil {
+		return DevicePresence{}, err
+	}
+	status := collabdomain.DeviceStatusDegraded
+	if appServerStatus == "ready" {
+		status = collabdomain.DeviceStatusOnline
+	}
+	now := s.now().UTC()
+	if err := s.repository.UpdateDevicePresence(ctx, userID, deviceID, status, now); err != nil {
+		return DevicePresence{}, err
+	}
+	presence := DevicePresence{
+		DeviceID:          deviceID,
+		UserID:            userID,
+		Status:            status,
+		AppServerStatus:   appServerStatus,
+		ActiveThreadCount: activeThreadCount,
+		LastSeenAt:        now,
+	}
+	if s.presence != nil {
+		if err := s.presence.Touch(ctx, presence); err != nil {
+			return DevicePresence{}, err
+		}
+	}
+	return presence, nil
+}
+
+func (s *Service) RecordDisconnect(ctx context.Context, userID int64, deviceID uuid.UUID) {
+	if userID <= 0 || deviceID == uuid.Nil {
+		return
+	}
+	now := s.now().UTC()
+	if s.presence != nil {
+		if err := s.presence.Remove(ctx, deviceID); err != nil {
+			slog.Warn("remove disconnected collaboration presence failed", "device_id", deviceID, "error", err)
+		}
+	}
+	if err := s.repository.UpdateDevicePresence(ctx, userID, deviceID, collabdomain.DeviceStatusOffline, now); err != nil {
+		slog.Warn("mark collaboration device offline failed", "device_id", deviceID, "error", err)
+	}
 }
 
 type SubmitCommandInput struct {

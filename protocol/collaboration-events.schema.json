@@ -10,11 +10,11 @@
     "type": {
       "type": "string",
       "enum": [
-        "heartbeat", "heartbeat.ack",
+        "device.hello", "heartbeat", "heartbeat.ack",
         "session_sync.requested", "session_sync.completed", "session_sync.failed",
         "thread_sync.requested", "thread_sync.completed", "thread_sync.failed",
-        "command.dispatched", "command.received", "command.started", "command.item", "command.completed", "command.failed", "command.cancelled",
-        "device.presence_changed", "announcement.invalidated"
+        "command.dispatched", "command.received", "command.started", "command.item", "command.completed", "command.failed", "command.cancel_requested",
+        "device.presence_changed", "announcement.invalidated", "server.shutdown"
       ]
     },
     "event_id": {"type": "string", "minLength": 8, "maxLength": 80},

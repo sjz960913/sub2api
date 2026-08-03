@@ -109,6 +109,7 @@ type CollaborationConfig struct {
 	Enabled                  bool   `mapstructure:"enabled"`
 	ProtocolVersion          int    `mapstructure:"protocol_version"`
 	HeartbeatIntervalSeconds int    `mapstructure:"heartbeat_interval_seconds"`
+	PresenceTTLSeconds       int    `mapstructure:"presence_ttl_seconds"`
 	TaskFeeAmount            string `mapstructure:"task_fee_amount"`
 	TaskFeeCurrency          string `mapstructure:"task_fee_currency"`
 	CommandTTLSeconds        int    `mapstructure:"command_ttl_seconds"`
@@ -1870,6 +1871,7 @@ func setDefaults() {
 	viper.SetDefault("collaboration.enabled", false)
 	viper.SetDefault("collaboration.protocol_version", 1)
 	viper.SetDefault("collaboration.heartbeat_interval_seconds", 20)
+	viper.SetDefault("collaboration.presence_ttl_seconds", 45)
 	viper.SetDefault("collaboration.task_fee_amount", "0.100000")
 	viper.SetDefault("collaboration.task_fee_currency", "USD")
 	viper.SetDefault("collaboration.command_ttl_seconds", 300)

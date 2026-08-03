@@ -380,21 +380,21 @@ Access Token 失效：服务端以 close code `4401` 关闭；客户端通过 HT
 应用层心跳用于 presence，不能只依赖 TCP ping：
 
 ```json
-{ "v": 1, "type": "device.heartbeat", "event_id": "...", "payload": {
+{ "v": 1, "type": "heartbeat", "event_id": "...", "payload": {
   "device_id": "5d3...",
   "app_server_status": "ready",
   "active_thread_count": 1
 } }
 ```
 
-建议 20 秒一次，45 秒 TTL。服务端回 `server.heartbeat_ack` 并带 server time。
+建议 20 秒一次，45 秒 TTL。服务端回 `heartbeat.ack` 并带 server time。
 
 ### 4.4 Server → PC
 
 | Event | 关键 payload | 说明 |
 |---|---|---|
-| `session.list.requested` | sync_id + filters | 请求 thread/list |
-| `thread.sync.requested` | sync_id + thread_id + cursor | 请求历史增量 |
+| `session_sync.requested` | sync_id + filters | 请求 thread/list |
+| `thread_sync.requested` | sync_id + thread_id + cursor | 请求历史增量 |
 | `command.dispatched` | command_id + thread_id + input + expires_at | 下发后台已接收任务 |
 | `command.cancel_requested` | command_id + optional turn_id | 取消/打断 |
 | `server.shutdown` | retry_after_seconds | 优雅迁移连接 |
@@ -406,14 +406,14 @@ PC 收到 command 后，先发送 `command.received`，再进行 thread 校验�
 | Event | 关键 payload | 说明 |
 |---|---|---|
 | `device.hello` | 版本、capabilities | 建连声明 |
-| `device.heartbeat` | 状态 | presence |
-| `session.list.snapshot` | sync_id + items + cursor | 会话列表结果 |
-| `thread.sync.snapshot` | sync_id + normalized items | 历史结果 |
+| `heartbeat` | 状态 | presence |
+| `session_sync.completed` | sync_id + items + cursor | 会话列表结果 |
+| `thread_sync.completed` | sync_id + normalized items | 历史结果 |
 | `command.received` | command_id | 传输 ACK |
 | `command.started` | command_id + turn_id | turn 已启动 |
-| `command.failed_to_start` | command_id + error_code | 标记任务失败，不退款 |
-| `codex.item.event` | command_id/thread/turn/item | 流式 item |
-| `codex.turn.completed` | command_id + status | terminal result |
+| `command.failed` | command_id + error_code | 标记任务失败，不退款 |
+| `command.item` | command_id/thread/turn/item | 流式 item |
+| `command.completed` | command_id + status | terminal result |
 
 服务端必须验证事件对应资源属于该 WS 的 device/user，且状态转换合法；错误或重放事件只记审计，不重复扣费。
 
@@ -421,12 +421,11 @@ PC 收到 command 后，先发送 `command.received`，再进行 thread 校验�
 
 | Event | 用途 |
 |---|---|
-| `device.status_changed` | 在线/离线/degraded |
-| `session.list.updated` | session sync 完成，App 随后 GET 结果 |
-| `thread.sync.updated` | thread sync 完成 |
-| `command.status_changed` | accepted/dispatched/started/completed/failed |
-| `codex.item.event` | 当前订阅 thread 的流式 UI |
-| `codex.turn.completed` | turn 收尾 |
+| `device.presence_changed` | 在线/离线/degraded |
+| `session_sync.completed` / `session_sync.failed` | session sync 更新，App 随后 GET 结果 |
+| `thread_sync.completed` / `thread_sync.failed` | thread sync 更新 |
+| `command.received` / `command.started` / `command.completed` / `command.failed` | 任务业务状态 |
+| `command.item` | 当前订阅 thread 的流式 UI |
 | `announcement.invalidated` | 可选，提示重新拉公告；不传完整公告 |
 
 移动端重连后不能假定所有流式 delta 都可重放；应 GET command 状态并主动发 thread sync 补齐最终消息。

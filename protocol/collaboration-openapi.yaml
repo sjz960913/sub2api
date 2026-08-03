@@ -146,11 +146,11 @@
         "required": ["installation_id_hash", "name", "platform", "companion_version", "protocol_version", "capabilities"],
         "properties": {
           "installation_id_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
-          "name": {"type": "string", "minLength": 1, "maxLength": 80},
+          "name": {"type": "string", "minLength": 1, "maxLength": 100},
           "platform": {"type": "string", "enum": ["linux", "windows", "macos"]},
-          "platform_version": {"type": "string", "maxLength": 120},
-          "companion_version": {"type": "string", "minLength": 1, "maxLength": 40},
-          "codex_version": {"type": "string", "maxLength": 80},
+          "platform_version": {"type": "string", "maxLength": 128},
+          "companion_version": {"type": "string", "minLength": 1, "maxLength": 64},
+          "codex_version": {"type": "string", "maxLength": 64},
           "protocol_version": {"type": "integer", "const": 1},
           "capabilities": {"$ref": "#/components/schemas/DeviceCapabilities"}
         }
@@ -172,12 +172,12 @@
           "id": {"type": "string", "format": "uuid"}, "name": {"type": "string"},
           "platform": {"type": "string", "enum": ["linux", "windows", "macos"]},
           "companion_version": {"type": "string"}, "codex_version": {"type": "string"},
-          "status": {"type": "string", "enum": ["online", "offline"]},
+          "status": {"type": "string", "enum": ["online", "offline", "degraded"]},
           "last_seen_at": {"type": ["string", "null"], "format": "date-time"},
           "capabilities": {"$ref": "#/components/schemas/DeviceCapabilities"}
         }
       },
-      "RenameDeviceRequest": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 80}}},
+      "RenameDeviceRequest": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 100}}},
       "DeviceEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/Device"}}}]},
       "DeviceList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Device"}}}},
       "DeviceListEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/DeviceList"}}}]},
@@ -239,7 +239,7 @@
         "properties": {"sync_id": {"type": "string", "format": "uuid"}, "status": {"$ref": "#/components/schemas/SyncStatus"}, "thread": {"$ref": "#/components/schemas/ThreadSummary"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/ThreadItem"}}, "next_cursor": {"type": ["string", "null"]}, "error": {"$ref": "#/components/schemas/ErrorSummary"}}
       },
       "ThreadSyncEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/ThreadSync"}}}]},
-      "SyncStatus": {"type": "string", "enum": ["pending", "dispatched", "completed", "failed", "expired"]},
+      "SyncStatus": {"type": "string", "enum": ["pending", "running", "completed", "failed", "expired"]},
       "CreateCommandRequest": {
         "type": "object", "additionalProperties": false, "required": ["device_id", "thread_id", "input"],
         "properties": {
@@ -254,7 +254,7 @@
         "type": "object", "required": ["command_id", "status", "created_at"],
         "properties": {
           "command_id": {"type": "string", "format": "uuid"},
-          "status": {"type": "string", "enum": ["accepted", "dispatched", "started", "completed", "failed", "cancelled", "expired"]},
+          "status": {"type": "string", "enum": ["accepted", "dispatched", "started", "completed", "failed", "expired"]},
           "turn_id": {"type": ["string", "null"]}, "error": {"$ref": "#/components/schemas/ErrorSummary"},
           "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": ["string", "null"], "format": "date-time"}
         }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sub2api_mobile/app/app.dart';
 import 'package:sub2api_mobile/app/router.dart';
+import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dart';
+import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
 
 void main() {
   testWidgets('main shell exposes exactly the four product tabs', (tester) async {
@@ -30,5 +32,60 @@ void main() {
 
     expect(find.text('管理控制台'), findsNothing);
     expect(find.text('我的'), findsWidgets);
+  });
+
+  testWidgets('selected key is shared by key catalog and chat', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+    );
+    await tester.pumpAndSettle();
+
+    container.read(apiKeyCatalogProvider.notifier).selectForChat('image-lab');
+    await tester.pump();
+
+    expect(container.read(selectedChatKeyProvider)?.name, 'Image Lab');
+    expect(find.text('Image Lab'), findsOneWidget);
+    expect(find.textContaining('OpenAI 图片'), findsOneWidget);
+  });
+
+  testWidgets('collaboration stays minimal and reveals sessions on query', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+    );
+    await tester.pumpAndSettle();
+
+    container.read(appRouterProvider).go('/app/collab');
+    await tester.pumpAndSettle();
+
+    expect(find.text('查询电脑会话'), findsOneWidget);
+    expect(find.text('修复支付回调'), findsNothing);
+    await tester.tap(find.text('查询电脑会话'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('修复支付回调'), findsOneWidget);
+    expect(find.textContaining('审批'), findsNothing);
+    expect(find.textContaining('退款'), findsNothing);
+  });
+
+  testWidgets('profile exposes redeem recharge and announcement entries', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+    );
+    await tester.pumpAndSettle();
+
+    container.read(appRouterProvider).go('/app/profile');
+    await tester.pumpAndSettle();
+
+    expect(rechargeUri, 'https://pay.ldxp.cn/shop/codecodeai');
+    expect(find.text('兑换'), findsOneWidget);
+    expect(find.text('充值'), findsOneWidget);
+    expect(find.text('公告'), findsOneWidget);
+    expect(find.textContaining('0.10'), findsNothing);
   });
 }

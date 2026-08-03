@@ -7,7 +7,9 @@ import '../features/admin_placeholder/presentation/admin_placeholder_page.dart';
 import '../features/api_keys/presentation/api_keys_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/chat/presentation/chat_page.dart';
+import '../features/chat/presentation/chat_thread_page.dart';
 import '../features/codex_sessions/presentation/collaboration_page.dart';
+import '../features/codex_sessions/presentation/collaboration_thread_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/site/presentation/site_setup_page.dart';
 import 'shell/app_shell.dart';
@@ -32,13 +34,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _, shell) => AppShell(navigationShell: shell),
         branches: [
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/chat', builder: (_, _) => const ChatPage())],
+            routes: [
+              GoRoute(
+                path: '/app/chat',
+                builder: (_, _) => const ChatPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (_, _) => const ChatThreadPage(conversationId: 'new'),
+                  ),
+                  GoRoute(
+                    path: ':conversation_id',
+                    builder: (_, state) => ChatThreadPage(
+                      conversationId: state.pathParameters['conversation_id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/app/collab',
                 builder: (_, _) => const CollaborationPage(),
+                routes: [
+                  GoRoute(
+                    path: 'thread/:session_id',
+                    builder: (_, state) => CollaborationThreadPage(
+                      sessionId: state.pathParameters['session_id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

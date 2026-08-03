@@ -23,39 +23,39 @@ class AppShell extends StatelessWidget {
               BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6)),
             ],
           ),
-          child: NavigationBar(
-            height: 72,
-            backgroundColor: Colors.transparent,
-            indicatorColor: Colors.transparent,
-            selectedIndex: navigationShell.currentIndex,
-            onDestinationSelected: (index) {
-              navigationShell.goBranch(
-                index,
-                initialLocation: index == navigationShell.currentIndex,
-              );
-            },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline_rounded),
-                selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: '聊天',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.group_outlined),
-                selectedIcon: Icon(Icons.group_rounded),
-                label: '协同',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.key_outlined),
-                selectedIcon: Icon(Icons.key_rounded),
-                label: '秘钥',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-                label: '我的',
-              ),
-            ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: NavigationBar(
+              selectedIndex: navigationShell.currentIndex,
+              onDestinationSelected: (index) {
+                navigationShell.goBranch(
+                  index,
+                  initialLocation: index == navigationShell.currentIndex,
+                );
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline_rounded),
+                  selectedIcon: Icon(Icons.chat_bubble_rounded),
+                  label: '聊天',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.group_outlined),
+                  selectedIcon: Icon(Icons.group_rounded),
+                  label: '协同',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.key_outlined),
+                  selectedIcon: Icon(Icons.key_rounded),
+                  label: '秘钥',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: '我的',
+                ),
+              ],
+            ),
           ),
         ),
       ),

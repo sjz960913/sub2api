@@ -66,5 +66,25 @@ ThemeData buildSub2ApiTheme() {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 72,
+      backgroundColor: Colors.transparent,
+      indicatorColor: Colors.transparent,
+      elevation: 0,
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return TextStyle(
+          color: selected ? AppColors.primary : AppColors.muted,
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        return IconThemeData(
+          color: states.contains(WidgetState.selected) ? AppColors.primary : AppColors.muted,
+          size: 25,
+        );
+      }),
+    ),
   );
 }

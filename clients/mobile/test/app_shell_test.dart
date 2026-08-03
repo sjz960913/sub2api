@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sub2api_mobile/app/app.dart';
 import 'package:sub2api_mobile/app/router.dart';
 import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dart';
+import 'package:sub2api_mobile/features/api_keys/domain/api_key_summary.dart';
 import 'package:sub2api_mobile/features/auth/application/session_controller.dart';
 import 'package:sub2api_mobile/features/auth/domain/panel_session.dart';
 import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
@@ -19,11 +20,41 @@ const _authenticatedSession = SessionState(
   ),
 );
 
+const _previewKeys = [
+  ApiKeySummary(
+    id: 'mobile-chat',
+    name: 'Mobile Chat',
+    secretKey: 'sk-test-mobile-chat',
+    maskedKey: 'sk-••••8H2Q',
+    group: 'OpenAI 默认',
+    availableGroups: ['OpenAI 默认', 'OpenAI 图片'],
+    groupIdsByName: {'OpenAI 默认': '1', 'OpenAI 图片': '2'},
+    imageGroups: {'OpenAI 图片'},
+    monthlyUsage: r'$3.26',
+    isSelected: true,
+  ),
+  ApiKeySummary(
+    id: 'image-lab',
+    name: 'Image Lab',
+    secretKey: 'sk-test-image-lab',
+    maskedKey: 'sk-••••1K9M',
+    group: 'OpenAI 图片',
+    availableGroups: ['OpenAI 默认', 'OpenAI 图片'],
+    groupIdsByName: {'OpenAI 默认': '1', 'OpenAI 图片': '2'},
+    imageGroups: {'OpenAI 图片'},
+    monthlyUsage: r'$1.08',
+    isSelected: false,
+  ),
+];
+
 void main() {
   testWidgets('main shell exposes exactly the four product tabs', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+        overrides: [
+          initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+          apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+        ],
         child: const Sub2ApiApp(),
       ),
     );
@@ -41,7 +72,10 @@ void main() {
 
   testWidgets('ordinary user cannot deep-link into admin routes', (tester) async {
     final container = ProviderContainer(
-      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const Sub2ApiApp()));
@@ -56,7 +90,10 @@ void main() {
 
   testWidgets('selected key is shared by key catalog and chat', (tester) async {
     final container = ProviderContainer(
-      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -74,7 +111,10 @@ void main() {
 
   testWidgets('collaboration stays minimal and reveals sessions on query', (tester) async {
     final container = ProviderContainer(
-      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -97,7 +137,10 @@ void main() {
 
   testWidgets('profile exposes redeem recharge and announcement entries', (tester) async {
     final container = ProviderContainer(
-      overrides: [initialSessionStateProvider.overrideWithValue(_authenticatedSession)],
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(

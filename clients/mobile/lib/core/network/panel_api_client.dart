@@ -213,13 +213,15 @@ class PanelApiClient {
     if (authenticated && _accessToken == null) {
       throw const PanelApiException('PANEL_SESSION_NOT_FOUND');
     }
-    final endpoint = Uri.parse(site).resolve('api/v1/${path.replaceFirst(RegExp(r'^/+'), '')}');
+    var endpoint = Uri.parse(site).resolve('api/v1/${path.replaceFirst(RegExp(r'^/+'), '')}');
+    if (query != null && query.isNotEmpty) {
+      endpoint = endpoint.replace(queryParameters: query);
+    }
     Response<dynamic> response;
     try {
       response = await _dio.requestUri<dynamic>(
         endpoint,
         data: data,
-        queryParameters: query,
         options: Options(
           method: method,
           headers: {

@@ -4,23 +4,57 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../application/api_key_catalog.dart';
+import '../domain/api_key_summary.dart';
 
 class ApiKeysPage extends ConsumerWidget {
   const ApiKeysPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final keys = ref.watch(apiKeyCatalogProvider);
+    final catalog = ref.watch(apiKeyCatalogProvider);
+    final keys = catalog.keys;
     return PageFrame(
       title: '秘钥',
       child: Column(
         children: [
+          if (catalog.isLoading && keys.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: CircularProgressIndicator(),
+            )
+          else if (catalog.errorCode != null && keys.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  const Text('无法加载秘钥，请检查网络后重试'),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => ref.read(apiKeyCatalogProvider.notifier).load(force: true),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重试'),
+                  ),
+                ],
+              ),
+            )
+          else if (keys.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Text('当前账号没有可用秘钥'),
+            ),
           for (var index = 0; index < keys.length; index++) ...[
             _ApiKeyCard(
               key: ValueKey(keys[index].id),
               apiKey: keys[index],
-              onGroupChanged: (group) {
-                ref.read(apiKeyCatalogProvider.notifier).updateGroup(keys[index].id, group);
+              onGroupChanged: (group) async {
+                final changed = await ref
+                    .read(apiKeyCatalogProvider.notifier)
+                    .updateGroup(keys[index].id, group);
+                if (!changed && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('分组切换失败，请稍后重试')),
+                  );
+                }
               },
               onSelect: () {
                 ref.read(apiKeyCatalogProvider.notifier).selectForChat(keys[index].id);
@@ -106,6 +140,7 @@ class _ApiKeyCard extends StatelessWidget {
             DropdownButtonFormField<String>(
               key: ValueKey('${apiKey.id}:${apiKey.group}'),
               initialValue: apiKey.group,
+              hint: const Text('请选择 OpenAI 分组'),
               items: apiKey.availableGroups
                   .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                   .toList(),
@@ -119,12 +154,14 @@ class _ApiKeyCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('本月用量', style: TextStyle(color: AppColors.muted)),
+                const Text('用量', style: TextStyle(color: AppColors.muted)),
                 Text(apiKey.monthlyUsage, style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: 16),
-            if (apiKey.isSelected)
+            if (apiKey.group == null)
+              const OutlinedButton(onPressed: null, child: Text('请先选择分组'))
+            else if (apiKey.isSelected)
               FilledButton.icon(
                 onPressed: null,
                 style: FilledButton.styleFrom(

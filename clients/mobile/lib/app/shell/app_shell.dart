@@ -20,32 +20,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(profileControllerProvider, (previous, next) {
-      if (_handledPopupAnnouncement) {
-        return;
-      }
-      final popup = _firstUnreadPopup(next.announcements);
-      if (popup == null) {
-        return;
-      }
-      _handledPopupAnnouncement = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) {
-          return;
-        }
-        await showDialog<void>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(popup.title),
-            content: SingleChildScrollView(child: SelectableText(popup.content)),
-            actions: [
-              FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
-            ],
-          ),
-        );
-        await ref.read(profileControllerProvider.notifier).markRead(popup.id);
-      });
-    }, fireImmediately: true);
+    _schedulePopup(ref.watch(profileControllerProvider));
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: SafeArea(
@@ -96,6 +71,35 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ),
     );
+  }
+
+  void _schedulePopup(ProfileState state) {
+    if (_handledPopupAnnouncement) {
+      return;
+    }
+    final popup = _firstUnreadPopup(state.announcements);
+    if (popup == null) {
+      return;
+    }
+    _handledPopupAnnouncement = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(popup.title),
+          content: SingleChildScrollView(child: SelectableText(popup.content)),
+          actions: [
+            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+          ],
+        ),
+      );
+      if (mounted) {
+        await ref.read(profileControllerProvider.notifier).markRead(popup.id);
+      }
+    });
   }
 }
 

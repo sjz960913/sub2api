@@ -26,34 +26,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/site/setup', builder: (_, __) => const SiteSetupPage()),
-      GoRoute(path: '/auth/login', builder: (_, __) => const LoginPage()),
+      GoRoute(path: '/site/setup', builder: (_, _) => const SiteSetupPage()),
+      GoRoute(path: '/auth/login', builder: (_, _) => const LoginPage()),
       StatefulShellRoute.indexedStack(
-        builder: (_, __, shell) => AppShell(navigationShell: shell),
+        builder: (_, _, shell) => AppShell(navigationShell: shell),
         branches: [
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/chat', builder: (_, __) => const ChatPage())],
+            routes: [GoRoute(path: '/app/chat', builder: (_, _) => const ChatPage())],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/app/collab',
-                builder: (_, __) => const CollaborationPage(),
+                builder: (_, _) => const CollaborationPage(),
               ),
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/keys', builder: (_, __) => const ApiKeysPage())],
+            routes: [GoRoute(path: '/app/keys', builder: (_, _) => const ApiKeysPage())],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/profile', builder: (_, __) => const ProfilePage())],
+            routes: [GoRoute(path: '/app/profile', builder: (_, _) => const ProfilePage())],
           ),
         ],
       ),
       GoRoute(
         path: '/admin/coming-soon',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const AdminPlaceholderPage(),
+        builder: (_, _) => const AdminPlaceholderPage(),
       ),
     ],
   );

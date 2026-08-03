@@ -106,10 +106,11 @@ function dartDecode(schema, access, forceNullable = false) {
   return `${access} as ${type}`;
 }
 
-function dartEncode(schema, field) {
-  if (schema.$ref && isObjectRef(schema)) return nullable(schema) ? `${field}?.toJson()` : `${field}.toJson()`;
+function dartEncode(schema, field, forceNullable = false) {
+  if (schema.$ref && isObjectRef(schema)) return nullable(schema) || forceNullable ? `${field}?.toJson()` : `${field}.toJson()`;
   if (baseType(schema) === 'array' && resolved(schema).items.$ref && isObjectRef(resolved(schema).items)) {
-    return `${field}.map((item) => item.toJson()).toList()`;
+    const call = `${field}${nullable(schema) || forceNullable ? '?' : ''}.map((item) => item.toJson()).toList()`;
+    return call;
   }
   return field;
 }
@@ -125,7 +126,7 @@ function generateDart() {
       return `    ${optional ? '' : 'required '}this.${lowerCamel(key)},`;
     }).join('\n');
     const decode = Object.entries(properties).map(([key, value]) => `      ${lowerCamel(key)}: ${dartDecode(value, `json['${key}']`, !required.has(key))},`).join('\n');
-    const encode = Object.entries(properties).map(([key, value]) => `      '${key}': ${dartEncode(value, lowerCamel(key))},`).join('\n');
+    const encode = Object.entries(properties).map(([key, value]) => `      '${key}': ${dartEncode(value, lowerCamel(key), !required.has(key))},`).join('\n');
     return `class ${name} {\n${fields}\n\n  const ${name}({\n${constructor}\n  });\n\n  factory ${name}.fromJson(Map<String, dynamic> json) => ${name}(\n${decode}\n  );\n\n  Map<String, dynamic> toJson() => {\n${encode}\n  };\n}`;
   });
   return `// GENERATED FILE. Source digest: ${digest}\n// Run: node protocol/scripts/generate.mjs\n\n${blocks.join('\n\n')}\n`;

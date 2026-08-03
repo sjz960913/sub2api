@@ -459,7 +459,7 @@ class ThreadItem {
       'role': role,
       'title': title,
       'summary': summary,
-      'content': content.map((item) => item.toJson()).toList(),
+      'content': content?.map((item) => item.toJson()).toList(),
       'status': status,
       'created_at': createdAt,
   };
@@ -494,7 +494,7 @@ class ThreadSync {
   Map<String, dynamic> toJson() => {
       'sync_id': syncId,
       'status': status,
-      'thread': thread.toJson(),
+      'thread': thread?.toJson(),
       'items': items.map((item) => item.toJson()).toList(),
       'next_cursor': nextCursor,
       'error': error?.toJson(),
@@ -525,7 +525,7 @@ class CreateCommandRequest {
       'device_id': deviceId,
       'thread_id': threadId,
       'input': input.map((item) => item.toJson()).toList(),
-      'client_context': clientContext.toJson(),
+      'client_context': clientContext?.toJson(),
   };
 }
 

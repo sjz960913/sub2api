@@ -81,20 +81,23 @@ Future<void> _showAnnouncements(BuildContext context) {
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (context) => const FractionallySizedBox(
+    builder: (context) => FractionallySizedBox(
       heightFactor: 0.72,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('公告', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-            SizedBox(height: 16),
-            SegmentedButton<String>(segments: [ButtonSegment(value: 'all', label: Text('全部')), ButtonSegment(value: 'unread', label: Text('未读'))], selected: {'all'}),
-            SizedBox(height: 16),
-            ListTile(title: Text('系统维护通知'), subtitle: Text('计划维护窗口与影响范围'), trailing: Icon(Icons.circle, size: 8, color: AppColors.primary)),
-            Divider(),
-            ListTile(title: Text('功能更新：支持文件上传'), subtitle: Text('聊天体验与稳定性更新'), trailing: Icon(Icons.circle, size: 8, color: AppColors.primary)),
+            const Text('公告', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            SegmentedButton<String>(
+              segments: const [ButtonSegment(value: 'all', label: Text('全部')), ButtonSegment(value: 'unread', label: Text('未读'))],
+              selected: const {'all'},
+            ),
+            const SizedBox(height: 16),
+            const ListTile(title: Text('系统维护通知'), subtitle: Text('计划维护窗口与影响范围'), trailing: Icon(Icons.circle, size: 8, color: AppColors.primary)),
+            const Divider(),
+            const ListTile(title: Text('功能更新：支持文件上传'), subtitle: Text('聊天体验与稳定性更新'), trailing: Icon(Icons.circle, size: 8, color: AppColors.primary)),
           ],
         ),
       ),

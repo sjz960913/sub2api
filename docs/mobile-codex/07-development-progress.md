@@ -11,11 +11,12 @@
 | M0 协议与三端骨架 | 已完成 | CI 已通过协议、Go、Flutter、PC Web 与 Tauri Rust 原生壳检查 |
 | M1 后端设备与账务 | 已完成 | CI run `30792876681` 的 unit、真实 PostgreSQL integration、lint 与生成检查全部通过 |
 | M2 实时中继 | 已完成 | presence、跨实例事件总线、JWT WebSocket、连接租约、短期 payload、sync/command 中继、限流、撤销断线、token 到期和 fake PC 跨实例流程均已通过 CI，并有进程内运行指标 |
-| M3 PC Codex Adapter | 进行中 | app-server stdio adapter、原生安全凭据库、Panel 登录/2FA/刷新恢复和真实会话查询已实现；后端 WebSocket relay 与完整 item 规范化仍待接入 |
-| M4 Flutter 认证与目录 | 部分提前实现 | 四项导航、共享 Key/分组选择、个人中心交互、admin 深链守卫和固定充值外链已写；真实 API/安全存储尚未接入 |
-| M5 聊天与图片 | 部分提前实现 | 聊天详情、共享当前 Key、消息输入和生图参数页已写；网关、流式响应与本地持久化尚未接入 |
-| M6 移动端协同 | 部分提前实现 | 极简查询、会话列表/详情、手动同步和任务输入已写；当前仍为界面数据，尚未接实时 API |
-| M7–M8 管理员/发布 | 未开始 | 只有管理员占位路由和 CI 初始任务 |
+| M3 PC Codex Adapter | 已完成 | app-server adapter、安全登录/设备注册、WebSocket relay、session/thread sync、command/cancel 和规范化 item 均已接入，Rust 检查与 20 项测试通过 |
+| M4 Flutter 认证与目录 | 已完成 | 真实站点登录/2FA/JWT 续期、安全存储、Key/OpenAI 分组、公告、兑换与个人资料均已接入 |
+| M5 聊天与图片 | 进行中 | 真实模型列表、SSE chat completions、停止生成与 images generations 已接入；本地历史持久化待完成 |
+| M6 移动端协同 | 进行中 | 真实设备/会话/消息同步、任务下发与手动同步已通；移动端 WebSocket 实时更新和恢复测试待完成 |
+| M7 管理员 | 按需预留 | 已有角色守卫、管理员专属入口与占位页，业务界面待后续需求 |
+| M8 打包发布 | 基础产物已完成 | Android debug APK、Linux Debian 和 Windows NSIS 安装包已实际产出；正式签名/macOS 公证待发布环境 |
 
 ## 已实现
 
@@ -62,13 +63,18 @@ node protocol/scripts/mock-smoke.mjs
 - 新增 `clients/mobile` Feature-First 工程源码、Material 3 主题、中文/英文 l10n 输入和 GoRouter 壳。
 - 底部导航严格为“聊天、协同、秘钥、我的”。
 - 已实现 UI 参考对应的聊天、协同、秘钥卡片和我的页面。
-- 秘钥卡片区分分组下拉与“当前聊天使用”单选。
-- 秘钥目录和聊天页改为读取同一 Riverpod 状态；切换 Key 或分组会同步更新聊天入口，不在 Widget State 中保存 Key 明文。
-- 新增普通聊天详情、消息输入、图片参数 Bottom Sheet，以及协同查询、搜索、会话详情、手动同步和任务输入界面。
-- “我的”包含兑换 Dialog、公告 Bottom Sheet、固定外部充值地址与管理员占位入口。
-- 公告列表支持全部/未读筛选；“我的”按参考图改为资料卡和分组菜单，充值仍只调用固定外部 HTTPS 地址。
+- 邮箱密码登录、TOTP 2FA、JWT + Refresh Token 轮换与启动恢复已接入；远程站点强制 HTTPS。
+- Access Token 仅在内存，Refresh Token 和站点使用 `flutter_secure_storage`；注销时同时清除内存中的 API Key。
+- 秘钥卡片读取真实 `/keys` 和 `/groups/available`，仅呈现可用 OpenAI 分组；展示名称、脱敏 Key、用量、分组下拉和“当前聊天使用”单选。
+- 秘钥目录和聊天页读取同一 Riverpod 状态；切换 Key 或分组会同步更新聊天入口，Key 明文不进入 Widget State 或持久化存储。
+- 聊天已接入选中 Key 对应的 `/v1/models`、`/v1/chat/completions` 和 `/v1/images/generations`；chat completions 使用 SSE 逐段渲染并可停止，只有允许图片的分组才开启生图入口。
+- 协同页已接入真实 PC 设备、session sync、thread sync 和 command 下发/状态查询；界面不展示费用、退款或 PC 审批。
+- command 首次请求遇到网络错误时只用同一幂等键自动重试，避免响应丢失导致重复任务或重复扣费。
+- “我的”已接入真实用户资料、兑换和公告；未读 `popup` 公告会弹窗并在关闭后标记已读，充值只打开固定地址 `https://pay.ldxp.cn/shop/codecodeai`。
 - 默认角色为普通用户，`/admin` 深链会重定向到“我的”；普通用户不渲染管理员入口。
-- Widget tests 已覆盖四项底栏、无费用/退款/审批文案、Key/分组联动、个人中心入口与固定充值外链；Flutter analyze/test 已在 CI 通过。
+- Widget tests 已覆盖四项底栏、无费用/退款/审批文案、Key/分组联动、个人中心入口、固定充值外链和公告弹窗。
+- 使用 imagegen 生成蓝白钥匙/终端启动图标并转为 Android 多密度资源；应用禁止系统备份，明文 HTTP 仅对 loopback 调试地址放行。
+- release 不再回退使用 debug key，只从专用环境变量读取正式签名；CI 实际构建 debug APK 并保留 7 天产物。
 
 ### PC Companion
 
@@ -79,9 +85,13 @@ node protocol/scripts/mock-smoke.mjs
 - 使用系统原生安全凭据库保存 Refresh Token：Windows Credential Manager、macOS Keychain、Linux Secret Service；账号标签使用站点+邮箱 SHA-256，不暴露原始身份，密码不持久化。
 - 新增原生 Panel 登录、TOTP 2FA、Refresh Token 轮换、进程内 Access Token、启动恢复和注销；远程站点强制 HTTPS，仅允许 loopback 使用 HTTP，HTTP redirect 被禁用，响应体上限为 1 MiB。
 - React 登录页和设置页已连接原生命令；登录成功后自动启动 app-server，会话“查询”读取真实 CLI thread，不再展示静态会话。
+- 登录后使用同一 Panel 身份注册 PC 设备，建立 collaboration WebSocket 并维持心跳/重连。
+- session sync 使用 app-server `thread/list`，thread sync 使用 `thread/read(includeTurns)` 并支持 `after_item_id` 增量截取与最近项兜底。
+- command 使用后端 command ID 作为 client message ID 启动 turn，转发规范化 item 和终态；cancel 映射到 `turn/interrupt`。
 - 面向前端的 session/status DTO 不包含 access/refresh token、密码或账务字段，原生错误只返回稳定错误码。
 - React/TypeScript 生产构建已通过：`vite v8.2.0`，18 modules transformed。
 - 使用内置 imagegen 生成 PC Companion 图标，转换为 Tauri 所需 RGBA PNG 后，Linux 原生 `cargo check` 已通过。
+- 已用 Tauri 官方工具生成 Linux PNG、Windows ICO/Appx 与 macOS ICNS 资源，CI 实际构建并保留 7 天 Debian 和 Windows NSIS 安装包。
 - `npm audit`：0 vulnerabilities。
 
 ## CI 证据与验证缺口
@@ -95,12 +105,17 @@ node protocol/scripts/mock-smoke.mjs
 - CI run `30799267889` 已通过 Redis command sliding-window limiter；run `30800107425` 已通过设备撤销跨实例主动断线；run `30800794592` 已通过 fake PC 跨实例完整协同流程；run `30801045629` 已通过 JWT 到期主动断线。
 - CI run `30802124650` 已通过协同运行指标，run `30802152905` 已通过 Codex app-server adapter 和 Rust 单测；run `30802317722` 已通过有界事件缓冲，run `30802567107` 已通过 command cancel 中继。
 - CI run `30802921268` 已通过原生 keyring 三平台依赖的 Linux Rust 构建与单测；run `30803405542` 已完整通过 Panel 登录、2FA、refresh/恢复与安全 DTO 实现。
+- CI run `30805578423` 已通过 PC relay `cargo check` 和 20 项 Rust 测试；run `30806296466` 已通过真实 Key/OpenAI 分组移动端实现，run `30806416651` 已通过公告/兑换实现。
+- CI run `30807013054` 已通过真实 OpenAI 聊天/生图与移动端 Codex 协同实现；run `30807431092` 已通过公告自动弹窗、Flutter analyze 和 Widget tests。
+- CI run `30807617598` 已通过移动端 SSE 流式聊天、停止生成与跨分片 SSE 解码测试；run `30808145172` 已通过 command 幂等网络重试测试。
+- CI run `30808447083` 已生成 `sub2api-codex-pc-deb` 产物（约 6.2 MB）；run `30808907588` 已生成 `sub2api-mobile-debug-apk` 产物（约 81.7 MB）并通过 Flutter analyze/test。
+- CI run `30809289492` 已再次通过 Android/Linux 打包，并首次生成 `sub2api-codex-pc-windows` NSIS 产物（约 3.6 MB）。
 - 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
 任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 完成 M3：PC 注册设备并连接 collaboration WebSocket，把 session/thread sync、command、cancel 与 app-server 双向映射。
-2. 把 Flutter 静态数据替换为真实站点认证、Key/分组、公告、兑换、聊天、图片与协同接口。
-3. 增加 PC 安装级身份、断线重连、token 到期刷新和 relay 恢复测试，再进入 Android 端到端联调。
+1. 为移动端聊天增加不含 API Key 的本地历史持久化、历史列表与清理策略。
+2. 为移动端协同增加 WebSocket 实时 item/终态更新、断线恢复和幂等端到端测试。
+3. 在安全的发布环境配置 Android/Windows 正式签名与 macOS 公证，完成真实设备联调。

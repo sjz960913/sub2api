@@ -107,6 +107,7 @@ void main() {
     expect(container.read(selectedChatKeyProvider)?.name, 'Image Lab');
     expect(find.text('Image Lab'), findsOneWidget);
     expect(find.textContaining('OpenAI 图片'), findsOneWidget);
+    expect(find.textContaining('sk-test'), findsNothing);
   });
 
   testWidgets('collaboration stays minimal and reveals sessions on query', (tester) async {

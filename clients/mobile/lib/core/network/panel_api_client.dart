@@ -264,6 +264,54 @@ class PanelApiClient {
     return envelope['data'];
   }
 
+  Future<dynamic> gatewayRequest(
+    String method,
+    String path, {
+    required String apiKey,
+    Object? data,
+  }) async {
+    final site = _siteUrl;
+    if (site == null) {
+      throw const PanelApiException('PANEL_SITE_NOT_CONFIGURED');
+    }
+    if (!_validToken(apiKey)) {
+      throw const PanelApiException('GATEWAY_INVALID_API_KEY');
+    }
+    final siteUri = Uri.parse(site);
+    final endpoint = siteUri.replace(
+      path: '/${path.replaceFirst(RegExp(r'^/+'), '')}',
+      query: null,
+      fragment: null,
+    );
+    Response<dynamic> response;
+    try {
+      response = await _dio.requestUri<dynamic>(
+        endpoint,
+        data: data,
+        options: Options(
+          method: method,
+          headers: {
+            'Accept-Language': 'zh-CN',
+            'Authorization': 'Bearer $apiKey',
+            'X-Sub2API-Client-Type': 'mobile',
+          },
+        ),
+      );
+    } on DioException {
+      throw const PanelApiException('GATEWAY_NETWORK_ERROR');
+    }
+    if (response.statusCode == 401) {
+      throw const PanelApiException('GATEWAY_UNAUTHORIZED');
+    }
+    if (response.statusCode == 429) {
+      throw const PanelApiException('GATEWAY_RATE_LIMITED');
+    }
+    if ((response.statusCode ?? 500) >= 400) {
+      throw const PanelApiException('GATEWAY_REQUEST_FAILED');
+    }
+    return response.data;
+  }
+
   Future<void> refreshAccessToken() {
     final active = _refreshOperation;
     if (active != null) {

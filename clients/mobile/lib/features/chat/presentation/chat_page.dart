@@ -10,12 +10,6 @@ import '../../api_keys/application/api_key_catalog.dart';
 class ChatPage extends ConsumerWidget {
   const ChatPage({super.key});
 
-  static const _conversations = [
-    ('payment-callback', '修复支付回调异常', '排查通知失败的问题并修复。', '10:15'),
-    ('login-flow', '优化登录流程', '简化登录步骤，提升体验。', '昨天'),
-    ('report-api', '生成报表接口', '新增导出 Excel 的接口。', '昨天'),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentKey = ref.watch(selectedChatKeyProvider);
@@ -58,24 +52,23 @@ class ChatPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 26),
-          Text('最近对话', style: Theme.of(context).textTheme.titleLarge),
+          Text('开始对话', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
-          ..._conversations.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  leading: const AppIconTile(Icons.chat_bubble_outline_rounded),
-                  title: Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(item.$3, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: Text(
-                    item.$4,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                  ),
-                  onTap: () => context.push('/app/chat/${item.$1}'),
-                ),
+          Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              leading: const AppIconTile(Icons.chat_bubble_outline_rounded),
+              title: Text(
+                currentKey == null ? '请先选择秘钥' : '新对话',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+              subtitle: Text(
+                currentKey == null ? '前往秘钥页设置当前聊天使用的 Key' : '选择模型后开始聊天或生成图片',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: currentKey == null
+                  ? () => context.go('/app/keys')
+                  : () => context.push('/app/chat/new'),
             ),
           ),
           const SizedBox(height: 8),

@@ -4,19 +4,20 @@ import (
 	"net/http"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 const collaborationWebSocketPath = "/api/v1/collaboration/ws"
 
-// RegisterCollaborationRoutes registers the versioned mobile/PC collaboration
-// surface. M0 intentionally exposes only capability discovery; device state,
-// command billing and realtime relay are added behind the same feature flag in
-// later milestones.
+// RegisterCollaborationRoutes registers capability discovery and the
+// feature-gated, Panel-JWT-authenticated collaboration surface.
 func RegisterCollaborationRoutes(
 	v1 *gin.RouterGroup,
 	cfg *config.Config,
+	h *handler.CollaborationHandler,
 	jwtAuth servermiddleware.JWTAuthMiddleware,
 ) {
 	collaboration := v1.Group("/collaboration")
@@ -34,4 +35,27 @@ func RegisterCollaborationRoutes(
 			},
 		})
 	})
+
+	if h == nil {
+		return
+	}
+	devices := collaboration.Group("/devices")
+	devices.Use(func(c *gin.Context) {
+		if !cfg.Collaboration.Enabled {
+			response.ErrorWithDetails(
+				c,
+				http.StatusServiceUnavailable,
+				"Collaboration is disabled",
+				"COLLABORATION_DISABLED",
+				nil,
+			)
+			c.Abort()
+			return
+		}
+		c.Next()
+	})
+	devices.POST("/register", h.RegisterDevice)
+	devices.GET("", h.ListDevices)
+	devices.PATCH("/:device_id", h.RenameDevice)
+	devices.DELETE("/:device_id", h.RevokeDevice)
 }

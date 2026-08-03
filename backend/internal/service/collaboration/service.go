@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -30,6 +31,8 @@ type Service struct {
 	currency        string
 	commandTTL      time.Duration
 	maxPromptBytes  int
+	balanceCache    BalanceCacheInvalidator
+	authCache       AuthCacheInvalidator
 	now             func() time.Time
 }
 
@@ -58,6 +61,14 @@ func NewService(repository Repository, cfg config.CollaborationConfig) (*Service
 	}, nil
 }
 
+func (s *Service) SetChargeCacheInvalidators(
+	balanceCache BalanceCacheInvalidator,
+	authCache AuthCacheInvalidator,
+) {
+	s.balanceCache = balanceCache
+	s.authCache = authCache
+}
+
 func (s *Service) RegisterDevice(
 	ctx context.Context,
 	userID int64,
@@ -74,6 +85,9 @@ func (s *Service) RegisterDevice(
 	if input.CodexVersion != nil {
 		value := strings.TrimSpace(*input.CodexVersion)
 		input.CodexVersion = &value
+	}
+	if input.Capabilities == nil {
+		input.Capabilities = map[string]bool{}
 	}
 
 	if userID <= 0 || !installationHashPattern.MatchString(input.InstallationIDHash) {
@@ -147,7 +161,7 @@ func (s *Service) SubmitCommand(
 	}
 
 	digest := sha256.Sum256(promptBytes)
-	return s.repository.CreateCommandAndCharge(ctx, CreateCommandInput{
+	result, err := s.repository.CreateCommandAndCharge(ctx, CreateCommandInput{
 		UserID:         userID,
 		DeviceID:       input.DeviceID,
 		ThreadID:       input.ThreadID,
@@ -158,4 +172,22 @@ func (s *Service) SubmitCommand(
 		Currency:       s.currency,
 		ExpiresAt:      s.now().UTC().Add(s.commandTTL),
 	})
+	if err != nil || result.Replayed {
+		return result, err
+	}
+
+	// The database transaction is authoritative. Cache invalidation happens only
+	// after commit and must not turn an accepted, charged command into a client
+	// retry. A detached bounded context also survives request cancellation.
+	cacheCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if s.authCache != nil {
+		s.authCache.InvalidateAuthCacheByUserID(cacheCtx, userID)
+	}
+	if s.balanceCache != nil {
+		if invalidateErr := s.balanceCache.InvalidateUserBalance(cacheCtx, userID); invalidateErr != nil {
+			slog.Warn("invalidate collaboration balance cache failed", "user_id", userID, "error", invalidateErr)
+		}
+	}
+	return result, nil
 }

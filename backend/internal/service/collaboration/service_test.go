@@ -38,6 +38,24 @@ func (r *repositoryStub) CreateCommandAndCharge(_ context.Context, input CreateC
 	return CreateCommandResult{}, nil
 }
 
+func (r *repositoryStub) ExpirePending(context.Context, time.Time) (SweepResult, error) {
+	return SweepResult{}, nil
+}
+
+type chargeCacheStub struct {
+	balanceUserIDs []int64
+	authUserIDs    []int64
+}
+
+func (s *chargeCacheStub) InvalidateUserBalance(_ context.Context, userID int64) error {
+	s.balanceUserIDs = append(s.balanceUserIDs, userID)
+	return nil
+}
+
+func (s *chargeCacheStub) InvalidateAuthCacheByUserID(_ context.Context, userID int64) {
+	s.authUserIDs = append(s.authUserIDs, userID)
+}
+
 func testConfig() config.CollaborationConfig {
 	return config.CollaborationConfig{
 		ProtocolVersion:   1,
@@ -87,6 +105,59 @@ func TestSubmitCommandBuildsServerOwnedChargeInput(t *testing.T) {
 	if got, want := repository.commandInput.ExpiresAt, now.Add(5*time.Minute); !got.Equal(want) {
 		t.Fatalf("ExpiresAt = %s, want %s", got, want)
 	}
+}
+
+func TestSubmitCommandInvalidatesBalanceSnapshotsOnlyForNewCharge(t *testing.T) {
+	t.Parallel()
+
+	repository := &repositoryStub{}
+	cache := &chargeCacheStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetChargeCacheInvalidators(cache, cache)
+	input := SubmitCommandInput{
+		DeviceID:       uuid.New(),
+		ThreadID:       "thread_123",
+		IdempotencyKey: uuid.New(),
+		Prompt:         "continue",
+	}
+
+	if _, err := service.SubmitCommand(context.Background(), 42, input); err != nil {
+		t.Fatalf("SubmitCommand() error = %v", err)
+	}
+	if len(cache.balanceUserIDs) != 1 || cache.balanceUserIDs[0] != 42 {
+		t.Fatalf("balance invalidations = %v, want [42]", cache.balanceUserIDs)
+	}
+	if len(cache.authUserIDs) != 1 || cache.authUserIDs[0] != 42 {
+		t.Fatalf("auth invalidations = %v, want [42]", cache.authUserIDs)
+	}
+
+	repositoryResult := CreateCommandResult{Replayed: true}
+	repository.commandInput = nil
+	replayRepository := &repositoryResultStub{result: repositoryResult}
+	replayService, err := NewService(replayRepository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService(replay) error = %v", err)
+	}
+	replayService.SetChargeCacheInvalidators(cache, cache)
+	if _, err := replayService.SubmitCommand(context.Background(), 42, input); err != nil {
+		t.Fatalf("SubmitCommand(replay) error = %v", err)
+	}
+	if len(cache.balanceUserIDs) != 1 || len(cache.authUserIDs) != 1 {
+		t.Fatal("idempotent replay must not repeat cache invalidation")
+	}
+}
+
+type repositoryResultStub struct {
+	repositoryStub
+	result CreateCommandResult
+}
+
+func (r *repositoryResultStub) CreateCommandAndCharge(_ context.Context, input CreateCommandInput) (CreateCommandResult, error) {
+	r.commandInput = &input
+	return r.result, nil
 }
 
 func TestSubmitCommandRejectsOversizedPromptBeforeRepository(t *testing.T) {

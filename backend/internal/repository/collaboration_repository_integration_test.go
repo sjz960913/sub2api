@@ -141,8 +141,8 @@ func TestCollaborationCommandIdempotencyConflictDoesNotChargeAgain(t *testing.T)
 }
 
 func TestCollaborationDeviceQueriesAreUserScoped(t *testing.T) {
-	owner := createCollaborationTestUser(t, decimal.One, decimal.Zero)
-	other := createCollaborationTestUser(t, decimal.One, decimal.Zero)
+	owner := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	other := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
 	repository := NewCollaborationRepository(integrationDB)
 	device := registerCollaborationTestDevice(t, repository, owner.ID)
 
@@ -173,6 +173,83 @@ func TestCollaborationDeviceQueriesAreUserScoped(t *testing.T) {
 	})
 	if !errors.Is(err, collabservice.ErrDeviceRevoked) {
 		t.Fatalf("RegisterDevice() revoked error = %v, want ErrDeviceRevoked", err)
+	}
+}
+
+func TestCollaborationExpirePendingConvergesWithoutRefund(t *testing.T) {
+	user := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	repository := NewCollaborationRepository(integrationDB)
+	device := registerCollaborationTestDevice(t, repository, user.ID)
+	now := time.Now().UTC()
+
+	expiredInput := collaborationCommandInput(user.ID, device.ID, uuid.New())
+	expiredInput.ExpiresAt = now.Add(-time.Minute)
+	expiredCommand, err := repository.CreateCommandAndCharge(context.Background(), expiredInput)
+	if err != nil {
+		t.Fatalf("create expired command: %v", err)
+	}
+	startedInput := collaborationCommandInput(user.ID, device.ID, uuid.New())
+	startedInput.ExpiresAt = now.Add(-time.Minute)
+	startedCommand, err := repository.CreateCommandAndCharge(context.Background(), startedInput)
+	if err != nil {
+		t.Fatalf("create started command: %v", err)
+	}
+	if _, err := integrationDB.Exec(`
+		UPDATE collaboration_commands SET status = 'started', started_at = $2 WHERE id = $1
+	`, startedCommand.Command.ID, now.Add(-2*time.Minute)); err != nil {
+		t.Fatalf("mark command started: %v", err)
+	}
+
+	pendingSyncID := uuid.New()
+	completedSyncID := uuid.New()
+	for _, item := range []struct {
+		id     uuid.UUID
+		status string
+	}{
+		{id: pendingSyncID, status: "pending"},
+		{id: completedSyncID, status: "completed"},
+	} {
+		if _, err := integrationDB.Exec(`
+			INSERT INTO collaboration_sync_requests (
+				id, user_id, device_id, idempotency_key, kind, status,
+				expires_at, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, 'session_list', $5, $6, $7, $7)
+		`, item.id, user.ID, device.ID, uuid.New(), item.status, now.Add(-time.Minute), now.Add(-2*time.Minute)); err != nil {
+			t.Fatalf("insert %s sync request: %v", item.status, err)
+		}
+	}
+
+	result, err := repository.ExpirePending(context.Background(), now)
+	if err != nil {
+		t.Fatalf("ExpirePending() error = %v", err)
+	}
+	if result.ExpiredCommands != 1 || result.ExpiredSyncs != 1 {
+		t.Fatalf("ExpirePending() = %#v, want one command and one sync", result)
+	}
+
+	var expiredStatus, startedStatus, pendingStatus, completedStatus string
+	if err := integrationDB.QueryRow(`SELECT status FROM collaboration_commands WHERE id = $1`, expiredCommand.Command.ID).Scan(&expiredStatus); err != nil {
+		t.Fatalf("query expired command: %v", err)
+	}
+	if err := integrationDB.QueryRow(`SELECT status FROM collaboration_commands WHERE id = $1`, startedCommand.Command.ID).Scan(&startedStatus); err != nil {
+		t.Fatalf("query started command: %v", err)
+	}
+	if err := integrationDB.QueryRow(`SELECT status FROM collaboration_sync_requests WHERE id = $1`, pendingSyncID).Scan(&pendingStatus); err != nil {
+		t.Fatalf("query pending sync: %v", err)
+	}
+	if err := integrationDB.QueryRow(`SELECT status FROM collaboration_sync_requests WHERE id = $1`, completedSyncID).Scan(&completedStatus); err != nil {
+		t.Fatalf("query completed sync: %v", err)
+	}
+	if expiredStatus != "expired" || startedStatus != "started" || pendingStatus != "expired" || completedStatus != "completed" {
+		t.Fatalf("statuses = %s/%s/%s/%s", expiredStatus, startedStatus, pendingStatus, completedStatus)
+	}
+
+	var balance string
+	if err := integrationDB.QueryRow(`SELECT balance::text FROM users WHERE id = $1`, user.ID).Scan(&balance); err != nil {
+		t.Fatalf("query user balance: %v", err)
+	}
+	if balance != "0.80000000" {
+		t.Fatalf("balance = %s, want 0.80000000 with no expiry refund", balance)
 	}
 }
 

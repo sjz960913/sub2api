@@ -108,10 +108,28 @@ type CreateCommandResult struct {
 	Replayed bool
 }
 
+type SweepResult struct {
+	ExpiredCommands int64
+	ExpiredSyncs    int64
+}
+
 type Repository interface {
 	RegisterDevice(context.Context, int64, RegisterDeviceInput) (Device, error)
 	ListDevices(context.Context, int64) ([]Device, error)
 	RenameDevice(context.Context, int64, uuid.UUID, string) (Device, error)
 	RevokeDevice(context.Context, int64, uuid.UUID) (Device, error)
 	CreateCommandAndCharge(context.Context, CreateCommandInput) (CreateCommandResult, error)
+	ExpirePending(context.Context, time.Time) (SweepResult, error)
+}
+
+// BalanceCacheInvalidator removes the cached balance snapshot after a committed
+// collaboration charge. Implementations must be safe to call more than once.
+type BalanceCacheInvalidator interface {
+	InvalidateUserBalance(context.Context, int64) error
+}
+
+// AuthCacheInvalidator removes API-key authentication snapshots that embed the
+// user's balance. It deliberately exposes only the user-scoped operation.
+type AuthCacheInvalidator interface {
+	InvalidateAuthCacheByUserID(context.Context, int64)
 }

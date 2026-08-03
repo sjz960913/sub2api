@@ -309,6 +309,48 @@ func (r *collaborationRepository) CreateCommandAndCharge(
 	}, nil
 }
 
+func (r *collaborationRepository) ExpirePending(
+	ctx context.Context,
+	now time.Time,
+) (result collabservice.SweepResult, err error) {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return result, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	commandResult, err := tx.ExecContext(ctx, `
+		UPDATE collaboration_commands
+		SET status = 'expired', error_code = COALESCE(error_code, 'expired'), updated_at = $1
+		WHERE status IN ('accepted', 'dispatched') AND expires_at <= $1
+	`, now.UTC())
+	if err != nil {
+		return result, err
+	}
+	result.ExpiredCommands, err = commandResult.RowsAffected()
+	if err != nil {
+		return collabservice.SweepResult{}, err
+	}
+
+	syncResult, err := tx.ExecContext(ctx, `
+		UPDATE collaboration_sync_requests
+		SET status = 'expired', error_code = COALESCE(error_code, 'expired'), updated_at = $1
+		WHERE status IN ('pending', 'running') AND expires_at <= $1
+	`, now.UTC())
+	if err != nil {
+		return collabservice.SweepResult{}, err
+	}
+	result.ExpiredSyncs, err = syncResult.RowsAffected()
+	if err != nil {
+		return collabservice.SweepResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return collabservice.SweepResult{}, err
+	}
+	return result, nil
+}
+
 type collaborationScanner interface {
 	Scan(...any) error
 }

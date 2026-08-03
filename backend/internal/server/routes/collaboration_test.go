@@ -23,6 +23,7 @@ func TestCollaborationHealthRequiresJWTAndReturnsCapabilities(t *testing.T) {
 			ProtocolVersion:          1,
 			HeartbeatIntervalSeconds: 20,
 		}},
+		nil,
 		servermiddleware.JWTAuthMiddleware(func(c *gin.Context) {
 			authCalled = true
 			c.Next()

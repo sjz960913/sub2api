@@ -1,0 +1,26 @@
+name: Generate Wire graph
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: go run github.com/google/wire/cmd/wire@v0.7.0 ./cmd/server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wire-generated-server
+          path: backend/cmd/server/wire_gen.go
+          if-no-files-found: error

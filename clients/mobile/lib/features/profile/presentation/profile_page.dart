@@ -8,6 +8,9 @@ import '../../../core/auth/user_role.dart';
 import '../../../core/widgets/app_icon_tile.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../auth/application/session_controller.dart';
+import '../application/profile_controller.dart';
+import '../data/profile_repository.dart';
+import '../domain/user_announcement.dart';
 
 const rechargeUri = 'https://pay.ldxp.cn/shop/codecodeai';
 
@@ -25,6 +28,7 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdmin = ref.watch(currentUserRoleProvider) == UserRole.admin;
     final session = ref.watch(sessionControllerProvider);
+    final profile = ref.watch(profileControllerProvider);
     final user = session.user;
     final displayName = user?.email ?? '未登录';
     final avatarSource = user?.username.isNotEmpty == true ? user!.username : displayName;
@@ -85,7 +89,7 @@ class ProfilePage extends ConsumerWidget {
               _ProfileRow(
                 icon: Icons.notifications_none_rounded,
                 label: '公告',
-                badge: '3',
+                badge: profile.unreadCount > 0 ? profile.unreadCount.toString() : null,
                 onTap: () => _showAnnouncements(context),
               ),
             ],
@@ -199,15 +203,17 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
   }
 }
 
-class _RedeemDialog extends StatefulWidget {
+class _RedeemDialog extends ConsumerStatefulWidget {
   const _RedeemDialog();
 
   @override
-  State<_RedeemDialog> createState() => _RedeemDialogState();
+  ConsumerState<_RedeemDialog> createState() => _RedeemDialogState();
 }
 
-class _RedeemDialogState extends State<_RedeemDialog> {
+class _RedeemDialogState extends ConsumerState<_RedeemDialog> {
   final controller = TextEditingController();
+  bool isBusy = false;
+  String? error;
 
   @override
   void dispose() {
@@ -222,41 +228,64 @@ class _RedeemDialogState extends State<_RedeemDialog> {
       content: TextField(
         controller: controller,
         autofocus: true,
+        enabled: !isBusy,
         onChanged: (_) => setState(() {}),
-        decoration: const InputDecoration(hintText: '请输入兑换码'),
+        decoration: InputDecoration(hintText: '请输入兑换码', errorText: error),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: isBusy ? null : () => Navigator.pop(context), child: const Text('取消')),
         FilledButton(
-          onPressed: controller.text.trim().isEmpty ? null : () => Navigator.pop(context),
-          child: const Text('兑换'),
+          onPressed: controller.text.trim().isEmpty || isBusy ? null : _redeem,
+          child: isBusy
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('兑换'),
         ),
       ],
     );
   }
+
+  Future<void> _redeem() async {
+    setState(() {
+      isBusy = true;
+      error = null;
+    });
+    try {
+      final result = await ref.read(profileControllerProvider.notifier).redeem(controller.text);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+      Navigator.pop(context);
+    } on ProfileRepositoryException {
+      if (mounted) {
+        setState(() {
+          isBusy = false;
+          error = '兑换失败，请检查兑换码后重试';
+        });
+      }
+    }
+  }
 }
 
-class _AnnouncementSheet extends StatefulWidget {
+class _AnnouncementSheet extends ConsumerStatefulWidget {
   const _AnnouncementSheet();
 
   @override
-  State<_AnnouncementSheet> createState() => _AnnouncementSheetState();
+  ConsumerState<_AnnouncementSheet> createState() => _AnnouncementSheetState();
 }
 
-class _AnnouncementSheetState extends State<_AnnouncementSheet> {
+class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
   String filter = 'all';
-
-  static const announcements = [
-    ('系统维护通知', '计划维护窗口与影响范围', '1 小时前', true),
-    ('功能更新：支持文件上传', '聊天体验与稳定性更新', '昨天 10:30', true),
-    ('用户指南更新', '帮助你更好地使用 Sub2API', '5 月 16 日', false),
-  ];
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(profileControllerProvider);
     final visible = filter == 'unread'
-        ? announcements.where((announcement) => announcement.$4).toList()
-        : announcements;
+        ? state.announcements.where((announcement) => announcement.isUnread).toList()
+        : state.announcements;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
@@ -274,34 +303,79 @@ class _AnnouncementSheetState extends State<_AnnouncementSheet> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView.separated(
-              itemCount: visible.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final announcement = visible[index];
-                return Card(
-                  child: ListTile(
-                    title: Text(
-                      announcement.$1,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+            child: state.isLoading && state.announcements.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : state.errorCode != null && state.announcements.isEmpty
+                ? Center(
+                    child: OutlinedButton.icon(
+                      onPressed: () => ref
+                          .read(profileControllerProvider.notifier)
+                          .loadAnnouncements(force: true),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('重新加载'),
                     ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: Text('${announcement.$2}\n${announcement.$3}'),
-                    ),
-                    isThreeLine: true,
-                    trailing: announcement.$4
-                        ? const Icon(Icons.circle, size: 8, color: AppColors.primary)
-                        : null,
+                  )
+                : visible.isEmpty
+                ? const Center(child: Text('暂无公告', style: TextStyle(color: AppColors.muted)))
+                : ListView.separated(
+                    itemCount: visible.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final announcement = visible[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text(
+                            announcement.title,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text(
+                              '${announcement.content}\n${_formatAnnouncementTime(announcement)}',
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          isThreeLine: true,
+                          trailing: announcement.isUnread
+                              ? const Icon(Icons.circle, size: 8, color: AppColors.primary)
+                              : null,
+                          onTap: () => _openAnnouncement(announcement),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _openAnnouncement(UserAnnouncement announcement) async {
+    await ref.read(profileControllerProvider.notifier).markRead(announcement.id);
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(announcement.title),
+        content: SingleChildScrollView(child: SelectableText(announcement.content)),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatAnnouncementTime(UserAnnouncement announcement) {
+  final time = announcement.createdAt;
+  if (time == null) {
+    return '';
+  }
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  return '${time.month} 月 ${time.day} 日 ${twoDigits(time.hour)}:${twoDigits(time.minute)}';
 }
 
 class _ProfileSection extends StatelessWidget {

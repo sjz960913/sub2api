@@ -123,6 +123,10 @@ CLAUDE.md
 scripts
 !backend/scripts/
 !backend/scripts/resolve-version.sh
+!protocol/scripts/
+!protocol/scripts/**
+!clients/codex-pc/tests/
+!clients/codex-pc/tests/**
 .code-review-state
 #openspec/
 code-reviews/

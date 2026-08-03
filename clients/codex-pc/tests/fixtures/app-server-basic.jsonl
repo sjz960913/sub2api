@@ -1,0 +1,4 @@
+{"id":1,"method":"initialize","params":{"clientInfo":{"name":"sub2api-codex-pc","version":"0.1.0"}}}
+{"id":1,"result":{"protocolVersion":1,"capabilities":{"thread/list":true,"thread/read":true,"thread/resume":true,"turn/start":true}}}
+{"id":2,"method":"thread/list","params":{"limit":2}}
+{"id":2,"result":{"data":[{"id":"thread_redacted","title":"Redacted fixture session","cwd":"~/<redacted>","updatedAt":"2026-08-03T00:00:00Z"}],"nextCursor":null}}

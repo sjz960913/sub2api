@@ -15,6 +15,7 @@ import (
 var (
 	ErrNotFound            = errors.New("collaboration resource not found")
 	ErrDeviceRevoked       = errors.New("collaboration device revoked")
+	ErrConnectionLimit     = errors.New("collaboration connection limit reached")
 	ErrIdempotencyConflict = errors.New("collaboration idempotency conflict")
 	ErrInvariantViolation  = errors.New("collaboration persistence invariant violated")
 )
@@ -138,6 +139,18 @@ type PresenceStore interface {
 	Touch(context.Context, DevicePresence) error
 	GetMany(context.Context, []uuid.UUID) (map[uuid.UUID]DevicePresence, error)
 	Remove(context.Context, uuid.UUID) error
+}
+
+type ConnectionLease struct {
+	UserID       int64
+	DeviceID     uuid.UUID
+	ConnectionID uuid.UUID
+}
+
+type ConnectionLeaseStore interface {
+	Acquire(context.Context, ConnectionLease) (bool, error)
+	Renew(context.Context, ConnectionLease) (bool, error)
+	Release(context.Context, ConnectionLease) error
 }
 
 type EventEnvelope struct {

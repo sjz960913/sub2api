@@ -86,7 +86,7 @@ func TestCollaborationListDevicesUsesJWTSubjectAndHidesInstallationHash(t *testi
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
-	handler := NewCollaborationHandler(service, cfg, nil)
+	handler := NewCollaborationHandler(service, cfg, nil, nil)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -145,6 +145,22 @@ type collaborationHandlerEventBusStub struct {
 	deviceEvents chan collaborationservice.EventEnvelope
 	userEvents   chan collaborationservice.EventEnvelope
 	sequence     atomic.Int64
+}
+
+type collaborationHandlerConnectionLeaseStub struct {
+	deny bool
+}
+
+func (s collaborationHandlerConnectionLeaseStub) Acquire(context.Context, collaborationservice.ConnectionLease) (bool, error) {
+	return !s.deny, nil
+}
+
+func (collaborationHandlerConnectionLeaseStub) Renew(context.Context, collaborationservice.ConnectionLease) (bool, error) {
+	return true, nil
+}
+
+func (collaborationHandlerConnectionLeaseStub) Release(context.Context, collaborationservice.ConnectionLease) error {
+	return nil
 }
 
 func (b *collaborationHandlerEventBusStub) PublishUser(_ context.Context, _ int64, eventType string, requestID *string, payload map[string]any) (collaborationservice.EventEnvelope, error) {
@@ -210,7 +226,7 @@ func TestCollaborationWebSocketHeartbeatRefreshesPresence(t *testing.T) {
 		t.Fatalf("NewService() error = %v", err)
 	}
 	service.SetPresenceStore(presence)
-	handler := NewCollaborationHandler(service, cfg, eventBus)
+	handler := NewCollaborationHandler(service, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
 	router := gin.New()
 	router.GET("/ws", func(c *gin.Context) {
 		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 42})
@@ -283,5 +299,35 @@ func TestCollaborationWebSocketOriginPolicy(t *testing.T) {
 	request.Header.Set("Origin", "https://evil.example")
 	if collaborationWebSocketOriginAllowed(request) {
 		t.Fatal("cross-origin browser client was accepted")
+	}
+}
+
+func TestCollaborationWebSocketRejectsConnectionOverLimitBeforeUpgrade(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{
+		ProtocolVersion:   1,
+		TaskFeeAmount:     "0.100000",
+		TaskFeeCurrency:   "USD",
+		CommandTTLSeconds: 300,
+		MaxPromptBytes:    32 * 1024,
+	}}
+	eventBus := &collaborationHandlerEventBusStub{
+		deviceEvents: make(chan collaborationservice.EventEnvelope, 1),
+		userEvents:   make(chan collaborationservice.EventEnvelope, 1),
+	}
+	handler := NewCollaborationHandler(nil, cfg, eventBus, collaborationHandlerConnectionLeaseStub{deny: true})
+	router := gin.New()
+	router.GET("/ws", func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 42})
+		c.Next()
+	}, handler.WebSocket)
+	request := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	request.Header.Set("X-Sub2API-Client-Type", "mobile")
+	request.Header.Set("X-Sub2API-Protocol-Version", "1")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusTooManyRequests || !strings.Contains(recorder.Body.String(), "COLLAB_CONNECTION_LIMIT") {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 }

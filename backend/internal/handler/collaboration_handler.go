@@ -30,6 +30,7 @@ type CollaborationHandler struct {
 	presenceTTL              time.Duration
 	maxEventBytes            int64
 	eventBus                 collaborationservice.EventBus
+	connectionLeases         collaborationservice.ConnectionLeaseStore
 	now                      func() time.Time
 	upgrader                 websocket.Upgrader
 }
@@ -38,6 +39,7 @@ func NewCollaborationHandler(
 	service *collaborationservice.Service,
 	cfg *config.Config,
 	eventBus collaborationservice.EventBus,
+	connectionLeases collaborationservice.ConnectionLeaseStore,
 ) *CollaborationHandler {
 	presenceTTL := 45 * time.Second
 	if cfg.Collaboration.PresenceTTLSeconds > 0 {
@@ -54,6 +56,7 @@ func NewCollaborationHandler(
 		presenceTTL:              presenceTTL,
 		maxEventBytes:            maxEventBytes,
 		eventBus:                 eventBus,
+		connectionLeases:         connectionLeases,
 		now:                      time.Now,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: collaborationWebSocketWriteTimeout,
@@ -234,7 +237,7 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 		response.ErrorWithDetails(c, http.StatusUpgradeRequired, "Unsupported collaboration protocol", "PROTOCOL_MISMATCH", nil)
 		return
 	}
-	if h.eventBus == nil {
+	if h.eventBus == nil || h.connectionLeases == nil {
 		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "Collaboration relay unavailable", "COLLAB_RELAY_UNAVAILABLE", nil)
 		return
 	}
@@ -245,6 +248,10 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 		deviceID     uuid.UUID
 		subscription collaborationservice.EventSubscription
 	)
+	lease := collaborationservice.ConnectionLease{
+		UserID:       subject.UserID,
+		ConnectionID: uuid.New(),
+	}
 	if clientType == "pc" {
 		deviceID, err = uuid.Parse(strings.TrimSpace(c.GetHeader("X-Sub2API-Device-ID")))
 		if err != nil {
@@ -255,12 +262,30 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 			writeCollaborationError(c, err)
 			return
 		}
+		lease.DeviceID = deviceID
+	} else if strings.TrimSpace(c.GetHeader("X-Sub2API-Device-ID")) != "" {
+		response.BadRequest(c, "Mobile collaboration connections cannot claim a device")
+		return
+	}
+	acquired, err := h.connectionLeases.Acquire(requestContext, lease)
+	if err != nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "Collaboration relay unavailable", "COLLAB_RELAY_UNAVAILABLE", nil)
+		return
+	}
+	if !acquired {
+		response.ErrorWithDetails(c, http.StatusTooManyRequests, "Too many collaboration connections", "COLLAB_CONNECTION_LIMIT", nil)
+		return
+	}
+	defer func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// The lease also expires automatically; release is best effort.
+		_ = h.connectionLeases.Release(cleanupCtx, lease)
+		cleanupCancel()
+	}()
+
+	if clientType == "pc" {
 		subscription, err = h.eventBus.SubscribeDevice(requestContext, deviceID)
 	} else {
-		if strings.TrimSpace(c.GetHeader("X-Sub2API-Device-ID")) != "" {
-			response.BadRequest(c, "Mobile collaboration connections cannot claim a device")
-			return
-		}
 		subscription, err = h.eventBus.SubscribeUser(requestContext, subject.UserID)
 	}
 	if err != nil {
@@ -282,7 +307,7 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 
 	writerDone := make(chan struct{})
 	go h.writeCollaborationEvents(requestContext, connection, subscription.Events(), writerDone)
-	h.readCollaborationEvents(requestContext, connection, subject.UserID, clientType, deviceID)
+	h.readCollaborationEvents(requestContext, connection, clientType, lease)
 	cancel()
 	<-writerDone
 
@@ -300,9 +325,8 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 func (h *CollaborationHandler) readCollaborationEvents(
 	ctx context.Context,
 	connection *websocket.Conn,
-	userID int64,
 	clientType string,
-	deviceID uuid.UUID,
+	lease collaborationservice.ConnectionLease,
 ) {
 	for {
 		var event collaborationservice.EventEnvelope
@@ -312,11 +336,17 @@ func (h *CollaborationHandler) readCollaborationEvents(
 		if ctx.Err() != nil || event.Version != 1 || !collaborationservice.ValidEventType(event.Type) || len(event.EventID) < 8 || len(event.Payload) > 64 {
 			return
 		}
+		if event.Type == "heartbeat" {
+			renewed, err := h.connectionLeases.Renew(ctx, lease)
+			if err != nil || !renewed {
+				return
+			}
+		}
 		if clientType == "mobile" {
 			if event.Type != "heartbeat" {
 				return
 			}
-			_, _ = h.eventBus.PublishUser(ctx, userID, "heartbeat.ack", event.RequestID, map[string]any{
+			_, _ = h.eventBus.PublishUser(ctx, lease.UserID, "heartbeat.ack", event.RequestID, map[string]any{
 				"server_time": h.now().UTC(),
 			})
 			continue
@@ -338,16 +368,16 @@ func (h *CollaborationHandler) readCollaborationEvents(
 		if !ok {
 			return
 		}
-		presence, err := h.service.RecordHeartbeat(ctx, userID, deviceID, appServerStatus, activeThreadCount)
+		presence, err := h.service.RecordHeartbeat(ctx, lease.UserID, lease.DeviceID, appServerStatus, activeThreadCount)
 		if err != nil {
 			return
 		}
 		_ = connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
-		_, _ = h.eventBus.PublishDevice(ctx, userID, deviceID, "heartbeat.ack", event.RequestID, map[string]any{
+		_, _ = h.eventBus.PublishDevice(ctx, lease.UserID, lease.DeviceID, "heartbeat.ack", event.RequestID, map[string]any{
 			"server_time": h.now().UTC(),
 		})
-		_, _ = h.eventBus.PublishUser(ctx, userID, "device.presence_changed", event.RequestID, map[string]any{
-			"device_id":    deviceID.String(),
+		_, _ = h.eventBus.PublishUser(ctx, lease.UserID, "device.presence_changed", event.RequestID, map[string]any{
+			"device_id":    lease.DeviceID.String(),
 			"status":       presence.Status,
 			"last_seen_at": presence.LastSeenAt,
 		})

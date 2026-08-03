@@ -96,21 +96,33 @@ class CollaborationRepository {
     if (prompt.isEmpty || prompt.length > 32768) {
       throw const CollaborationRepositoryException('COLLAB_INVALID_COMMAND');
     }
+    final idempotencyKey = newIdempotencyKey();
     try {
-      final command = Command.fromJson(
-        _asMap(
-          await _client.request(
+      dynamic response;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await _client.request(
             'POST',
             'collaboration/commands',
-            headers: {'Idempotency-Key': newIdempotencyKey()},
+            headers: {'Idempotency-Key': idempotencyKey},
             data: CreateCommandRequest(
               deviceId: deviceId,
               threadId: threadId,
               input: [CommandInput(type: 'text', text: prompt)],
               clientContext: const ClientContext(locale: 'zh-CN', source: 'android'),
             ).toJson(),
-          ),
-        ),
+          );
+          break;
+        } on PanelApiException catch (error) {
+          if (attempt == 0 && error.publicCode == 'PANEL_NETWORK_ERROR') {
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+            continue;
+          }
+          rethrow;
+        }
+      }
+      final command = Command.fromJson(
+        _asMap(response),
       );
       return _pollCommand(command);
     } on PanelApiException catch (error) {

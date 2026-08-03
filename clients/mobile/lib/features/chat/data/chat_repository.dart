@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/panel_api_client.dart';
@@ -47,11 +49,11 @@ class ChatRepository {
     }
   }
 
-  Future<String> complete({
+  Stream<String> completeStream({
     required String apiKey,
     required String model,
     required List<ChatMessage> messages,
-  }) async {
+  }) async* {
     final history = messages
         .where((message) => !message.hasImage && message.text.trim().isNotEmpty)
         .map(
@@ -62,29 +64,21 @@ class ChatRepository {
         )
         .toList(growable: false);
     try {
-      final response = _asMap(
-        await _client.gatewayRequest(
-          'POST',
-          'v1/chat/completions',
-          apiKey: apiKey,
-          data: {'model': model, 'messages': history, 'stream': false},
-        ),
+      final bytes = await _client.gatewayStream(
+        'POST',
+        'v1/chat/completions',
+        apiKey: apiKey,
+        data: {'model': model, 'messages': history, 'stream': true},
       );
-      final choices = response['choices'];
-      if (choices is! List || choices.isEmpty || choices.first is! Map) {
-        throw const ChatRepositoryException('CHAT_INVALID_RESPONSE');
+      await for (final fragment in decodeChatCompletionSse(bytes)) {
+        yield fragment;
       }
-      final message = (choices.first as Map)['message'];
-      if (message is! Map) {
-        throw const ChatRepositoryException('CHAT_INVALID_RESPONSE');
-      }
-      final content = _extractText(message['content']);
-      if (content == null || content.trim().isEmpty) {
-        throw const ChatRepositoryException('CHAT_EMPTY_RESPONSE');
-      }
-      return content.trim();
     } on PanelApiException catch (error) {
       throw ChatRepositoryException(error.publicCode);
+    } on ChatRepositoryException {
+      rethrow;
+    } catch (_) {
+      throw const ChatRepositoryException('CHAT_STREAM_FAILED');
     }
   }
 
@@ -151,5 +145,39 @@ class ChatRepository {
       return value.map((key, item) => MapEntry(key.toString(), item));
     }
     throw const ChatRepositoryException('CHAT_INVALID_RESPONSE');
+  }
+}
+
+Stream<String> decodeChatCompletionSse(Stream<List<int>> bytes) async* {
+  await for (final line in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
+    if (!line.startsWith('data:')) {
+      continue;
+    }
+    final payload = line.substring(5).trimLeft();
+    if (payload == '[DONE]') {
+      return;
+    }
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(payload);
+    } on FormatException {
+      throw const ChatRepositoryException('CHAT_INVALID_RESPONSE');
+    }
+    final response = ChatRepository._asMap(decoded);
+    if (response['error'] != null) {
+      throw const ChatRepositoryException('CHAT_GATEWAY_ERROR');
+    }
+    final choices = response['choices'];
+    if (choices is! List || choices.isEmpty || choices.first is! Map) {
+      continue;
+    }
+    final delta = (choices.first as Map)['delta'];
+    if (delta is! Map) {
+      continue;
+    }
+    final content = ChatRepository._extractText(delta['content']);
+    if (content != null && content.isNotEmpty) {
+      yield content;
+    }
   }
 }

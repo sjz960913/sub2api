@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -30,9 +31,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   bool isLoadingModels = false;
   bool isSending = false;
   String? modelError;
+  StreamSubscription<String>? activeCompletion;
 
   @override
   void dispose() {
+    unawaited(activeCompletion?.cancel());
     composer.dispose();
     super.dispose();
   }
@@ -153,16 +156,22 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: currentKey != null &&
-                          selectedModel != null &&
-                          !isSending &&
-                          composer.text.trim().isNotEmpty
-                      ? () => _submitDraft(currentKey)
-                      : null,
-                  tooltip: '发送',
-                  icon: const Icon(Icons.arrow_upward_rounded),
-                ),
+                if (isSending)
+                  IconButton.filled(
+                    onPressed: _stopCompletion,
+                    tooltip: '停止生成',
+                    icon: const Icon(Icons.stop_rounded),
+                  )
+                else
+                  IconButton.filled(
+                    onPressed: currentKey != null &&
+                            selectedModel != null &&
+                            composer.text.trim().isNotEmpty
+                        ? () => _submitDraft(currentKey)
+                        : null,
+                    tooltip: '发送',
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                  ),
               ],
             ),
           ),
@@ -206,7 +215,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     }
   }
 
-  Future<void> _submitDraft(ApiKeySummary key) async {
+  void _submitDraft(ApiKeySummary key) {
     final text = composer.text.trim();
     final model = selectedModel;
     if (text.isEmpty || model == null) {
@@ -214,28 +223,77 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     }
     setState(() {
       messages.add(ChatMessage.text(fromUser: true, text: text));
+      messages.add(const ChatMessage.text(fromUser: false, text: ''));
       composer.clear();
       isSending = true;
     });
-    try {
-      final answer = await ref.read(chatRepositoryProvider).complete(
-        apiKey: key.secretKey,
-        model: model,
-        messages: List.unmodifiable(messages),
-      );
-      if (mounted) {
-        setState(() => messages.add(ChatMessage.text(fromUser: false, text: answer)));
-      }
-    } on ChatRepositoryException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('消息发送失败，请稍后重试')),
+    final assistantIndex = messages.length - 1;
+    late StreamSubscription<String> subscription;
+    subscription = ref
+        .read(chatRepositoryProvider)
+        .completeStream(
+          apiKey: key.secretKey,
+          model: model,
+          messages: List.unmodifiable(messages.take(assistantIndex)),
+        )
+        .listen(
+          (fragment) {
+            if (!mounted || !identical(activeCompletion, subscription)) {
+              return;
+            }
+            setState(() {
+              final previous = messages[assistantIndex];
+              messages[assistantIndex] = ChatMessage.text(
+                fromUser: false,
+                text: '${previous.text}$fragment',
+              );
+            });
+          },
+          onError: (Object _) => _finishCompletion(subscription, assistantIndex, failed: true),
+          onDone: () => _finishCompletion(subscription, assistantIndex),
+          cancelOnError: true,
         );
+    activeCompletion = subscription;
+  }
+
+  Future<void> _stopCompletion() async {
+    final subscription = activeCompletion;
+    if (subscription == null) {
+      return;
+    }
+    activeCompletion = null;
+    await subscription.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      isSending = false;
+      if (messages.isNotEmpty && !messages.last.fromUser && messages.last.text.isEmpty) {
+        messages.removeLast();
       }
-    } finally {
-      if (mounted) {
-        setState(() => isSending = false);
+    });
+  }
+
+  void _finishCompletion(
+    StreamSubscription<String> subscription,
+    int assistantIndex, {
+    bool failed = false,
+  }) {
+    if (!mounted || !identical(activeCompletion, subscription)) {
+      return;
+    }
+    activeCompletion = null;
+    final empty = assistantIndex >= messages.length || messages[assistantIndex].text.isEmpty;
+    setState(() {
+      isSending = false;
+      if (empty && assistantIndex < messages.length) {
+        messages.removeAt(assistantIndex);
       }
+    });
+    if (failed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('消息发送失败，请稍后重试')),
+      );
     }
   }
 

@@ -8,8 +8,8 @@
 
 | 里程碑 | 状态 | 当前证据 |
 |---|---|---|
-| M0 协议与三端骨架 | 进行中 | 协议、后端接缝、Flutter 源码、PC Web 构建已落盘；Flutter/Go/Rust 编译等待 CI |
-| M1 后端设备与账务 | 未开始 | 尚无 Ent schema、migration 或原子扣费 repository |
+| M0 协议与三端骨架 | 已完成 | CI 已通过协议、Go、Flutter、PC Web 与 Tauri Rust 原生壳检查 |
+| M1 后端设备与账务 | 进行中 | 四表迁移、状态机、设备 REST、原子直接扣费、缓存失效与过期清理已落盘；等待最新 PostgreSQL 集成 CI |
 | M2 实时中继 | 未开始 | 只有无依赖 fake relay；尚无生产 WS/Redis presence |
 | M3 PC Codex Adapter | 未开始 | 只有 Tauri/React 壳、SecretStore 边界和脱敏函数 |
 | M4 Flutter 认证与目录 | 部分提前实现 | 四项导航、页面视觉、普通用户 admin 深链守卫和固定充值外链已写；真实 API/安全存储尚未接入 |
@@ -41,8 +41,13 @@ node protocol/scripts/mock-smoke.mjs
 ### Go 后端
 
 - 新增默认关闭的 `collaboration` 配置域，包括协议版本、心跳、后台费率、TTL 和限制。
-- 新增受现有 Panel JWT 中间件保护的 `GET /api/v1/collaboration/health`。
-- 新增 route contract test；尚未在本机运行 Go test。
+- 新增受现有 Panel JWT 中间件保护的 health 与设备注册、列表、改名、撤销 REST；设备接口在 feature flag 关闭时返回稳定错误。
+- 新增 devices、sync requests、commands、charges 四张 Ent schema 和 SQL migration；长期数据不保存 prompt 正文。
+- 新增设备、同步和任务状态机及合法迁移单测；`revoked` 和终态不可逆。
+- 新增 `command + charge + users.balance` 单事务直接扣费仓储。费率只取服务端配置，使用精确 decimal，`frozen_balance` 不参与，且不存在 hold、refund 状态。
+- 相同 `(user_id, idempotency_key)` 的并发请求复用同一 command/charge；变更后的请求体会返回幂等冲突。
+- 提交成功后失效余额与 API Key 鉴权快照；后台 sweeper 只把超时任务/同步改为 `expired`，不会退款。
+- Wire 生成图已纳入可复现 workflow，生产路由、服务、仓储、清理器和关闭流程均已接线。
 
 ### Flutter Android
 
@@ -60,21 +65,21 @@ node protocol/scripts/mock-smoke.mjs
 - 界面没有费用、退款、审批队列或电脑确认。
 - Rust 端预留 SecretStore facade、字段级脱敏和最小 Tauri command。
 - React/TypeScript 生产构建已通过：`vite v8.2.0`，16 modules transformed。
+- 使用内置 imagegen 生成 PC Companion 图标，转换为 Tauri 所需 RGBA PNG 后，Linux 原生 `cargo check` 已通过。
 - `npm audit`：0 vulnerabilities。
 
-## 环境与验证缺口
+## CI 证据与验证缺口
 
 当前开发机没有 Flutter/Dart、Go、Rust/Cargo 工具链，根分区只剩约 0.7GB。为避免耗尽磁盘，没有在本机下载数 GB SDK。因此：
 
-- Go route/config 需要 GitHub Actions 的 Go 1.26.5 job 编译和测试。
-- Flutter 源码需要 CI 的 stable Flutter job 执行 pub get、gen-l10n、analyze、test。
-- Tauri Rust 壳尚未执行 cargo check；PC Web 已独立构建通过。
+- CI run `30792095918` 已通过 protocol、Go lint、Flutter analyze/test、PC Web 和 Tauri Rust；该 run 的 test job 只因 integration build 使用了当前 decimal 版本不存在的测试常量而失败，生产代码和 unit suite 已通过。
+- 测试常量已改为显式 `decimal.NewFromInt(1)`；包含 M1 新增设备 REST、sweeper 和 PostgreSQL 集成场景的后续 run 正在验证。
+- 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
-`.github/workflows/backend-ci.yml` 已新增 protocol、PC Web 和 Flutter jobs。首次推送后必须查看所有 job 的真实结果并修复，不能把“已配置 CI”当作测试通过。
+任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 提交 M0 当前改动并观察远程 CI，修复 Go/Flutter/协议/PC Web 的实际编译错误。
-2. CI 全绿后补 Tauri Rust cargo check 环境和 OS keyring 实现。
-3. 进入 M1：Ent 四表、合法状态迁移、设备 repository、command + charge + balance 原子直接扣费和并发幂等测试。
-4. 后端 M1 稳定后，把 Flutter 的静态数据替换为站点、认证、Key/分组、公告与兑换真实接口。
+1. 等待最新 CI 完成 M1 unit/integration、Wire 可复现性和 Tauri 回归验证；修复任何真实失败。
+2. CI 全绿后进入 M2：JWT WebSocket、Redis presence、跨实例中继、sync payload TTL 与命令 dispatch。
+3. M2 稳定后实现 M3 Codex app-server adapter 和系统 keyring，再把 Flutter 静态数据替换为真实站点认证与业务接口。

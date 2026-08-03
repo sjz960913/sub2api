@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/handler"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -46,4 +47,28 @@ func TestCollaborationHealthRequiresJWTAndReturnsCapabilities(t *testing.T) {
 			"websocket_path": "/api/v1/collaboration/ws"
 		}
 	}`, response.Body.String())
+}
+
+func TestCollaborationDeviceRoutesFailClosedWhenDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{Enabled: false}}
+
+	RegisterCollaborationRoutes(
+		router.Group("/api/v1"),
+		cfg,
+		handler.NewCollaborationHandler(nil, cfg),
+		servermiddleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }),
+	)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/collaboration/devices", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	require.JSONEq(t, `{
+		"code": 503,
+		"message": "Collaboration is disabled",
+		"reason": "COLLABORATION_DISABLED"
+	}`, recorder.Body.String())
 }

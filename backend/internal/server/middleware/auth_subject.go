@@ -1,12 +1,17 @@
 package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
 
 // AuthSubject is the minimal authenticated identity stored in gin context.
-// Decision: {UserID int64, Concurrency int}
+// TokenExpiresAt is zero for authentication methods without a JWT lifetime.
 type AuthSubject struct {
-	UserID      int64
-	Concurrency int
+	UserID         int64
+	Concurrency    int
+	TokenExpiresAt time.Time
 }
 
 func GetAuthSubjectFromContext(c *gin.Context) (AuthSubject, bool) {

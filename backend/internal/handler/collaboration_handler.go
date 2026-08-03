@@ -21,6 +21,7 @@ import (
 const (
 	collaborationCloseTryAgainLater    = 1013
 	collaborationCloseServiceRestart   = 1012
+	collaborationCloseTokenExpired     = 4401
 	collaborationCloseDeviceRevoked    = 4403
 	collaborationWebSocketWriteTimeout = 10 * time.Second
 )
@@ -328,8 +329,18 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 		return connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
 	})
 
+	var (
+		tokenExpiryTimer *time.Timer
+		tokenExpired     <-chan time.Time
+	)
+	if !subject.TokenExpiresAt.IsZero() {
+		tokenExpiryTimer = time.NewTimer(time.Until(subject.TokenExpiresAt))
+		tokenExpired = tokenExpiryTimer.C
+		defer tokenExpiryTimer.Stop()
+	}
+
 	writerDone := make(chan struct{})
-	go h.writeCollaborationEvents(requestContext, connection, subscription.Events(), writerDone)
+	go h.writeCollaborationEvents(requestContext, connection, subscription.Events(), tokenExpired, writerDone)
 	h.readCollaborationEvents(requestContext, connection, clientType, lease)
 	cancel()
 	<-writerDone
@@ -411,12 +422,21 @@ func (h *CollaborationHandler) writeCollaborationEvents(
 	ctx context.Context,
 	connection *websocket.Conn,
 	events <-chan collaborationservice.EventEnvelope,
+	tokenExpired <-chan time.Time,
 	done chan<- struct{},
 ) {
 	defer close(done)
 	defer func() { _ = connection.Close() }()
 	for {
 		select {
+		case <-tokenExpired:
+			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
+			_ = connection.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(collaborationCloseTokenExpired, "token expired"),
+				time.Now().Add(collaborationWebSocketWriteTimeout),
+			)
+			return
 		case <-ctx.Done():
 			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
 			_ = connection.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "closed"), time.Now().Add(collaborationWebSocketWriteTimeout))

@@ -461,6 +461,48 @@ func TestCollaborationWebSocketOriginPolicy(t *testing.T) {
 	}
 }
 
+func TestCollaborationWebSocketClosesWhenAccessTokenExpires(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	eventBus := &collaborationHandlerEventBusStub{
+		deviceEvents: make(chan collaborationservice.EventEnvelope, 1),
+		userEvents:   make(chan collaborationservice.EventEnvelope, 1),
+	}
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{
+		ProtocolVersion:   1,
+		TaskFeeAmount:     "0.100000",
+		TaskFeeCurrency:   "USD",
+		CommandTTLSeconds: 300,
+		MaxPromptBytes:    32 * 1024,
+	}}
+	handler := NewCollaborationHandler(nil, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
+	expiresAt := time.Now().Add(100 * time.Millisecond)
+	router := gin.New()
+	router.GET("/ws", func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{
+			UserID:         42,
+			TokenExpiresAt: expiresAt,
+		})
+		c.Next()
+	}, handler.WebSocket)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	headers := http.Header{}
+	headers.Set("X-Sub2API-Client-Type", "mobile")
+	headers.Set("X-Sub2API-Protocol-Version", "1")
+	connection, _, err := websocket.DefaultDialer.Dial(strings.Replace(server.URL, "http://", "ws://", 1)+"/ws", headers)
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	defer func() { _ = connection.Close() }()
+	_ = connection.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, err = connection.ReadMessage()
+	var closeError *websocket.CloseError
+	if !errors.As(err, &closeError) || closeError.Code != collaborationCloseTokenExpired || closeError.Text != "token expired" {
+		t.Fatalf("expired mobile WebSocket close error = %v", err)
+	}
+}
+
 func TestCollaborationWebSocketRejectsConnectionOverLimitBeforeUpgrade(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{Collaboration: config.CollaborationConfig{

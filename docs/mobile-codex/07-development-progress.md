@@ -9,8 +9,8 @@
 | 里程碑 | 状态 | 当前证据 |
 |---|---|---|
 | M0 协议与三端骨架 | 已完成 | CI 已通过协议、Go、Flutter、PC Web 与 Tauri Rust 原生壳检查 |
-| M1 后端设备与账务 | 进行中 | 四表迁移、状态机、设备 REST、原子直接扣费、缓存失效与过期清理已落盘；等待最新 PostgreSQL 集成 CI |
-| M2 实时中继 | 未开始 | 只有无依赖 fake relay；尚无生产 WS/Redis presence |
+| M1 后端设备与账务 | 已完成 | CI run `30792876681` 的 unit、真实 PostgreSQL integration、lint 与生成检查全部通过 |
+| M2 实时中继 | 进行中 | Redis presence、心跳投影与 TTL 测试已落盘；生产 WS、事件总线和 sync payload 尚未完成 |
 | M3 PC Codex Adapter | 未开始 | 只有 Tauri/React 壳、SecretStore 边界和脱敏函数 |
 | M4 Flutter 认证与目录 | 部分提前实现 | 四项导航、页面视觉、普通用户 admin 深链守卫和固定充值外链已写；真实 API/安全存储尚未接入 |
 | M5 聊天与图片 | 未开始 | 当前聊天页只有界面数据 |
@@ -72,14 +72,14 @@ node protocol/scripts/mock-smoke.mjs
 
 当前开发机没有 Flutter/Dart、Go、Rust/Cargo 工具链，根分区只剩约 0.7GB。为避免耗尽磁盘，没有在本机下载数 GB SDK。因此：
 
-- CI run `30792095918` 已通过 protocol、Go lint、Flutter analyze/test、PC Web 和 Tauri Rust；该 run 的 test job 只因 integration build 使用了当前 decimal 版本不存在的测试常量而失败，生产代码和 unit suite 已通过。
-- 测试常量已改为显式 `decimal.NewFromInt(1)`；包含 M1 新增设备 REST、sweeper 和 PostgreSQL 集成场景的后续 run 正在验证。
+- CI run `30792876681` 已通过 protocol、Go unit/integration/lint、Flutter analyze/test、PC Web 和 Tauri Rust。真实 PostgreSQL 场景覆盖 50 并发幂等、余额不足回滚、跨用户隔离、撤销设备、过期收敛且不退款。
+- M2 presence 改动正在后续 run 验证，未完成前不计为 M2 已交付。
 - 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
 任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 等待最新 CI 完成 M1 unit/integration、Wire 可复现性和 Tauri 回归验证；修复任何真实失败。
-2. CI 全绿后进入 M2：JWT WebSocket、Redis presence、跨实例中继、sync payload TTL 与命令 dispatch。
-3. M2 稳定后实现 M3 Codex app-server adapter 和系统 keyring，再把 Flutter 静态数据替换为真实站点认证与业务接口。
+1. 完成 M2：JWT WebSocket、跨实例事件总线、sync payload TTL、命令 dispatch、背压与重连测试。
+2. 实现 M3 Codex app-server adapter 和系统 keyring。
+3. 把 Flutter 静态数据替换为真实站点认证、Key/分组、公告、兑换、聊天、图片与协同接口。

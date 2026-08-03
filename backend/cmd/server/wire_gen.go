@@ -304,7 +304,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	batchImageCleanupService := service.ProvideBatchImageCleanupService(batchImageRepository, accountRepository, configConfig)
 	batchImageHandler := handler.ProvideBatchImageHandler(batchImagePublicService, batchImageDownloadService, batchImageCleanupService, openAIGatewayHandler)
 	collaborationRepository := repository.NewCollaborationRepository(db)
-	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator)
+	presenceStore := repository.NewCollaborationPresenceStore(redisClient, configConfig)
+	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator, presenceStore)
 	if err != nil {
 		return nil, err
 	}

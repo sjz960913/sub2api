@@ -304,8 +304,8 @@ type UsageStats struct {
 	Endpoints                []EndpointStat `json:"endpoints,omitempty"`
 	UpstreamEndpoints        []EndpointStat `json:"upstream_endpoints,omitempty"`
 	EndpointPaths            []EndpointStat `json:"endpoint_paths,omitempty"`
-	TotalProfit             float64        `json:"total_profit"`
-	TotalGrossMargin        float64        `json:"total_gross_margin"`
+	TotalProfit              float64        `json:"total_profit"`
+	TotalGrossMargin         float64        `json:"total_gross_margin"`
 }
 
 func GrossMargin(revenue, profit float64) float64 {

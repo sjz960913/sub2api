@@ -106,16 +106,16 @@ type Config struct {
 // The feature is disabled by default so existing deployments keep their
 // current attack surface until the collaboration migrations are installed.
 type CollaborationConfig struct {
-	Enabled                     bool   `mapstructure:"enabled"`
-	ProtocolVersion             int    `mapstructure:"protocol_version"`
-	HeartbeatIntervalSeconds    int    `mapstructure:"heartbeat_interval_seconds"`
-	TaskFeeAmount               string `mapstructure:"task_fee_amount"`
-	TaskFeeCurrency             string `mapstructure:"task_fee_currency"`
-	CommandTTLSeconds           int    `mapstructure:"command_ttl_seconds"`
-	SyncTTLSeconds              int    `mapstructure:"sync_ttl_seconds"`
-	MaxPromptBytes              int    `mapstructure:"max_prompt_bytes"`
-	MaxConnectionsPerUser       int    `mapstructure:"max_connections_per_user"`
-	MaxConnectionsPerDevice    int    `mapstructure:"max_connections_per_device"`
+	Enabled                  bool   `mapstructure:"enabled"`
+	ProtocolVersion          int    `mapstructure:"protocol_version"`
+	HeartbeatIntervalSeconds int    `mapstructure:"heartbeat_interval_seconds"`
+	TaskFeeAmount            string `mapstructure:"task_fee_amount"`
+	TaskFeeCurrency          string `mapstructure:"task_fee_currency"`
+	CommandTTLSeconds        int    `mapstructure:"command_ttl_seconds"`
+	SyncTTLSeconds           int    `mapstructure:"sync_ttl_seconds"`
+	MaxPromptBytes           int    `mapstructure:"max_prompt_bytes"`
+	MaxConnectionsPerUser    int    `mapstructure:"max_connections_per_user"`
+	MaxConnectionsPerDevice  int    `mapstructure:"max_connections_per_device"`
 }
 
 type LogConfig struct {

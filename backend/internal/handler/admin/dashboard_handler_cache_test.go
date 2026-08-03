@@ -129,10 +129,10 @@ func TestDashboardHandler_GetUserUsageTrend_UsesCache(t *testing.T) {
 func TestDashboardHandler_BuildSnapshotV2Response_PopulatesFinancialMetrics(t *testing.T) {
 	repo := &dashboardUsageRepoCacheProbe{
 		dashboardStats: &usagestats.DashboardStats{
-			TotalActualCost:   10,
-			TotalAccountCost:  4,
-			TodayActualCost:   5,
-			TodayAccountCost:  2,
+			TotalActualCost:  10,
+			TotalAccountCost: 4,
+			TodayActualCost:  5,
+			TodayAccountCost: 2,
 		},
 	}
 	dashboardSvc := service.NewDashboardService(repo, nil, nil, nil)

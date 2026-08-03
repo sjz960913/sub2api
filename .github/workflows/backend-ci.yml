@@ -94,6 +94,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: clients/codex-pc/package-lock.json
       - name: Install Tauri Linux dependencies
         run: |
           sudo apt-get update
@@ -107,6 +112,11 @@ jobs:
         run: |
           rustc --version
           cargo --version
+      - name: Build desktop frontend
+        working-directory: clients/codex-pc
+        run: |
+          npm ci
+          npm run build
       - name: Check Tauri shell
         run: cargo check --manifest-path clients/codex-pc/src-tauri/Cargo.toml
 

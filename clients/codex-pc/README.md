@@ -13,5 +13,11 @@ npm run build
 npm run tauri build
 ```
 
-The M0 source exposes an OS-secret-store facade but does not persist secrets
-until a real platform keyring adapter is wired and tested.
+The Rust shell now includes a bounded stdio adapter for the stable Codex
+app-server API. It initializes with `experimentalApi: false`, normalizes thread
+metadata before exposing it to the desktop UI, starts turns without changing
+the configured sandbox, and rejects unexpected approval/user-input requests.
+There is no PC approval or confirmation flow.
+
+The OS-secret-store facade still does not persist secrets until a real platform
+keyring adapter is wired and tested.

@@ -810,10 +810,10 @@ func (s *Service) transitionCommandEvent(
 		input.ErrorCode = &errorCode
 	}
 	if command.Status == status {
-		if status == collabdomain.CommandStatusStarted && !equalOptionalString(command.TurnID, input.TurnID) {
+		if status == collabdomain.CommandStatusStarted && !sameOptionalString(command.TurnID, input.TurnID) {
 			return ErrInvalidTransition
 		}
-		if status == collabdomain.CommandStatusFailed && !equalOptionalString(command.ErrorCode, input.ErrorCode) {
+		if status == collabdomain.CommandStatusFailed && !sameOptionalString(command.ErrorCode, input.ErrorCode) {
 			return ErrInvalidTransition
 		}
 		s.publishCommandStatus(ctx, userID, event, command)
@@ -912,6 +912,13 @@ func collaborationPayloadInt64(value any) (int64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func validCollaborationItem(item map[string]any) bool {

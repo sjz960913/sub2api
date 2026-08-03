@@ -876,10 +876,12 @@ mod tests {
             status: "completed".to_owned(),
             completed_at_ms: 123,
         };
-        let json = relay_item(&item, 1).to_string();
+        let value = relay_item(&item, 1);
+        let object = value.as_object().unwrap();
         for forbidden in ["command", "cwd", "stderr", "raw", "source_path"] {
-            assert!(!json.contains(forbidden));
+            assert!(!object.contains_key(forbidden));
         }
+        assert_eq!(object.get("type"), Some(&json!("command_execution")));
     }
 
     #[test]

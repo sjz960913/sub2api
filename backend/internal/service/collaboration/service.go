@@ -379,9 +379,16 @@ func (s *Service) RevokeDevice(
 		return Device{}, ErrInvalidArgument
 	}
 	device, err := s.repository.RevokeDevice(ctx, userID, deviceID)
-	if err == nil && s.presence != nil {
-		if removeErr := s.presence.Remove(ctx, deviceID); removeErr != nil {
-			slog.Warn("remove revoked collaboration presence failed", "device_id", deviceID, "error", removeErr)
+	if err == nil {
+		if s.presence != nil {
+			if removeErr := s.presence.Remove(ctx, deviceID); removeErr != nil {
+				slog.Warn("remove revoked collaboration presence failed", "device_id", deviceID, "error", removeErr)
+			}
+		}
+		if s.eventBus != nil {
+			_, _ = s.eventBus.PublishDevice(ctx, userID, deviceID, "server.shutdown", nil, map[string]any{
+				"reason": "device_revoked",
+			})
 		}
 	}
 	return device, err

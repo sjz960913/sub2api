@@ -392,6 +392,43 @@ func TestCollaborationCommandTransitionsAreAtomicAndTenantScoped(t *testing.T) {
 	}
 }
 
+func TestCollaborationDeviceRevocationFailsActiveWorkWithoutRefund(t *testing.T) {
+	user := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	repository := NewCollaborationRepository(integrationDB)
+	device := registerCollaborationTestDevice(t, repository, user.ID)
+	command, err := repository.CreateCommandAndCharge(context.Background(), collaborationCommandInput(user.ID, device.ID, uuid.New()))
+	if err != nil {
+		t.Fatalf("CreateCommandAndCharge() error = %v", err)
+	}
+	syncRequest, err := repository.CreateSync(context.Background(), collabservice.CreateSyncInput{
+		UserID: user.ID, DeviceID: device.ID, IdempotencyKey: uuid.New(),
+		RequestSHA256: strings.Repeat("c", 64), Kind: collabdomain.SyncKindSessionList,
+		ExpiresAt: time.Now().UTC().Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("CreateSync() error = %v", err)
+	}
+	revoked, err := repository.RevokeDevice(context.Background(), user.ID, device.ID)
+	if err != nil || revoked.Status != collabdomain.DeviceStatusRevoked {
+		t.Fatalf("RevokeDevice() = %#v, %v", revoked, err)
+	}
+	failedCommand, err := repository.GetCommand(context.Background(), user.ID, command.Command.ID)
+	if err != nil || failedCommand.Status != collabdomain.CommandStatusFailed || failedCommand.ErrorCode == nil || *failedCommand.ErrorCode != "device_revoked" {
+		t.Fatalf("revoked command = %#v, %v", failedCommand, err)
+	}
+	failedSync, err := repository.GetSync(context.Background(), user.ID, syncRequest.Sync.ID)
+	if err != nil || failedSync.Status != collabdomain.SyncStatusFailed || failedSync.ErrorCode == nil || *failedSync.ErrorCode != "device_revoked" {
+		t.Fatalf("revoked sync = %#v, %v", failedSync, err)
+	}
+	var balance string
+	if err := integrationDB.QueryRow(`SELECT balance::text FROM users WHERE id = $1`, user.ID).Scan(&balance); err != nil {
+		t.Fatalf("query user balance: %v", err)
+	}
+	if balance != "0.90000000" {
+		t.Fatalf("balance = %s, want charged balance without refund", balance)
+	}
+}
+
 func createCollaborationTestUser(t *testing.T, balance, frozenBalance decimal.Decimal) *dbent.User {
 	t.Helper()
 	ctx := context.Background()

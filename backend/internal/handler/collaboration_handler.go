@@ -20,6 +20,8 @@ import (
 
 const (
 	collaborationCloseTryAgainLater    = 1013
+	collaborationCloseServiceRestart   = 1012
+	collaborationCloseDeviceRevoked    = 4403
 	collaborationWebSocketWriteTimeout = 10 * time.Second
 )
 
@@ -426,6 +428,20 @@ func (h *CollaborationHandler) writeCollaborationEvents(
 			}
 			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
 			if err := connection.WriteJSON(event); err != nil {
+				return
+			}
+			if event.Type == "server.shutdown" {
+				closeCode := collaborationCloseServiceRestart
+				closeReason := "server shutdown"
+				if reason, _ := event.Payload["reason"].(string); reason == "device_revoked" {
+					closeCode = collaborationCloseDeviceRevoked
+					closeReason = "device revoked"
+				}
+				_ = connection.WriteControl(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(closeCode, closeReason),
+					time.Now().Add(collaborationWebSocketWriteTimeout),
+				)
 				return
 			}
 		}

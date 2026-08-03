@@ -397,7 +397,7 @@ Access Token 失效：服务端以 close code `4401` 关闭；客户端通过 HT
 | `thread_sync.requested` | sync_id + thread_id + cursor | 请求历史增量 |
 | `command.dispatched` | command_id + thread_id + input + expires_at | 下发后台已接收任务 |
 | `command.cancel_requested` | command_id + optional turn_id | 取消/打断 |
-| `server.shutdown` | retry_after_seconds | 优雅迁移连接 |
+| `server.shutdown` | reason + optional retry_after_seconds | 优雅迁移连接；`device_revoked` 后以 4403 关闭 |
 
 PC 收到 command 后，先发送 `command.received`，再进行 thread 校验。后台已经在 REST accepted 事务中完成一次扣费，WS 事件不得再次修改余额。
 

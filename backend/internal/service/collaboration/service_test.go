@@ -599,6 +599,35 @@ func TestRegisterDeviceNormalizesMetadataAndChecksProtocol(t *testing.T) {
 	}
 }
 
+func TestRevokeDeviceRemovesPresenceAndRequestsRemoteShutdown(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	repository := &repositoryStub{device: Device{
+		ID: deviceID, UserID: 42, Status: collabdomain.DeviceStatusRevoked,
+	}}
+	presence := &presenceStoreStub{}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	service.SetRealtime(events, nil)
+
+	device, err := service.RevokeDevice(context.Background(), 42, deviceID)
+	if err != nil {
+		t.Fatalf("RevokeDevice() error = %v", err)
+	}
+	if device.ID != deviceID || presence.removed != deviceID {
+		t.Fatalf("device/presence = %#v / %s", device, presence.removed)
+	}
+	if len(events.deviceEvents) != 1 || events.deviceEvents[0].Type != "server.shutdown" ||
+		events.deviceEvents[0].Payload["reason"] != "device_revoked" {
+		t.Fatalf("shutdown events = %#v", events.deviceEvents)
+	}
+}
+
 func TestListDevicesProjectsRedisPresence(t *testing.T) {
 	t.Parallel()
 

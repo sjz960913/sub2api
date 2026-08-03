@@ -187,9 +187,15 @@ func (r *collaborationRepository) RevokeDevice(
 	ctx context.Context,
 	userID int64,
 	deviceID uuid.UUID,
-) (collabservice.Device, error) {
+) (device collabservice.Device, err error) {
 	now := r.now().UTC()
-	row := r.db.QueryRowContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return collabservice.Device{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	row := tx.QueryRowContext(ctx, `
 		UPDATE collaboration_devices
 		SET status = 'revoked', revoked_at = COALESCE(revoked_at, $3), updated_at = $3
 		WHERE user_id = $1 AND id = $2
@@ -198,11 +204,35 @@ func (r *collaborationRepository) RevokeDevice(
 			companion_version, codex_version, protocol_version, status,
 			capabilities, last_seen_at, revoked_at, registered_at, created_at, updated_at
 	`, userID, deviceID, now)
-	device, err := scanCollaborationDevice(row)
+	device, err = scanCollaborationDevice(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return collabservice.Device{}, collabservice.ErrNotFound
 	}
-	return device, err
+	if err != nil {
+		return collabservice.Device{}, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE collaboration_commands
+		SET status = 'failed', error_code = 'device_revoked',
+			completed_at = COALESCE(completed_at, $3), updated_at = $3
+		WHERE user_id = $1 AND device_id = $2
+			AND status IN ('accepted', 'dispatched', 'started')
+	`, userID, deviceID, now); err != nil {
+		return collabservice.Device{}, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE collaboration_sync_requests
+		SET status = 'failed', error_code = 'device_revoked',
+			completed_at = COALESCE(completed_at, $3), updated_at = $3
+		WHERE user_id = $1 AND device_id = $2
+			AND status IN ('pending', 'running')
+	`, userID, deviceID, now); err != nil {
+		return collabservice.Device{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return collabservice.Device{}, err
+	}
+	return device, nil
 }
 
 func (r *collaborationRepository) CreateSync(

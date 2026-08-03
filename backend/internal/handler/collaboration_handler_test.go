@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -366,6 +367,7 @@ func TestCollaborationWebSocketHeartbeatRefreshesPresence(t *testing.T) {
 		t.Fatalf("NewService() error = %v", err)
 	}
 	service.SetPresenceStore(presence)
+	service.SetRealtime(eventBus, nil)
 	handler := NewCollaborationHandler(service, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
 	router := gin.New()
 	router.GET("/ws", func(c *gin.Context) {
@@ -423,6 +425,23 @@ func TestCollaborationWebSocketHeartbeatRefreshesPresence(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("heartbeat did not publish user presence event")
+	}
+	if _, err := service.RevokeDevice(context.Background(), 42, deviceID); err != nil {
+		t.Fatalf("RevokeDevice() error = %v", err)
+	}
+	_ = connection.SetReadDeadline(time.Now().Add(time.Second))
+	var shutdown collaborationservice.EventEnvelope
+	if err := connection.ReadJSON(&shutdown); err != nil {
+		t.Fatalf("ReadJSON(shutdown) error = %v", err)
+	}
+	if shutdown.Type != "server.shutdown" || shutdown.Payload["reason"] != "device_revoked" {
+		t.Fatalf("shutdown event = %#v", shutdown)
+	}
+	_ = connection.SetReadDeadline(time.Now().Add(time.Second))
+	err = connection.ReadJSON(&shutdown)
+	var closeError *websocket.CloseError
+	if !errors.As(err, &closeError) || closeError.Code != collaborationCloseDeviceRevoked {
+		t.Fatalf("revoked PC WebSocket close error = %v", err)
 	}
 }
 

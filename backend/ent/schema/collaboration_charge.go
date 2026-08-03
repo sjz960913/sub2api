@@ -70,12 +70,14 @@ func (CollaborationCharge) Edges() []ent.Edge {
 			Ref("charge").
 			Field("command_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.From("user", User.Type).
 			Ref("collaboration_charges").
 			Field("user_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 	}
 }
 

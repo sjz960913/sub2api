@@ -82,12 +82,14 @@ func (CollaborationSyncRequest) Edges() []ent.Edge {
 			Ref("collaboration_sync_requests").
 			Field("user_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.From("device", CollaborationDevice.Type).
 			Ref("sync_requests").
 			Field("device_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 	}
 }
 

@@ -86,7 +86,8 @@ func (CollaborationDevice) Edges() []ent.Edge {
 			Ref("collaboration_devices").
 			Field("user_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.To("sync_requests", CollaborationSyncRequest.Type),
 		edge.To("commands", CollaborationCommand.Type),
 	}

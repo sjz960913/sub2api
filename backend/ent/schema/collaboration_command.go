@@ -86,12 +86,14 @@ func (CollaborationCommand) Edges() []ent.Edge {
 			Ref("collaboration_commands").
 			Field("user_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.From("device", CollaborationDevice.Type).
 			Ref("commands").
 			Field("device_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.To("charge", CollaborationCharge.Type).
 			Unique(),
 	}

@@ -26,6 +26,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -53,6 +57,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/google/uuid"
 )
 
 const (
@@ -78,6 +83,10 @@ const (
 	TypeChannelMonitorDailyRollup     = "ChannelMonitorDailyRollup"
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
+	TypeCollaborationCharge           = "CollaborationCharge"
+	TypeCollaborationCommand          = "CollaborationCommand"
+	TypeCollaborationDevice           = "CollaborationDevice"
+	TypeCollaborationSyncRequest      = "CollaborationSyncRequest"
 	TypeCompositeModelRoute           = "CompositeModelRoute"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
@@ -19468,6 +19477,5003 @@ func (m *ChannelMonitorRequestTemplateMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitorRequestTemplate edge %s", name)
+}
+
+// CollaborationChargeMutation represents an operation that mutates the CollaborationCharge nodes in the graph.
+type CollaborationChargeMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	amount         *string
+	currency       *string
+	status         *collaborationcharge.Status
+	balance_before *string
+	balance_after  *string
+	reason         *string
+	charged_at     *time.Time
+	clearedFields  map[string]struct{}
+	command        *uuid.UUID
+	clearedcommand bool
+	user           *int64
+	cleareduser    bool
+	done           bool
+	oldValue       func(context.Context) (*CollaborationCharge, error)
+	predicates     []predicate.CollaborationCharge
+}
+
+var _ ent.Mutation = (*CollaborationChargeMutation)(nil)
+
+// collaborationchargeOption allows management of the mutation configuration using functional options.
+type collaborationchargeOption func(*CollaborationChargeMutation)
+
+// newCollaborationChargeMutation creates new mutation for the CollaborationCharge entity.
+func newCollaborationChargeMutation(c config, op Op, opts ...collaborationchargeOption) *CollaborationChargeMutation {
+	m := &CollaborationChargeMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollaborationCharge,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollaborationChargeID sets the ID field of the mutation.
+func withCollaborationChargeID(id uuid.UUID) collaborationchargeOption {
+	return func(m *CollaborationChargeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CollaborationCharge
+		)
+		m.oldValue = func(ctx context.Context) (*CollaborationCharge, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CollaborationCharge.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollaborationCharge sets the old CollaborationCharge of the mutation.
+func withCollaborationCharge(node *CollaborationCharge) collaborationchargeOption {
+	return func(m *CollaborationChargeMutation) {
+		m.oldValue = func(context.Context) (*CollaborationCharge, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollaborationChargeMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollaborationChargeMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CollaborationCharge entities.
+func (m *CollaborationChargeMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollaborationChargeMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollaborationChargeMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CollaborationCharge.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCommandID sets the "command_id" field.
+func (m *CollaborationChargeMutation) SetCommandID(u uuid.UUID) {
+	m.command = &u
+}
+
+// CommandID returns the value of the "command_id" field in the mutation.
+func (m *CollaborationChargeMutation) CommandID() (r uuid.UUID, exists bool) {
+	v := m.command
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommandID returns the old "command_id" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldCommandID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommandID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommandID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommandID: %w", err)
+	}
+	return oldValue.CommandID, nil
+}
+
+// ResetCommandID resets all changes to the "command_id" field.
+func (m *CollaborationChargeMutation) ResetCommandID() {
+	m.command = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CollaborationChargeMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CollaborationChargeMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CollaborationChargeMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetAmount sets the "amount" field.
+func (m *CollaborationChargeMutation) SetAmount(s string) {
+	m.amount = &s
+}
+
+// Amount returns the value of the "amount" field in the mutation.
+func (m *CollaborationChargeMutation) Amount() (r string, exists bool) {
+	v := m.amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmount returns the old "amount" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldAmount(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmount: %w", err)
+	}
+	return oldValue.Amount, nil
+}
+
+// ResetAmount resets all changes to the "amount" field.
+func (m *CollaborationChargeMutation) ResetAmount() {
+	m.amount = nil
+}
+
+// SetCurrency sets the "currency" field.
+func (m *CollaborationChargeMutation) SetCurrency(s string) {
+	m.currency = &s
+}
+
+// Currency returns the value of the "currency" field in the mutation.
+func (m *CollaborationChargeMutation) Currency() (r string, exists bool) {
+	v := m.currency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrency returns the old "currency" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldCurrency(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrency is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrency requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrency: %w", err)
+	}
+	return oldValue.Currency, nil
+}
+
+// ResetCurrency resets all changes to the "currency" field.
+func (m *CollaborationChargeMutation) ResetCurrency() {
+	m.currency = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *CollaborationChargeMutation) SetStatus(c collaborationcharge.Status) {
+	m.status = &c
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *CollaborationChargeMutation) Status() (r collaborationcharge.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldStatus(ctx context.Context) (v collaborationcharge.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *CollaborationChargeMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetBalanceBefore sets the "balance_before" field.
+func (m *CollaborationChargeMutation) SetBalanceBefore(s string) {
+	m.balance_before = &s
+}
+
+// BalanceBefore returns the value of the "balance_before" field in the mutation.
+func (m *CollaborationChargeMutation) BalanceBefore() (r string, exists bool) {
+	v := m.balance_before
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceBefore returns the old "balance_before" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldBalanceBefore(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceBefore is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceBefore requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceBefore: %w", err)
+	}
+	return oldValue.BalanceBefore, nil
+}
+
+// ResetBalanceBefore resets all changes to the "balance_before" field.
+func (m *CollaborationChargeMutation) ResetBalanceBefore() {
+	m.balance_before = nil
+}
+
+// SetBalanceAfter sets the "balance_after" field.
+func (m *CollaborationChargeMutation) SetBalanceAfter(s string) {
+	m.balance_after = &s
+}
+
+// BalanceAfter returns the value of the "balance_after" field in the mutation.
+func (m *CollaborationChargeMutation) BalanceAfter() (r string, exists bool) {
+	v := m.balance_after
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceAfter returns the old "balance_after" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldBalanceAfter(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceAfter is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceAfter requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceAfter: %w", err)
+	}
+	return oldValue.BalanceAfter, nil
+}
+
+// ResetBalanceAfter resets all changes to the "balance_after" field.
+func (m *CollaborationChargeMutation) ResetBalanceAfter() {
+	m.balance_after = nil
+}
+
+// SetReason sets the "reason" field.
+func (m *CollaborationChargeMutation) SetReason(s string) {
+	m.reason = &s
+}
+
+// Reason returns the value of the "reason" field in the mutation.
+func (m *CollaborationChargeMutation) Reason() (r string, exists bool) {
+	v := m.reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReason returns the old "reason" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReason: %w", err)
+	}
+	return oldValue.Reason, nil
+}
+
+// ClearReason clears the value of the "reason" field.
+func (m *CollaborationChargeMutation) ClearReason() {
+	m.reason = nil
+	m.clearedFields[collaborationcharge.FieldReason] = struct{}{}
+}
+
+// ReasonCleared returns if the "reason" field was cleared in this mutation.
+func (m *CollaborationChargeMutation) ReasonCleared() bool {
+	_, ok := m.clearedFields[collaborationcharge.FieldReason]
+	return ok
+}
+
+// ResetReason resets all changes to the "reason" field.
+func (m *CollaborationChargeMutation) ResetReason() {
+	m.reason = nil
+	delete(m.clearedFields, collaborationcharge.FieldReason)
+}
+
+// SetChargedAt sets the "charged_at" field.
+func (m *CollaborationChargeMutation) SetChargedAt(t time.Time) {
+	m.charged_at = &t
+}
+
+// ChargedAt returns the value of the "charged_at" field in the mutation.
+func (m *CollaborationChargeMutation) ChargedAt() (r time.Time, exists bool) {
+	v := m.charged_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChargedAt returns the old "charged_at" field's value of the CollaborationCharge entity.
+// If the CollaborationCharge object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationChargeMutation) OldChargedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChargedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChargedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChargedAt: %w", err)
+	}
+	return oldValue.ChargedAt, nil
+}
+
+// ResetChargedAt resets all changes to the "charged_at" field.
+func (m *CollaborationChargeMutation) ResetChargedAt() {
+	m.charged_at = nil
+}
+
+// ClearCommand clears the "command" edge to the CollaborationCommand entity.
+func (m *CollaborationChargeMutation) ClearCommand() {
+	m.clearedcommand = true
+	m.clearedFields[collaborationcharge.FieldCommandID] = struct{}{}
+}
+
+// CommandCleared reports if the "command" edge to the CollaborationCommand entity was cleared.
+func (m *CollaborationChargeMutation) CommandCleared() bool {
+	return m.clearedcommand
+}
+
+// CommandIDs returns the "command" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CommandID instead. It exists only for internal usage by the builders.
+func (m *CollaborationChargeMutation) CommandIDs() (ids []uuid.UUID) {
+	if id := m.command; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCommand resets all changes to the "command" edge.
+func (m *CollaborationChargeMutation) ResetCommand() {
+	m.command = nil
+	m.clearedcommand = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *CollaborationChargeMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[collaborationcharge.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *CollaborationChargeMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *CollaborationChargeMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *CollaborationChargeMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the CollaborationChargeMutation builder.
+func (m *CollaborationChargeMutation) Where(ps ...predicate.CollaborationCharge) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollaborationChargeMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollaborationChargeMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CollaborationCharge, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollaborationChargeMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollaborationChargeMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CollaborationCharge).
+func (m *CollaborationChargeMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollaborationChargeMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.command != nil {
+		fields = append(fields, collaborationcharge.FieldCommandID)
+	}
+	if m.user != nil {
+		fields = append(fields, collaborationcharge.FieldUserID)
+	}
+	if m.amount != nil {
+		fields = append(fields, collaborationcharge.FieldAmount)
+	}
+	if m.currency != nil {
+		fields = append(fields, collaborationcharge.FieldCurrency)
+	}
+	if m.status != nil {
+		fields = append(fields, collaborationcharge.FieldStatus)
+	}
+	if m.balance_before != nil {
+		fields = append(fields, collaborationcharge.FieldBalanceBefore)
+	}
+	if m.balance_after != nil {
+		fields = append(fields, collaborationcharge.FieldBalanceAfter)
+	}
+	if m.reason != nil {
+		fields = append(fields, collaborationcharge.FieldReason)
+	}
+	if m.charged_at != nil {
+		fields = append(fields, collaborationcharge.FieldChargedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollaborationChargeMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationcharge.FieldCommandID:
+		return m.CommandID()
+	case collaborationcharge.FieldUserID:
+		return m.UserID()
+	case collaborationcharge.FieldAmount:
+		return m.Amount()
+	case collaborationcharge.FieldCurrency:
+		return m.Currency()
+	case collaborationcharge.FieldStatus:
+		return m.Status()
+	case collaborationcharge.FieldBalanceBefore:
+		return m.BalanceBefore()
+	case collaborationcharge.FieldBalanceAfter:
+		return m.BalanceAfter()
+	case collaborationcharge.FieldReason:
+		return m.Reason()
+	case collaborationcharge.FieldChargedAt:
+		return m.ChargedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollaborationChargeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collaborationcharge.FieldCommandID:
+		return m.OldCommandID(ctx)
+	case collaborationcharge.FieldUserID:
+		return m.OldUserID(ctx)
+	case collaborationcharge.FieldAmount:
+		return m.OldAmount(ctx)
+	case collaborationcharge.FieldCurrency:
+		return m.OldCurrency(ctx)
+	case collaborationcharge.FieldStatus:
+		return m.OldStatus(ctx)
+	case collaborationcharge.FieldBalanceBefore:
+		return m.OldBalanceBefore(ctx)
+	case collaborationcharge.FieldBalanceAfter:
+		return m.OldBalanceAfter(ctx)
+	case collaborationcharge.FieldReason:
+		return m.OldReason(ctx)
+	case collaborationcharge.FieldChargedAt:
+		return m.OldChargedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CollaborationCharge field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationChargeMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collaborationcharge.FieldCommandID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommandID(v)
+		return nil
+	case collaborationcharge.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case collaborationcharge.FieldAmount:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmount(v)
+		return nil
+	case collaborationcharge.FieldCurrency:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrency(v)
+		return nil
+	case collaborationcharge.FieldStatus:
+		v, ok := value.(collaborationcharge.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case collaborationcharge.FieldBalanceBefore:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceBefore(v)
+		return nil
+	case collaborationcharge.FieldBalanceAfter:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceAfter(v)
+		return nil
+	case collaborationcharge.FieldReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReason(v)
+		return nil
+	case collaborationcharge.FieldChargedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChargedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCharge field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollaborationChargeMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollaborationChargeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationChargeMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown CollaborationCharge numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollaborationChargeMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(collaborationcharge.FieldReason) {
+		fields = append(fields, collaborationcharge.FieldReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollaborationChargeMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollaborationChargeMutation) ClearField(name string) error {
+	switch name {
+	case collaborationcharge.FieldReason:
+		m.ClearReason()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCharge nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollaborationChargeMutation) ResetField(name string) error {
+	switch name {
+	case collaborationcharge.FieldCommandID:
+		m.ResetCommandID()
+		return nil
+	case collaborationcharge.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case collaborationcharge.FieldAmount:
+		m.ResetAmount()
+		return nil
+	case collaborationcharge.FieldCurrency:
+		m.ResetCurrency()
+		return nil
+	case collaborationcharge.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case collaborationcharge.FieldBalanceBefore:
+		m.ResetBalanceBefore()
+		return nil
+	case collaborationcharge.FieldBalanceAfter:
+		m.ResetBalanceAfter()
+		return nil
+	case collaborationcharge.FieldReason:
+		m.ResetReason()
+		return nil
+	case collaborationcharge.FieldChargedAt:
+		m.ResetChargedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCharge field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollaborationChargeMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.command != nil {
+		edges = append(edges, collaborationcharge.EdgeCommand)
+	}
+	if m.user != nil {
+		edges = append(edges, collaborationcharge.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollaborationChargeMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collaborationcharge.EdgeCommand:
+		if id := m.command; id != nil {
+			return []ent.Value{*id}
+		}
+	case collaborationcharge.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollaborationChargeMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollaborationChargeMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollaborationChargeMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedcommand {
+		edges = append(edges, collaborationcharge.EdgeCommand)
+	}
+	if m.cleareduser {
+		edges = append(edges, collaborationcharge.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollaborationChargeMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collaborationcharge.EdgeCommand:
+		return m.clearedcommand
+	case collaborationcharge.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollaborationChargeMutation) ClearEdge(name string) error {
+	switch name {
+	case collaborationcharge.EdgeCommand:
+		m.ClearCommand()
+		return nil
+	case collaborationcharge.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCharge unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollaborationChargeMutation) ResetEdge(name string) error {
+	switch name {
+	case collaborationcharge.EdgeCommand:
+		m.ResetCommand()
+		return nil
+	case collaborationcharge.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCharge edge %s", name)
+}
+
+// CollaborationCommandMutation represents an operation that mutates the CollaborationCommand nodes in the graph.
+type CollaborationCommandMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	created_at      *time.Time
+	updated_at      *time.Time
+	thread_id       *string
+	idempotency_key *uuid.UUID
+	prompt_sha256   *string
+	prompt_bytes    *int
+	addprompt_bytes *int
+	status          *collaborationcommand.Status
+	turn_id         *string
+	error_code      *string
+	expires_at      *time.Time
+	dispatched_at   *time.Time
+	started_at      *time.Time
+	completed_at    *time.Time
+	clearedFields   map[string]struct{}
+	user            *int64
+	cleareduser     bool
+	device          *uuid.UUID
+	cleareddevice   bool
+	charge          *uuid.UUID
+	clearedcharge   bool
+	done            bool
+	oldValue        func(context.Context) (*CollaborationCommand, error)
+	predicates      []predicate.CollaborationCommand
+}
+
+var _ ent.Mutation = (*CollaborationCommandMutation)(nil)
+
+// collaborationcommandOption allows management of the mutation configuration using functional options.
+type collaborationcommandOption func(*CollaborationCommandMutation)
+
+// newCollaborationCommandMutation creates new mutation for the CollaborationCommand entity.
+func newCollaborationCommandMutation(c config, op Op, opts ...collaborationcommandOption) *CollaborationCommandMutation {
+	m := &CollaborationCommandMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollaborationCommand,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollaborationCommandID sets the ID field of the mutation.
+func withCollaborationCommandID(id uuid.UUID) collaborationcommandOption {
+	return func(m *CollaborationCommandMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CollaborationCommand
+		)
+		m.oldValue = func(ctx context.Context) (*CollaborationCommand, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CollaborationCommand.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollaborationCommand sets the old CollaborationCommand of the mutation.
+func withCollaborationCommand(node *CollaborationCommand) collaborationcommandOption {
+	return func(m *CollaborationCommandMutation) {
+		m.oldValue = func(context.Context) (*CollaborationCommand, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollaborationCommandMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollaborationCommandMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CollaborationCommand entities.
+func (m *CollaborationCommandMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollaborationCommandMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollaborationCommandMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CollaborationCommand.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CollaborationCommandMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CollaborationCommandMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CollaborationCommandMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CollaborationCommandMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CollaborationCommandMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CollaborationCommandMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CollaborationCommandMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CollaborationCommandMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CollaborationCommandMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetDeviceID sets the "device_id" field.
+func (m *CollaborationCommandMutation) SetDeviceID(u uuid.UUID) {
+	m.device = &u
+}
+
+// DeviceID returns the value of the "device_id" field in the mutation.
+func (m *CollaborationCommandMutation) DeviceID() (r uuid.UUID, exists bool) {
+	v := m.device
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceID returns the old "device_id" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldDeviceID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceID: %w", err)
+	}
+	return oldValue.DeviceID, nil
+}
+
+// ResetDeviceID resets all changes to the "device_id" field.
+func (m *CollaborationCommandMutation) ResetDeviceID() {
+	m.device = nil
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *CollaborationCommandMutation) SetThreadID(s string) {
+	m.thread_id = &s
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *CollaborationCommandMutation) ThreadID() (r string, exists bool) {
+	v := m.thread_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldThreadID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *CollaborationCommandMutation) ResetThreadID() {
+	m.thread_id = nil
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *CollaborationCommandMutation) SetIdempotencyKey(u uuid.UUID) {
+	m.idempotency_key = &u
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *CollaborationCommandMutation) IdempotencyKey() (r uuid.UUID, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldIdempotencyKey(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *CollaborationCommandMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+}
+
+// SetPromptSha256 sets the "prompt_sha256" field.
+func (m *CollaborationCommandMutation) SetPromptSha256(s string) {
+	m.prompt_sha256 = &s
+}
+
+// PromptSha256 returns the value of the "prompt_sha256" field in the mutation.
+func (m *CollaborationCommandMutation) PromptSha256() (r string, exists bool) {
+	v := m.prompt_sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptSha256 returns the old "prompt_sha256" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldPromptSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptSha256: %w", err)
+	}
+	return oldValue.PromptSha256, nil
+}
+
+// ResetPromptSha256 resets all changes to the "prompt_sha256" field.
+func (m *CollaborationCommandMutation) ResetPromptSha256() {
+	m.prompt_sha256 = nil
+}
+
+// SetPromptBytes sets the "prompt_bytes" field.
+func (m *CollaborationCommandMutation) SetPromptBytes(i int) {
+	m.prompt_bytes = &i
+	m.addprompt_bytes = nil
+}
+
+// PromptBytes returns the value of the "prompt_bytes" field in the mutation.
+func (m *CollaborationCommandMutation) PromptBytes() (r int, exists bool) {
+	v := m.prompt_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptBytes returns the old "prompt_bytes" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldPromptBytes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptBytes: %w", err)
+	}
+	return oldValue.PromptBytes, nil
+}
+
+// AddPromptBytes adds i to the "prompt_bytes" field.
+func (m *CollaborationCommandMutation) AddPromptBytes(i int) {
+	if m.addprompt_bytes != nil {
+		*m.addprompt_bytes += i
+	} else {
+		m.addprompt_bytes = &i
+	}
+}
+
+// AddedPromptBytes returns the value that was added to the "prompt_bytes" field in this mutation.
+func (m *CollaborationCommandMutation) AddedPromptBytes() (r int, exists bool) {
+	v := m.addprompt_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPromptBytes resets all changes to the "prompt_bytes" field.
+func (m *CollaborationCommandMutation) ResetPromptBytes() {
+	m.prompt_bytes = nil
+	m.addprompt_bytes = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *CollaborationCommandMutation) SetStatus(c collaborationcommand.Status) {
+	m.status = &c
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *CollaborationCommandMutation) Status() (r collaborationcommand.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldStatus(ctx context.Context) (v collaborationcommand.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *CollaborationCommandMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetTurnID sets the "turn_id" field.
+func (m *CollaborationCommandMutation) SetTurnID(s string) {
+	m.turn_id = &s
+}
+
+// TurnID returns the value of the "turn_id" field in the mutation.
+func (m *CollaborationCommandMutation) TurnID() (r string, exists bool) {
+	v := m.turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTurnID returns the old "turn_id" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldTurnID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTurnID: %w", err)
+	}
+	return oldValue.TurnID, nil
+}
+
+// ClearTurnID clears the value of the "turn_id" field.
+func (m *CollaborationCommandMutation) ClearTurnID() {
+	m.turn_id = nil
+	m.clearedFields[collaborationcommand.FieldTurnID] = struct{}{}
+}
+
+// TurnIDCleared returns if the "turn_id" field was cleared in this mutation.
+func (m *CollaborationCommandMutation) TurnIDCleared() bool {
+	_, ok := m.clearedFields[collaborationcommand.FieldTurnID]
+	return ok
+}
+
+// ResetTurnID resets all changes to the "turn_id" field.
+func (m *CollaborationCommandMutation) ResetTurnID() {
+	m.turn_id = nil
+	delete(m.clearedFields, collaborationcommand.FieldTurnID)
+}
+
+// SetErrorCode sets the "error_code" field.
+func (m *CollaborationCommandMutation) SetErrorCode(s string) {
+	m.error_code = &s
+}
+
+// ErrorCode returns the value of the "error_code" field in the mutation.
+func (m *CollaborationCommandMutation) ErrorCode() (r string, exists bool) {
+	v := m.error_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorCode returns the old "error_code" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldErrorCode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorCode: %w", err)
+	}
+	return oldValue.ErrorCode, nil
+}
+
+// ClearErrorCode clears the value of the "error_code" field.
+func (m *CollaborationCommandMutation) ClearErrorCode() {
+	m.error_code = nil
+	m.clearedFields[collaborationcommand.FieldErrorCode] = struct{}{}
+}
+
+// ErrorCodeCleared returns if the "error_code" field was cleared in this mutation.
+func (m *CollaborationCommandMutation) ErrorCodeCleared() bool {
+	_, ok := m.clearedFields[collaborationcommand.FieldErrorCode]
+	return ok
+}
+
+// ResetErrorCode resets all changes to the "error_code" field.
+func (m *CollaborationCommandMutation) ResetErrorCode() {
+	m.error_code = nil
+	delete(m.clearedFields, collaborationcommand.FieldErrorCode)
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *CollaborationCommandMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *CollaborationCommandMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *CollaborationCommandMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetDispatchedAt sets the "dispatched_at" field.
+func (m *CollaborationCommandMutation) SetDispatchedAt(t time.Time) {
+	m.dispatched_at = &t
+}
+
+// DispatchedAt returns the value of the "dispatched_at" field in the mutation.
+func (m *CollaborationCommandMutation) DispatchedAt() (r time.Time, exists bool) {
+	v := m.dispatched_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDispatchedAt returns the old "dispatched_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldDispatchedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDispatchedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDispatchedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDispatchedAt: %w", err)
+	}
+	return oldValue.DispatchedAt, nil
+}
+
+// ClearDispatchedAt clears the value of the "dispatched_at" field.
+func (m *CollaborationCommandMutation) ClearDispatchedAt() {
+	m.dispatched_at = nil
+	m.clearedFields[collaborationcommand.FieldDispatchedAt] = struct{}{}
+}
+
+// DispatchedAtCleared returns if the "dispatched_at" field was cleared in this mutation.
+func (m *CollaborationCommandMutation) DispatchedAtCleared() bool {
+	_, ok := m.clearedFields[collaborationcommand.FieldDispatchedAt]
+	return ok
+}
+
+// ResetDispatchedAt resets all changes to the "dispatched_at" field.
+func (m *CollaborationCommandMutation) ResetDispatchedAt() {
+	m.dispatched_at = nil
+	delete(m.clearedFields, collaborationcommand.FieldDispatchedAt)
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *CollaborationCommandMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *CollaborationCommandMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ClearStartedAt clears the value of the "started_at" field.
+func (m *CollaborationCommandMutation) ClearStartedAt() {
+	m.started_at = nil
+	m.clearedFields[collaborationcommand.FieldStartedAt] = struct{}{}
+}
+
+// StartedAtCleared returns if the "started_at" field was cleared in this mutation.
+func (m *CollaborationCommandMutation) StartedAtCleared() bool {
+	_, ok := m.clearedFields[collaborationcommand.FieldStartedAt]
+	return ok
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *CollaborationCommandMutation) ResetStartedAt() {
+	m.started_at = nil
+	delete(m.clearedFields, collaborationcommand.FieldStartedAt)
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *CollaborationCommandMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *CollaborationCommandMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the CollaborationCommand entity.
+// If the CollaborationCommand object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationCommandMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *CollaborationCommandMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[collaborationcommand.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *CollaborationCommandMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[collaborationcommand.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *CollaborationCommandMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, collaborationcommand.FieldCompletedAt)
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *CollaborationCommandMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[collaborationcommand.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *CollaborationCommandMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *CollaborationCommandMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *CollaborationCommandMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// ClearDevice clears the "device" edge to the CollaborationDevice entity.
+func (m *CollaborationCommandMutation) ClearDevice() {
+	m.cleareddevice = true
+	m.clearedFields[collaborationcommand.FieldDeviceID] = struct{}{}
+}
+
+// DeviceCleared reports if the "device" edge to the CollaborationDevice entity was cleared.
+func (m *CollaborationCommandMutation) DeviceCleared() bool {
+	return m.cleareddevice
+}
+
+// DeviceIDs returns the "device" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DeviceID instead. It exists only for internal usage by the builders.
+func (m *CollaborationCommandMutation) DeviceIDs() (ids []uuid.UUID) {
+	if id := m.device; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDevice resets all changes to the "device" edge.
+func (m *CollaborationCommandMutation) ResetDevice() {
+	m.device = nil
+	m.cleareddevice = false
+}
+
+// SetChargeID sets the "charge" edge to the CollaborationCharge entity by id.
+func (m *CollaborationCommandMutation) SetChargeID(id uuid.UUID) {
+	m.charge = &id
+}
+
+// ClearCharge clears the "charge" edge to the CollaborationCharge entity.
+func (m *CollaborationCommandMutation) ClearCharge() {
+	m.clearedcharge = true
+}
+
+// ChargeCleared reports if the "charge" edge to the CollaborationCharge entity was cleared.
+func (m *CollaborationCommandMutation) ChargeCleared() bool {
+	return m.clearedcharge
+}
+
+// ChargeID returns the "charge" edge ID in the mutation.
+func (m *CollaborationCommandMutation) ChargeID() (id uuid.UUID, exists bool) {
+	if m.charge != nil {
+		return *m.charge, true
+	}
+	return
+}
+
+// ChargeIDs returns the "charge" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ChargeID instead. It exists only for internal usage by the builders.
+func (m *CollaborationCommandMutation) ChargeIDs() (ids []uuid.UUID) {
+	if id := m.charge; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCharge resets all changes to the "charge" edge.
+func (m *CollaborationCommandMutation) ResetCharge() {
+	m.charge = nil
+	m.clearedcharge = false
+}
+
+// Where appends a list predicates to the CollaborationCommandMutation builder.
+func (m *CollaborationCommandMutation) Where(ps ...predicate.CollaborationCommand) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollaborationCommandMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollaborationCommandMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CollaborationCommand, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollaborationCommandMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollaborationCommandMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CollaborationCommand).
+func (m *CollaborationCommandMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollaborationCommandMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.created_at != nil {
+		fields = append(fields, collaborationcommand.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, collaborationcommand.FieldUpdatedAt)
+	}
+	if m.user != nil {
+		fields = append(fields, collaborationcommand.FieldUserID)
+	}
+	if m.device != nil {
+		fields = append(fields, collaborationcommand.FieldDeviceID)
+	}
+	if m.thread_id != nil {
+		fields = append(fields, collaborationcommand.FieldThreadID)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, collaborationcommand.FieldIdempotencyKey)
+	}
+	if m.prompt_sha256 != nil {
+		fields = append(fields, collaborationcommand.FieldPromptSha256)
+	}
+	if m.prompt_bytes != nil {
+		fields = append(fields, collaborationcommand.FieldPromptBytes)
+	}
+	if m.status != nil {
+		fields = append(fields, collaborationcommand.FieldStatus)
+	}
+	if m.turn_id != nil {
+		fields = append(fields, collaborationcommand.FieldTurnID)
+	}
+	if m.error_code != nil {
+		fields = append(fields, collaborationcommand.FieldErrorCode)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, collaborationcommand.FieldExpiresAt)
+	}
+	if m.dispatched_at != nil {
+		fields = append(fields, collaborationcommand.FieldDispatchedAt)
+	}
+	if m.started_at != nil {
+		fields = append(fields, collaborationcommand.FieldStartedAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, collaborationcommand.FieldCompletedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollaborationCommandMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationcommand.FieldCreatedAt:
+		return m.CreatedAt()
+	case collaborationcommand.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case collaborationcommand.FieldUserID:
+		return m.UserID()
+	case collaborationcommand.FieldDeviceID:
+		return m.DeviceID()
+	case collaborationcommand.FieldThreadID:
+		return m.ThreadID()
+	case collaborationcommand.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case collaborationcommand.FieldPromptSha256:
+		return m.PromptSha256()
+	case collaborationcommand.FieldPromptBytes:
+		return m.PromptBytes()
+	case collaborationcommand.FieldStatus:
+		return m.Status()
+	case collaborationcommand.FieldTurnID:
+		return m.TurnID()
+	case collaborationcommand.FieldErrorCode:
+		return m.ErrorCode()
+	case collaborationcommand.FieldExpiresAt:
+		return m.ExpiresAt()
+	case collaborationcommand.FieldDispatchedAt:
+		return m.DispatchedAt()
+	case collaborationcommand.FieldStartedAt:
+		return m.StartedAt()
+	case collaborationcommand.FieldCompletedAt:
+		return m.CompletedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollaborationCommandMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collaborationcommand.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case collaborationcommand.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case collaborationcommand.FieldUserID:
+		return m.OldUserID(ctx)
+	case collaborationcommand.FieldDeviceID:
+		return m.OldDeviceID(ctx)
+	case collaborationcommand.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case collaborationcommand.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case collaborationcommand.FieldPromptSha256:
+		return m.OldPromptSha256(ctx)
+	case collaborationcommand.FieldPromptBytes:
+		return m.OldPromptBytes(ctx)
+	case collaborationcommand.FieldStatus:
+		return m.OldStatus(ctx)
+	case collaborationcommand.FieldTurnID:
+		return m.OldTurnID(ctx)
+	case collaborationcommand.FieldErrorCode:
+		return m.OldErrorCode(ctx)
+	case collaborationcommand.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case collaborationcommand.FieldDispatchedAt:
+		return m.OldDispatchedAt(ctx)
+	case collaborationcommand.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case collaborationcommand.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CollaborationCommand field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationCommandMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collaborationcommand.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case collaborationcommand.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case collaborationcommand.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case collaborationcommand.FieldDeviceID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceID(v)
+		return nil
+	case collaborationcommand.FieldThreadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case collaborationcommand.FieldIdempotencyKey:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case collaborationcommand.FieldPromptSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptSha256(v)
+		return nil
+	case collaborationcommand.FieldPromptBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptBytes(v)
+		return nil
+	case collaborationcommand.FieldStatus:
+		v, ok := value.(collaborationcommand.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case collaborationcommand.FieldTurnID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTurnID(v)
+		return nil
+	case collaborationcommand.FieldErrorCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorCode(v)
+		return nil
+	case collaborationcommand.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case collaborationcommand.FieldDispatchedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDispatchedAt(v)
+		return nil
+	case collaborationcommand.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case collaborationcommand.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollaborationCommandMutation) AddedFields() []string {
+	var fields []string
+	if m.addprompt_bytes != nil {
+		fields = append(fields, collaborationcommand.FieldPromptBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollaborationCommandMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationcommand.FieldPromptBytes:
+		return m.AddedPromptBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationCommandMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case collaborationcommand.FieldPromptBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPromptBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollaborationCommandMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(collaborationcommand.FieldTurnID) {
+		fields = append(fields, collaborationcommand.FieldTurnID)
+	}
+	if m.FieldCleared(collaborationcommand.FieldErrorCode) {
+		fields = append(fields, collaborationcommand.FieldErrorCode)
+	}
+	if m.FieldCleared(collaborationcommand.FieldDispatchedAt) {
+		fields = append(fields, collaborationcommand.FieldDispatchedAt)
+	}
+	if m.FieldCleared(collaborationcommand.FieldStartedAt) {
+		fields = append(fields, collaborationcommand.FieldStartedAt)
+	}
+	if m.FieldCleared(collaborationcommand.FieldCompletedAt) {
+		fields = append(fields, collaborationcommand.FieldCompletedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollaborationCommandMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollaborationCommandMutation) ClearField(name string) error {
+	switch name {
+	case collaborationcommand.FieldTurnID:
+		m.ClearTurnID()
+		return nil
+	case collaborationcommand.FieldErrorCode:
+		m.ClearErrorCode()
+		return nil
+	case collaborationcommand.FieldDispatchedAt:
+		m.ClearDispatchedAt()
+		return nil
+	case collaborationcommand.FieldStartedAt:
+		m.ClearStartedAt()
+		return nil
+	case collaborationcommand.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollaborationCommandMutation) ResetField(name string) error {
+	switch name {
+	case collaborationcommand.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case collaborationcommand.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case collaborationcommand.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case collaborationcommand.FieldDeviceID:
+		m.ResetDeviceID()
+		return nil
+	case collaborationcommand.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case collaborationcommand.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case collaborationcommand.FieldPromptSha256:
+		m.ResetPromptSha256()
+		return nil
+	case collaborationcommand.FieldPromptBytes:
+		m.ResetPromptBytes()
+		return nil
+	case collaborationcommand.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case collaborationcommand.FieldTurnID:
+		m.ResetTurnID()
+		return nil
+	case collaborationcommand.FieldErrorCode:
+		m.ResetErrorCode()
+		return nil
+	case collaborationcommand.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case collaborationcommand.FieldDispatchedAt:
+		m.ResetDispatchedAt()
+		return nil
+	case collaborationcommand.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case collaborationcommand.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollaborationCommandMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.user != nil {
+		edges = append(edges, collaborationcommand.EdgeUser)
+	}
+	if m.device != nil {
+		edges = append(edges, collaborationcommand.EdgeDevice)
+	}
+	if m.charge != nil {
+		edges = append(edges, collaborationcommand.EdgeCharge)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollaborationCommandMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collaborationcommand.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case collaborationcommand.EdgeDevice:
+		if id := m.device; id != nil {
+			return []ent.Value{*id}
+		}
+	case collaborationcommand.EdgeCharge:
+		if id := m.charge; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollaborationCommandMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollaborationCommandMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollaborationCommandMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.cleareduser {
+		edges = append(edges, collaborationcommand.EdgeUser)
+	}
+	if m.cleareddevice {
+		edges = append(edges, collaborationcommand.EdgeDevice)
+	}
+	if m.clearedcharge {
+		edges = append(edges, collaborationcommand.EdgeCharge)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollaborationCommandMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collaborationcommand.EdgeUser:
+		return m.cleareduser
+	case collaborationcommand.EdgeDevice:
+		return m.cleareddevice
+	case collaborationcommand.EdgeCharge:
+		return m.clearedcharge
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollaborationCommandMutation) ClearEdge(name string) error {
+	switch name {
+	case collaborationcommand.EdgeUser:
+		m.ClearUser()
+		return nil
+	case collaborationcommand.EdgeDevice:
+		m.ClearDevice()
+		return nil
+	case collaborationcommand.EdgeCharge:
+		m.ClearCharge()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollaborationCommandMutation) ResetEdge(name string) error {
+	switch name {
+	case collaborationcommand.EdgeUser:
+		m.ResetUser()
+		return nil
+	case collaborationcommand.EdgeDevice:
+		m.ResetDevice()
+		return nil
+	case collaborationcommand.EdgeCharge:
+		m.ResetCharge()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationCommand edge %s", name)
+}
+
+// CollaborationDeviceMutation represents an operation that mutates the CollaborationDevice nodes in the graph.
+type CollaborationDeviceMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *uuid.UUID
+	created_at           *time.Time
+	updated_at           *time.Time
+	installation_id_hash *string
+	name                 *string
+	platform             *collaborationdevice.Platform
+	platform_version     *string
+	companion_version    *string
+	codex_version        *string
+	protocol_version     *int
+	addprotocol_version  *int
+	status               *collaborationdevice.Status
+	capabilities         *map[string]interface{}
+	last_seen_at         *time.Time
+	revoked_at           *time.Time
+	registered_at        *time.Time
+	clearedFields        map[string]struct{}
+	user                 *int64
+	cleareduser          bool
+	sync_requests        map[uuid.UUID]struct{}
+	removedsync_requests map[uuid.UUID]struct{}
+	clearedsync_requests bool
+	commands             map[uuid.UUID]struct{}
+	removedcommands      map[uuid.UUID]struct{}
+	clearedcommands      bool
+	done                 bool
+	oldValue             func(context.Context) (*CollaborationDevice, error)
+	predicates           []predicate.CollaborationDevice
+}
+
+var _ ent.Mutation = (*CollaborationDeviceMutation)(nil)
+
+// collaborationdeviceOption allows management of the mutation configuration using functional options.
+type collaborationdeviceOption func(*CollaborationDeviceMutation)
+
+// newCollaborationDeviceMutation creates new mutation for the CollaborationDevice entity.
+func newCollaborationDeviceMutation(c config, op Op, opts ...collaborationdeviceOption) *CollaborationDeviceMutation {
+	m := &CollaborationDeviceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollaborationDevice,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollaborationDeviceID sets the ID field of the mutation.
+func withCollaborationDeviceID(id uuid.UUID) collaborationdeviceOption {
+	return func(m *CollaborationDeviceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CollaborationDevice
+		)
+		m.oldValue = func(ctx context.Context) (*CollaborationDevice, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CollaborationDevice.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollaborationDevice sets the old CollaborationDevice of the mutation.
+func withCollaborationDevice(node *CollaborationDevice) collaborationdeviceOption {
+	return func(m *CollaborationDeviceMutation) {
+		m.oldValue = func(context.Context) (*CollaborationDevice, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollaborationDeviceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollaborationDeviceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CollaborationDevice entities.
+func (m *CollaborationDeviceMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollaborationDeviceMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollaborationDeviceMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CollaborationDevice.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CollaborationDeviceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CollaborationDeviceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CollaborationDeviceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CollaborationDeviceMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CollaborationDeviceMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CollaborationDeviceMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CollaborationDeviceMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CollaborationDeviceMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CollaborationDeviceMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetInstallationIDHash sets the "installation_id_hash" field.
+func (m *CollaborationDeviceMutation) SetInstallationIDHash(s string) {
+	m.installation_id_hash = &s
+}
+
+// InstallationIDHash returns the value of the "installation_id_hash" field in the mutation.
+func (m *CollaborationDeviceMutation) InstallationIDHash() (r string, exists bool) {
+	v := m.installation_id_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInstallationIDHash returns the old "installation_id_hash" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldInstallationIDHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInstallationIDHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInstallationIDHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInstallationIDHash: %w", err)
+	}
+	return oldValue.InstallationIDHash, nil
+}
+
+// ResetInstallationIDHash resets all changes to the "installation_id_hash" field.
+func (m *CollaborationDeviceMutation) ResetInstallationIDHash() {
+	m.installation_id_hash = nil
+}
+
+// SetName sets the "name" field.
+func (m *CollaborationDeviceMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *CollaborationDeviceMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *CollaborationDeviceMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPlatform sets the "platform" field.
+func (m *CollaborationDeviceMutation) SetPlatform(c collaborationdevice.Platform) {
+	m.platform = &c
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *CollaborationDeviceMutation) Platform() (r collaborationdevice.Platform, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldPlatform(ctx context.Context) (v collaborationdevice.Platform, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *CollaborationDeviceMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetPlatformVersion sets the "platform_version" field.
+func (m *CollaborationDeviceMutation) SetPlatformVersion(s string) {
+	m.platform_version = &s
+}
+
+// PlatformVersion returns the value of the "platform_version" field in the mutation.
+func (m *CollaborationDeviceMutation) PlatformVersion() (r string, exists bool) {
+	v := m.platform_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatformVersion returns the old "platform_version" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldPlatformVersion(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatformVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatformVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatformVersion: %w", err)
+	}
+	return oldValue.PlatformVersion, nil
+}
+
+// ClearPlatformVersion clears the value of the "platform_version" field.
+func (m *CollaborationDeviceMutation) ClearPlatformVersion() {
+	m.platform_version = nil
+	m.clearedFields[collaborationdevice.FieldPlatformVersion] = struct{}{}
+}
+
+// PlatformVersionCleared returns if the "platform_version" field was cleared in this mutation.
+func (m *CollaborationDeviceMutation) PlatformVersionCleared() bool {
+	_, ok := m.clearedFields[collaborationdevice.FieldPlatformVersion]
+	return ok
+}
+
+// ResetPlatformVersion resets all changes to the "platform_version" field.
+func (m *CollaborationDeviceMutation) ResetPlatformVersion() {
+	m.platform_version = nil
+	delete(m.clearedFields, collaborationdevice.FieldPlatformVersion)
+}
+
+// SetCompanionVersion sets the "companion_version" field.
+func (m *CollaborationDeviceMutation) SetCompanionVersion(s string) {
+	m.companion_version = &s
+}
+
+// CompanionVersion returns the value of the "companion_version" field in the mutation.
+func (m *CollaborationDeviceMutation) CompanionVersion() (r string, exists bool) {
+	v := m.companion_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompanionVersion returns the old "companion_version" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldCompanionVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompanionVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompanionVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompanionVersion: %w", err)
+	}
+	return oldValue.CompanionVersion, nil
+}
+
+// ResetCompanionVersion resets all changes to the "companion_version" field.
+func (m *CollaborationDeviceMutation) ResetCompanionVersion() {
+	m.companion_version = nil
+}
+
+// SetCodexVersion sets the "codex_version" field.
+func (m *CollaborationDeviceMutation) SetCodexVersion(s string) {
+	m.codex_version = &s
+}
+
+// CodexVersion returns the value of the "codex_version" field in the mutation.
+func (m *CollaborationDeviceMutation) CodexVersion() (r string, exists bool) {
+	v := m.codex_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCodexVersion returns the old "codex_version" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldCodexVersion(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCodexVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCodexVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCodexVersion: %w", err)
+	}
+	return oldValue.CodexVersion, nil
+}
+
+// ClearCodexVersion clears the value of the "codex_version" field.
+func (m *CollaborationDeviceMutation) ClearCodexVersion() {
+	m.codex_version = nil
+	m.clearedFields[collaborationdevice.FieldCodexVersion] = struct{}{}
+}
+
+// CodexVersionCleared returns if the "codex_version" field was cleared in this mutation.
+func (m *CollaborationDeviceMutation) CodexVersionCleared() bool {
+	_, ok := m.clearedFields[collaborationdevice.FieldCodexVersion]
+	return ok
+}
+
+// ResetCodexVersion resets all changes to the "codex_version" field.
+func (m *CollaborationDeviceMutation) ResetCodexVersion() {
+	m.codex_version = nil
+	delete(m.clearedFields, collaborationdevice.FieldCodexVersion)
+}
+
+// SetProtocolVersion sets the "protocol_version" field.
+func (m *CollaborationDeviceMutation) SetProtocolVersion(i int) {
+	m.protocol_version = &i
+	m.addprotocol_version = nil
+}
+
+// ProtocolVersion returns the value of the "protocol_version" field in the mutation.
+func (m *CollaborationDeviceMutation) ProtocolVersion() (r int, exists bool) {
+	v := m.protocol_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProtocolVersion returns the old "protocol_version" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldProtocolVersion(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProtocolVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProtocolVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProtocolVersion: %w", err)
+	}
+	return oldValue.ProtocolVersion, nil
+}
+
+// AddProtocolVersion adds i to the "protocol_version" field.
+func (m *CollaborationDeviceMutation) AddProtocolVersion(i int) {
+	if m.addprotocol_version != nil {
+		*m.addprotocol_version += i
+	} else {
+		m.addprotocol_version = &i
+	}
+}
+
+// AddedProtocolVersion returns the value that was added to the "protocol_version" field in this mutation.
+func (m *CollaborationDeviceMutation) AddedProtocolVersion() (r int, exists bool) {
+	v := m.addprotocol_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProtocolVersion resets all changes to the "protocol_version" field.
+func (m *CollaborationDeviceMutation) ResetProtocolVersion() {
+	m.protocol_version = nil
+	m.addprotocol_version = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *CollaborationDeviceMutation) SetStatus(c collaborationdevice.Status) {
+	m.status = &c
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *CollaborationDeviceMutation) Status() (r collaborationdevice.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldStatus(ctx context.Context) (v collaborationdevice.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *CollaborationDeviceMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (m *CollaborationDeviceMutation) SetCapabilities(value map[string]interface{}) {
+	m.capabilities = &value
+}
+
+// Capabilities returns the value of the "capabilities" field in the mutation.
+func (m *CollaborationDeviceMutation) Capabilities() (r map[string]interface{}, exists bool) {
+	v := m.capabilities
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapabilities returns the old "capabilities" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldCapabilities(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapabilities requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapabilities: %w", err)
+	}
+	return oldValue.Capabilities, nil
+}
+
+// ResetCapabilities resets all changes to the "capabilities" field.
+func (m *CollaborationDeviceMutation) ResetCapabilities() {
+	m.capabilities = nil
+}
+
+// SetLastSeenAt sets the "last_seen_at" field.
+func (m *CollaborationDeviceMutation) SetLastSeenAt(t time.Time) {
+	m.last_seen_at = &t
+}
+
+// LastSeenAt returns the value of the "last_seen_at" field in the mutation.
+func (m *CollaborationDeviceMutation) LastSeenAt() (r time.Time, exists bool) {
+	v := m.last_seen_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastSeenAt returns the old "last_seen_at" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldLastSeenAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastSeenAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastSeenAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastSeenAt: %w", err)
+	}
+	return oldValue.LastSeenAt, nil
+}
+
+// ClearLastSeenAt clears the value of the "last_seen_at" field.
+func (m *CollaborationDeviceMutation) ClearLastSeenAt() {
+	m.last_seen_at = nil
+	m.clearedFields[collaborationdevice.FieldLastSeenAt] = struct{}{}
+}
+
+// LastSeenAtCleared returns if the "last_seen_at" field was cleared in this mutation.
+func (m *CollaborationDeviceMutation) LastSeenAtCleared() bool {
+	_, ok := m.clearedFields[collaborationdevice.FieldLastSeenAt]
+	return ok
+}
+
+// ResetLastSeenAt resets all changes to the "last_seen_at" field.
+func (m *CollaborationDeviceMutation) ResetLastSeenAt() {
+	m.last_seen_at = nil
+	delete(m.clearedFields, collaborationdevice.FieldLastSeenAt)
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (m *CollaborationDeviceMutation) SetRevokedAt(t time.Time) {
+	m.revoked_at = &t
+}
+
+// RevokedAt returns the value of the "revoked_at" field in the mutation.
+func (m *CollaborationDeviceMutation) RevokedAt() (r time.Time, exists bool) {
+	v := m.revoked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedAt returns the old "revoked_at" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldRevokedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
+	}
+	return oldValue.RevokedAt, nil
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (m *CollaborationDeviceMutation) ClearRevokedAt() {
+	m.revoked_at = nil
+	m.clearedFields[collaborationdevice.FieldRevokedAt] = struct{}{}
+}
+
+// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
+func (m *CollaborationDeviceMutation) RevokedAtCleared() bool {
+	_, ok := m.clearedFields[collaborationdevice.FieldRevokedAt]
+	return ok
+}
+
+// ResetRevokedAt resets all changes to the "revoked_at" field.
+func (m *CollaborationDeviceMutation) ResetRevokedAt() {
+	m.revoked_at = nil
+	delete(m.clearedFields, collaborationdevice.FieldRevokedAt)
+}
+
+// SetRegisteredAt sets the "registered_at" field.
+func (m *CollaborationDeviceMutation) SetRegisteredAt(t time.Time) {
+	m.registered_at = &t
+}
+
+// RegisteredAt returns the value of the "registered_at" field in the mutation.
+func (m *CollaborationDeviceMutation) RegisteredAt() (r time.Time, exists bool) {
+	v := m.registered_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRegisteredAt returns the old "registered_at" field's value of the CollaborationDevice entity.
+// If the CollaborationDevice object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationDeviceMutation) OldRegisteredAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRegisteredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRegisteredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRegisteredAt: %w", err)
+	}
+	return oldValue.RegisteredAt, nil
+}
+
+// ResetRegisteredAt resets all changes to the "registered_at" field.
+func (m *CollaborationDeviceMutation) ResetRegisteredAt() {
+	m.registered_at = nil
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *CollaborationDeviceMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[collaborationdevice.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *CollaborationDeviceMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *CollaborationDeviceMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *CollaborationDeviceMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// AddSyncRequestIDs adds the "sync_requests" edge to the CollaborationSyncRequest entity by ids.
+func (m *CollaborationDeviceMutation) AddSyncRequestIDs(ids ...uuid.UUID) {
+	if m.sync_requests == nil {
+		m.sync_requests = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.sync_requests[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSyncRequests clears the "sync_requests" edge to the CollaborationSyncRequest entity.
+func (m *CollaborationDeviceMutation) ClearSyncRequests() {
+	m.clearedsync_requests = true
+}
+
+// SyncRequestsCleared reports if the "sync_requests" edge to the CollaborationSyncRequest entity was cleared.
+func (m *CollaborationDeviceMutation) SyncRequestsCleared() bool {
+	return m.clearedsync_requests
+}
+
+// RemoveSyncRequestIDs removes the "sync_requests" edge to the CollaborationSyncRequest entity by IDs.
+func (m *CollaborationDeviceMutation) RemoveSyncRequestIDs(ids ...uuid.UUID) {
+	if m.removedsync_requests == nil {
+		m.removedsync_requests = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.sync_requests, ids[i])
+		m.removedsync_requests[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSyncRequests returns the removed IDs of the "sync_requests" edge to the CollaborationSyncRequest entity.
+func (m *CollaborationDeviceMutation) RemovedSyncRequestsIDs() (ids []uuid.UUID) {
+	for id := range m.removedsync_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SyncRequestsIDs returns the "sync_requests" edge IDs in the mutation.
+func (m *CollaborationDeviceMutation) SyncRequestsIDs() (ids []uuid.UUID) {
+	for id := range m.sync_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSyncRequests resets all changes to the "sync_requests" edge.
+func (m *CollaborationDeviceMutation) ResetSyncRequests() {
+	m.sync_requests = nil
+	m.clearedsync_requests = false
+	m.removedsync_requests = nil
+}
+
+// AddCommandIDs adds the "commands" edge to the CollaborationCommand entity by ids.
+func (m *CollaborationDeviceMutation) AddCommandIDs(ids ...uuid.UUID) {
+	if m.commands == nil {
+		m.commands = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.commands[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCommands clears the "commands" edge to the CollaborationCommand entity.
+func (m *CollaborationDeviceMutation) ClearCommands() {
+	m.clearedcommands = true
+}
+
+// CommandsCleared reports if the "commands" edge to the CollaborationCommand entity was cleared.
+func (m *CollaborationDeviceMutation) CommandsCleared() bool {
+	return m.clearedcommands
+}
+
+// RemoveCommandIDs removes the "commands" edge to the CollaborationCommand entity by IDs.
+func (m *CollaborationDeviceMutation) RemoveCommandIDs(ids ...uuid.UUID) {
+	if m.removedcommands == nil {
+		m.removedcommands = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.commands, ids[i])
+		m.removedcommands[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCommands returns the removed IDs of the "commands" edge to the CollaborationCommand entity.
+func (m *CollaborationDeviceMutation) RemovedCommandsIDs() (ids []uuid.UUID) {
+	for id := range m.removedcommands {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CommandsIDs returns the "commands" edge IDs in the mutation.
+func (m *CollaborationDeviceMutation) CommandsIDs() (ids []uuid.UUID) {
+	for id := range m.commands {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCommands resets all changes to the "commands" edge.
+func (m *CollaborationDeviceMutation) ResetCommands() {
+	m.commands = nil
+	m.clearedcommands = false
+	m.removedcommands = nil
+}
+
+// Where appends a list predicates to the CollaborationDeviceMutation builder.
+func (m *CollaborationDeviceMutation) Where(ps ...predicate.CollaborationDevice) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollaborationDeviceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollaborationDeviceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CollaborationDevice, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollaborationDeviceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollaborationDeviceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CollaborationDevice).
+func (m *CollaborationDeviceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollaborationDeviceMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.created_at != nil {
+		fields = append(fields, collaborationdevice.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, collaborationdevice.FieldUpdatedAt)
+	}
+	if m.user != nil {
+		fields = append(fields, collaborationdevice.FieldUserID)
+	}
+	if m.installation_id_hash != nil {
+		fields = append(fields, collaborationdevice.FieldInstallationIDHash)
+	}
+	if m.name != nil {
+		fields = append(fields, collaborationdevice.FieldName)
+	}
+	if m.platform != nil {
+		fields = append(fields, collaborationdevice.FieldPlatform)
+	}
+	if m.platform_version != nil {
+		fields = append(fields, collaborationdevice.FieldPlatformVersion)
+	}
+	if m.companion_version != nil {
+		fields = append(fields, collaborationdevice.FieldCompanionVersion)
+	}
+	if m.codex_version != nil {
+		fields = append(fields, collaborationdevice.FieldCodexVersion)
+	}
+	if m.protocol_version != nil {
+		fields = append(fields, collaborationdevice.FieldProtocolVersion)
+	}
+	if m.status != nil {
+		fields = append(fields, collaborationdevice.FieldStatus)
+	}
+	if m.capabilities != nil {
+		fields = append(fields, collaborationdevice.FieldCapabilities)
+	}
+	if m.last_seen_at != nil {
+		fields = append(fields, collaborationdevice.FieldLastSeenAt)
+	}
+	if m.revoked_at != nil {
+		fields = append(fields, collaborationdevice.FieldRevokedAt)
+	}
+	if m.registered_at != nil {
+		fields = append(fields, collaborationdevice.FieldRegisteredAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollaborationDeviceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationdevice.FieldCreatedAt:
+		return m.CreatedAt()
+	case collaborationdevice.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case collaborationdevice.FieldUserID:
+		return m.UserID()
+	case collaborationdevice.FieldInstallationIDHash:
+		return m.InstallationIDHash()
+	case collaborationdevice.FieldName:
+		return m.Name()
+	case collaborationdevice.FieldPlatform:
+		return m.Platform()
+	case collaborationdevice.FieldPlatformVersion:
+		return m.PlatformVersion()
+	case collaborationdevice.FieldCompanionVersion:
+		return m.CompanionVersion()
+	case collaborationdevice.FieldCodexVersion:
+		return m.CodexVersion()
+	case collaborationdevice.FieldProtocolVersion:
+		return m.ProtocolVersion()
+	case collaborationdevice.FieldStatus:
+		return m.Status()
+	case collaborationdevice.FieldCapabilities:
+		return m.Capabilities()
+	case collaborationdevice.FieldLastSeenAt:
+		return m.LastSeenAt()
+	case collaborationdevice.FieldRevokedAt:
+		return m.RevokedAt()
+	case collaborationdevice.FieldRegisteredAt:
+		return m.RegisteredAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollaborationDeviceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collaborationdevice.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case collaborationdevice.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case collaborationdevice.FieldUserID:
+		return m.OldUserID(ctx)
+	case collaborationdevice.FieldInstallationIDHash:
+		return m.OldInstallationIDHash(ctx)
+	case collaborationdevice.FieldName:
+		return m.OldName(ctx)
+	case collaborationdevice.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case collaborationdevice.FieldPlatformVersion:
+		return m.OldPlatformVersion(ctx)
+	case collaborationdevice.FieldCompanionVersion:
+		return m.OldCompanionVersion(ctx)
+	case collaborationdevice.FieldCodexVersion:
+		return m.OldCodexVersion(ctx)
+	case collaborationdevice.FieldProtocolVersion:
+		return m.OldProtocolVersion(ctx)
+	case collaborationdevice.FieldStatus:
+		return m.OldStatus(ctx)
+	case collaborationdevice.FieldCapabilities:
+		return m.OldCapabilities(ctx)
+	case collaborationdevice.FieldLastSeenAt:
+		return m.OldLastSeenAt(ctx)
+	case collaborationdevice.FieldRevokedAt:
+		return m.OldRevokedAt(ctx)
+	case collaborationdevice.FieldRegisteredAt:
+		return m.OldRegisteredAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CollaborationDevice field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationDeviceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collaborationdevice.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case collaborationdevice.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case collaborationdevice.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case collaborationdevice.FieldInstallationIDHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInstallationIDHash(v)
+		return nil
+	case collaborationdevice.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case collaborationdevice.FieldPlatform:
+		v, ok := value.(collaborationdevice.Platform)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case collaborationdevice.FieldPlatformVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatformVersion(v)
+		return nil
+	case collaborationdevice.FieldCompanionVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompanionVersion(v)
+		return nil
+	case collaborationdevice.FieldCodexVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCodexVersion(v)
+		return nil
+	case collaborationdevice.FieldProtocolVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProtocolVersion(v)
+		return nil
+	case collaborationdevice.FieldStatus:
+		v, ok := value.(collaborationdevice.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case collaborationdevice.FieldCapabilities:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapabilities(v)
+		return nil
+	case collaborationdevice.FieldLastSeenAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastSeenAt(v)
+		return nil
+	case collaborationdevice.FieldRevokedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedAt(v)
+		return nil
+	case collaborationdevice.FieldRegisteredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRegisteredAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollaborationDeviceMutation) AddedFields() []string {
+	var fields []string
+	if m.addprotocol_version != nil {
+		fields = append(fields, collaborationdevice.FieldProtocolVersion)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollaborationDeviceMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationdevice.FieldProtocolVersion:
+		return m.AddedProtocolVersion()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationDeviceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case collaborationdevice.FieldProtocolVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProtocolVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollaborationDeviceMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(collaborationdevice.FieldPlatformVersion) {
+		fields = append(fields, collaborationdevice.FieldPlatformVersion)
+	}
+	if m.FieldCleared(collaborationdevice.FieldCodexVersion) {
+		fields = append(fields, collaborationdevice.FieldCodexVersion)
+	}
+	if m.FieldCleared(collaborationdevice.FieldLastSeenAt) {
+		fields = append(fields, collaborationdevice.FieldLastSeenAt)
+	}
+	if m.FieldCleared(collaborationdevice.FieldRevokedAt) {
+		fields = append(fields, collaborationdevice.FieldRevokedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollaborationDeviceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollaborationDeviceMutation) ClearField(name string) error {
+	switch name {
+	case collaborationdevice.FieldPlatformVersion:
+		m.ClearPlatformVersion()
+		return nil
+	case collaborationdevice.FieldCodexVersion:
+		m.ClearCodexVersion()
+		return nil
+	case collaborationdevice.FieldLastSeenAt:
+		m.ClearLastSeenAt()
+		return nil
+	case collaborationdevice.FieldRevokedAt:
+		m.ClearRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollaborationDeviceMutation) ResetField(name string) error {
+	switch name {
+	case collaborationdevice.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case collaborationdevice.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case collaborationdevice.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case collaborationdevice.FieldInstallationIDHash:
+		m.ResetInstallationIDHash()
+		return nil
+	case collaborationdevice.FieldName:
+		m.ResetName()
+		return nil
+	case collaborationdevice.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case collaborationdevice.FieldPlatformVersion:
+		m.ResetPlatformVersion()
+		return nil
+	case collaborationdevice.FieldCompanionVersion:
+		m.ResetCompanionVersion()
+		return nil
+	case collaborationdevice.FieldCodexVersion:
+		m.ResetCodexVersion()
+		return nil
+	case collaborationdevice.FieldProtocolVersion:
+		m.ResetProtocolVersion()
+		return nil
+	case collaborationdevice.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case collaborationdevice.FieldCapabilities:
+		m.ResetCapabilities()
+		return nil
+	case collaborationdevice.FieldLastSeenAt:
+		m.ResetLastSeenAt()
+		return nil
+	case collaborationdevice.FieldRevokedAt:
+		m.ResetRevokedAt()
+		return nil
+	case collaborationdevice.FieldRegisteredAt:
+		m.ResetRegisteredAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollaborationDeviceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.user != nil {
+		edges = append(edges, collaborationdevice.EdgeUser)
+	}
+	if m.sync_requests != nil {
+		edges = append(edges, collaborationdevice.EdgeSyncRequests)
+	}
+	if m.commands != nil {
+		edges = append(edges, collaborationdevice.EdgeCommands)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollaborationDeviceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collaborationdevice.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case collaborationdevice.EdgeSyncRequests:
+		ids := make([]ent.Value, 0, len(m.sync_requests))
+		for id := range m.sync_requests {
+			ids = append(ids, id)
+		}
+		return ids
+	case collaborationdevice.EdgeCommands:
+		ids := make([]ent.Value, 0, len(m.commands))
+		for id := range m.commands {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollaborationDeviceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedsync_requests != nil {
+		edges = append(edges, collaborationdevice.EdgeSyncRequests)
+	}
+	if m.removedcommands != nil {
+		edges = append(edges, collaborationdevice.EdgeCommands)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollaborationDeviceMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case collaborationdevice.EdgeSyncRequests:
+		ids := make([]ent.Value, 0, len(m.removedsync_requests))
+		for id := range m.removedsync_requests {
+			ids = append(ids, id)
+		}
+		return ids
+	case collaborationdevice.EdgeCommands:
+		ids := make([]ent.Value, 0, len(m.removedcommands))
+		for id := range m.removedcommands {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollaborationDeviceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.cleareduser {
+		edges = append(edges, collaborationdevice.EdgeUser)
+	}
+	if m.clearedsync_requests {
+		edges = append(edges, collaborationdevice.EdgeSyncRequests)
+	}
+	if m.clearedcommands {
+		edges = append(edges, collaborationdevice.EdgeCommands)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollaborationDeviceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collaborationdevice.EdgeUser:
+		return m.cleareduser
+	case collaborationdevice.EdgeSyncRequests:
+		return m.clearedsync_requests
+	case collaborationdevice.EdgeCommands:
+		return m.clearedcommands
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollaborationDeviceMutation) ClearEdge(name string) error {
+	switch name {
+	case collaborationdevice.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollaborationDeviceMutation) ResetEdge(name string) error {
+	switch name {
+	case collaborationdevice.EdgeUser:
+		m.ResetUser()
+		return nil
+	case collaborationdevice.EdgeSyncRequests:
+		m.ResetSyncRequests()
+		return nil
+	case collaborationdevice.EdgeCommands:
+		m.ResetCommands()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationDevice edge %s", name)
+}
+
+// CollaborationSyncRequestMutation represents an operation that mutates the CollaborationSyncRequest nodes in the graph.
+type CollaborationSyncRequestMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	created_at          *time.Time
+	updated_at          *time.Time
+	idempotency_key     *uuid.UUID
+	kind                *collaborationsyncrequest.Kind
+	thread_id           *string
+	cursor              *string
+	status              *collaborationsyncrequest.Status
+	error_code          *string
+	snapshot_version    *int64
+	addsnapshot_version *int64
+	result_count        *int
+	addresult_count     *int
+	expires_at          *time.Time
+	completed_at        *time.Time
+	clearedFields       map[string]struct{}
+	user                *int64
+	cleareduser         bool
+	device              *uuid.UUID
+	cleareddevice       bool
+	done                bool
+	oldValue            func(context.Context) (*CollaborationSyncRequest, error)
+	predicates          []predicate.CollaborationSyncRequest
+}
+
+var _ ent.Mutation = (*CollaborationSyncRequestMutation)(nil)
+
+// collaborationsyncrequestOption allows management of the mutation configuration using functional options.
+type collaborationsyncrequestOption func(*CollaborationSyncRequestMutation)
+
+// newCollaborationSyncRequestMutation creates new mutation for the CollaborationSyncRequest entity.
+func newCollaborationSyncRequestMutation(c config, op Op, opts ...collaborationsyncrequestOption) *CollaborationSyncRequestMutation {
+	m := &CollaborationSyncRequestMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollaborationSyncRequest,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollaborationSyncRequestID sets the ID field of the mutation.
+func withCollaborationSyncRequestID(id uuid.UUID) collaborationsyncrequestOption {
+	return func(m *CollaborationSyncRequestMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CollaborationSyncRequest
+		)
+		m.oldValue = func(ctx context.Context) (*CollaborationSyncRequest, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CollaborationSyncRequest.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollaborationSyncRequest sets the old CollaborationSyncRequest of the mutation.
+func withCollaborationSyncRequest(node *CollaborationSyncRequest) collaborationsyncrequestOption {
+	return func(m *CollaborationSyncRequestMutation) {
+		m.oldValue = func(context.Context) (*CollaborationSyncRequest, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollaborationSyncRequestMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollaborationSyncRequestMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CollaborationSyncRequest entities.
+func (m *CollaborationSyncRequestMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollaborationSyncRequestMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollaborationSyncRequestMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CollaborationSyncRequest.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CollaborationSyncRequestMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CollaborationSyncRequestMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CollaborationSyncRequestMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CollaborationSyncRequestMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CollaborationSyncRequestMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CollaborationSyncRequestMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CollaborationSyncRequestMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CollaborationSyncRequestMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CollaborationSyncRequestMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetDeviceID sets the "device_id" field.
+func (m *CollaborationSyncRequestMutation) SetDeviceID(u uuid.UUID) {
+	m.device = &u
+}
+
+// DeviceID returns the value of the "device_id" field in the mutation.
+func (m *CollaborationSyncRequestMutation) DeviceID() (r uuid.UUID, exists bool) {
+	v := m.device
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceID returns the old "device_id" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldDeviceID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceID: %w", err)
+	}
+	return oldValue.DeviceID, nil
+}
+
+// ResetDeviceID resets all changes to the "device_id" field.
+func (m *CollaborationSyncRequestMutation) ResetDeviceID() {
+	m.device = nil
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *CollaborationSyncRequestMutation) SetIdempotencyKey(u uuid.UUID) {
+	m.idempotency_key = &u
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *CollaborationSyncRequestMutation) IdempotencyKey() (r uuid.UUID, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldIdempotencyKey(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *CollaborationSyncRequestMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+}
+
+// SetKind sets the "kind" field.
+func (m *CollaborationSyncRequestMutation) SetKind(c collaborationsyncrequest.Kind) {
+	m.kind = &c
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *CollaborationSyncRequestMutation) Kind() (r collaborationsyncrequest.Kind, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldKind(ctx context.Context) (v collaborationsyncrequest.Kind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *CollaborationSyncRequestMutation) ResetKind() {
+	m.kind = nil
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *CollaborationSyncRequestMutation) SetThreadID(s string) {
+	m.thread_id = &s
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *CollaborationSyncRequestMutation) ThreadID() (r string, exists bool) {
+	v := m.thread_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldThreadID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ClearThreadID clears the value of the "thread_id" field.
+func (m *CollaborationSyncRequestMutation) ClearThreadID() {
+	m.thread_id = nil
+	m.clearedFields[collaborationsyncrequest.FieldThreadID] = struct{}{}
+}
+
+// ThreadIDCleared returns if the "thread_id" field was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) ThreadIDCleared() bool {
+	_, ok := m.clearedFields[collaborationsyncrequest.FieldThreadID]
+	return ok
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *CollaborationSyncRequestMutation) ResetThreadID() {
+	m.thread_id = nil
+	delete(m.clearedFields, collaborationsyncrequest.FieldThreadID)
+}
+
+// SetCursor sets the "cursor" field.
+func (m *CollaborationSyncRequestMutation) SetCursor(s string) {
+	m.cursor = &s
+}
+
+// Cursor returns the value of the "cursor" field in the mutation.
+func (m *CollaborationSyncRequestMutation) Cursor() (r string, exists bool) {
+	v := m.cursor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCursor returns the old "cursor" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldCursor(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCursor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCursor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCursor: %w", err)
+	}
+	return oldValue.Cursor, nil
+}
+
+// ClearCursor clears the value of the "cursor" field.
+func (m *CollaborationSyncRequestMutation) ClearCursor() {
+	m.cursor = nil
+	m.clearedFields[collaborationsyncrequest.FieldCursor] = struct{}{}
+}
+
+// CursorCleared returns if the "cursor" field was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) CursorCleared() bool {
+	_, ok := m.clearedFields[collaborationsyncrequest.FieldCursor]
+	return ok
+}
+
+// ResetCursor resets all changes to the "cursor" field.
+func (m *CollaborationSyncRequestMutation) ResetCursor() {
+	m.cursor = nil
+	delete(m.clearedFields, collaborationsyncrequest.FieldCursor)
+}
+
+// SetStatus sets the "status" field.
+func (m *CollaborationSyncRequestMutation) SetStatus(c collaborationsyncrequest.Status) {
+	m.status = &c
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *CollaborationSyncRequestMutation) Status() (r collaborationsyncrequest.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldStatus(ctx context.Context) (v collaborationsyncrequest.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *CollaborationSyncRequestMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetErrorCode sets the "error_code" field.
+func (m *CollaborationSyncRequestMutation) SetErrorCode(s string) {
+	m.error_code = &s
+}
+
+// ErrorCode returns the value of the "error_code" field in the mutation.
+func (m *CollaborationSyncRequestMutation) ErrorCode() (r string, exists bool) {
+	v := m.error_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorCode returns the old "error_code" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldErrorCode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorCode: %w", err)
+	}
+	return oldValue.ErrorCode, nil
+}
+
+// ClearErrorCode clears the value of the "error_code" field.
+func (m *CollaborationSyncRequestMutation) ClearErrorCode() {
+	m.error_code = nil
+	m.clearedFields[collaborationsyncrequest.FieldErrorCode] = struct{}{}
+}
+
+// ErrorCodeCleared returns if the "error_code" field was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) ErrorCodeCleared() bool {
+	_, ok := m.clearedFields[collaborationsyncrequest.FieldErrorCode]
+	return ok
+}
+
+// ResetErrorCode resets all changes to the "error_code" field.
+func (m *CollaborationSyncRequestMutation) ResetErrorCode() {
+	m.error_code = nil
+	delete(m.clearedFields, collaborationsyncrequest.FieldErrorCode)
+}
+
+// SetSnapshotVersion sets the "snapshot_version" field.
+func (m *CollaborationSyncRequestMutation) SetSnapshotVersion(i int64) {
+	m.snapshot_version = &i
+	m.addsnapshot_version = nil
+}
+
+// SnapshotVersion returns the value of the "snapshot_version" field in the mutation.
+func (m *CollaborationSyncRequestMutation) SnapshotVersion() (r int64, exists bool) {
+	v := m.snapshot_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSnapshotVersion returns the old "snapshot_version" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldSnapshotVersion(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSnapshotVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSnapshotVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSnapshotVersion: %w", err)
+	}
+	return oldValue.SnapshotVersion, nil
+}
+
+// AddSnapshotVersion adds i to the "snapshot_version" field.
+func (m *CollaborationSyncRequestMutation) AddSnapshotVersion(i int64) {
+	if m.addsnapshot_version != nil {
+		*m.addsnapshot_version += i
+	} else {
+		m.addsnapshot_version = &i
+	}
+}
+
+// AddedSnapshotVersion returns the value that was added to the "snapshot_version" field in this mutation.
+func (m *CollaborationSyncRequestMutation) AddedSnapshotVersion() (r int64, exists bool) {
+	v := m.addsnapshot_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSnapshotVersion clears the value of the "snapshot_version" field.
+func (m *CollaborationSyncRequestMutation) ClearSnapshotVersion() {
+	m.snapshot_version = nil
+	m.addsnapshot_version = nil
+	m.clearedFields[collaborationsyncrequest.FieldSnapshotVersion] = struct{}{}
+}
+
+// SnapshotVersionCleared returns if the "snapshot_version" field was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) SnapshotVersionCleared() bool {
+	_, ok := m.clearedFields[collaborationsyncrequest.FieldSnapshotVersion]
+	return ok
+}
+
+// ResetSnapshotVersion resets all changes to the "snapshot_version" field.
+func (m *CollaborationSyncRequestMutation) ResetSnapshotVersion() {
+	m.snapshot_version = nil
+	m.addsnapshot_version = nil
+	delete(m.clearedFields, collaborationsyncrequest.FieldSnapshotVersion)
+}
+
+// SetResultCount sets the "result_count" field.
+func (m *CollaborationSyncRequestMutation) SetResultCount(i int) {
+	m.result_count = &i
+	m.addresult_count = nil
+}
+
+// ResultCount returns the value of the "result_count" field in the mutation.
+func (m *CollaborationSyncRequestMutation) ResultCount() (r int, exists bool) {
+	v := m.result_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultCount returns the old "result_count" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldResultCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultCount: %w", err)
+	}
+	return oldValue.ResultCount, nil
+}
+
+// AddResultCount adds i to the "result_count" field.
+func (m *CollaborationSyncRequestMutation) AddResultCount(i int) {
+	if m.addresult_count != nil {
+		*m.addresult_count += i
+	} else {
+		m.addresult_count = &i
+	}
+}
+
+// AddedResultCount returns the value that was added to the "result_count" field in this mutation.
+func (m *CollaborationSyncRequestMutation) AddedResultCount() (r int, exists bool) {
+	v := m.addresult_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetResultCount resets all changes to the "result_count" field.
+func (m *CollaborationSyncRequestMutation) ResetResultCount() {
+	m.result_count = nil
+	m.addresult_count = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *CollaborationSyncRequestMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *CollaborationSyncRequestMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *CollaborationSyncRequestMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *CollaborationSyncRequestMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *CollaborationSyncRequestMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the CollaborationSyncRequest entity.
+// If the CollaborationSyncRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollaborationSyncRequestMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *CollaborationSyncRequestMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[collaborationsyncrequest.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[collaborationsyncrequest.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *CollaborationSyncRequestMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, collaborationsyncrequest.FieldCompletedAt)
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *CollaborationSyncRequestMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[collaborationsyncrequest.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *CollaborationSyncRequestMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *CollaborationSyncRequestMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *CollaborationSyncRequestMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// ClearDevice clears the "device" edge to the CollaborationDevice entity.
+func (m *CollaborationSyncRequestMutation) ClearDevice() {
+	m.cleareddevice = true
+	m.clearedFields[collaborationsyncrequest.FieldDeviceID] = struct{}{}
+}
+
+// DeviceCleared reports if the "device" edge to the CollaborationDevice entity was cleared.
+func (m *CollaborationSyncRequestMutation) DeviceCleared() bool {
+	return m.cleareddevice
+}
+
+// DeviceIDs returns the "device" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DeviceID instead. It exists only for internal usage by the builders.
+func (m *CollaborationSyncRequestMutation) DeviceIDs() (ids []uuid.UUID) {
+	if id := m.device; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDevice resets all changes to the "device" edge.
+func (m *CollaborationSyncRequestMutation) ResetDevice() {
+	m.device = nil
+	m.cleareddevice = false
+}
+
+// Where appends a list predicates to the CollaborationSyncRequestMutation builder.
+func (m *CollaborationSyncRequestMutation) Where(ps ...predicate.CollaborationSyncRequest) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollaborationSyncRequestMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollaborationSyncRequestMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CollaborationSyncRequest, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollaborationSyncRequestMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollaborationSyncRequestMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CollaborationSyncRequest).
+func (m *CollaborationSyncRequestMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollaborationSyncRequestMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.created_at != nil {
+		fields = append(fields, collaborationsyncrequest.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, collaborationsyncrequest.FieldUpdatedAt)
+	}
+	if m.user != nil {
+		fields = append(fields, collaborationsyncrequest.FieldUserID)
+	}
+	if m.device != nil {
+		fields = append(fields, collaborationsyncrequest.FieldDeviceID)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, collaborationsyncrequest.FieldIdempotencyKey)
+	}
+	if m.kind != nil {
+		fields = append(fields, collaborationsyncrequest.FieldKind)
+	}
+	if m.thread_id != nil {
+		fields = append(fields, collaborationsyncrequest.FieldThreadID)
+	}
+	if m.cursor != nil {
+		fields = append(fields, collaborationsyncrequest.FieldCursor)
+	}
+	if m.status != nil {
+		fields = append(fields, collaborationsyncrequest.FieldStatus)
+	}
+	if m.error_code != nil {
+		fields = append(fields, collaborationsyncrequest.FieldErrorCode)
+	}
+	if m.snapshot_version != nil {
+		fields = append(fields, collaborationsyncrequest.FieldSnapshotVersion)
+	}
+	if m.result_count != nil {
+		fields = append(fields, collaborationsyncrequest.FieldResultCount)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, collaborationsyncrequest.FieldExpiresAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, collaborationsyncrequest.FieldCompletedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollaborationSyncRequestMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationsyncrequest.FieldCreatedAt:
+		return m.CreatedAt()
+	case collaborationsyncrequest.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case collaborationsyncrequest.FieldUserID:
+		return m.UserID()
+	case collaborationsyncrequest.FieldDeviceID:
+		return m.DeviceID()
+	case collaborationsyncrequest.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case collaborationsyncrequest.FieldKind:
+		return m.Kind()
+	case collaborationsyncrequest.FieldThreadID:
+		return m.ThreadID()
+	case collaborationsyncrequest.FieldCursor:
+		return m.Cursor()
+	case collaborationsyncrequest.FieldStatus:
+		return m.Status()
+	case collaborationsyncrequest.FieldErrorCode:
+		return m.ErrorCode()
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		return m.SnapshotVersion()
+	case collaborationsyncrequest.FieldResultCount:
+		return m.ResultCount()
+	case collaborationsyncrequest.FieldExpiresAt:
+		return m.ExpiresAt()
+	case collaborationsyncrequest.FieldCompletedAt:
+		return m.CompletedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollaborationSyncRequestMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collaborationsyncrequest.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case collaborationsyncrequest.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case collaborationsyncrequest.FieldUserID:
+		return m.OldUserID(ctx)
+	case collaborationsyncrequest.FieldDeviceID:
+		return m.OldDeviceID(ctx)
+	case collaborationsyncrequest.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case collaborationsyncrequest.FieldKind:
+		return m.OldKind(ctx)
+	case collaborationsyncrequest.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case collaborationsyncrequest.FieldCursor:
+		return m.OldCursor(ctx)
+	case collaborationsyncrequest.FieldStatus:
+		return m.OldStatus(ctx)
+	case collaborationsyncrequest.FieldErrorCode:
+		return m.OldErrorCode(ctx)
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		return m.OldSnapshotVersion(ctx)
+	case collaborationsyncrequest.FieldResultCount:
+		return m.OldResultCount(ctx)
+	case collaborationsyncrequest.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case collaborationsyncrequest.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CollaborationSyncRequest field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationSyncRequestMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collaborationsyncrequest.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case collaborationsyncrequest.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case collaborationsyncrequest.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case collaborationsyncrequest.FieldDeviceID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceID(v)
+		return nil
+	case collaborationsyncrequest.FieldIdempotencyKey:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case collaborationsyncrequest.FieldKind:
+		v, ok := value.(collaborationsyncrequest.Kind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
+	case collaborationsyncrequest.FieldThreadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case collaborationsyncrequest.FieldCursor:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCursor(v)
+		return nil
+	case collaborationsyncrequest.FieldStatus:
+		v, ok := value.(collaborationsyncrequest.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case collaborationsyncrequest.FieldErrorCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorCode(v)
+		return nil
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSnapshotVersion(v)
+		return nil
+	case collaborationsyncrequest.FieldResultCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultCount(v)
+		return nil
+	case collaborationsyncrequest.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case collaborationsyncrequest.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollaborationSyncRequestMutation) AddedFields() []string {
+	var fields []string
+	if m.addsnapshot_version != nil {
+		fields = append(fields, collaborationsyncrequest.FieldSnapshotVersion)
+	}
+	if m.addresult_count != nil {
+		fields = append(fields, collaborationsyncrequest.FieldResultCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollaborationSyncRequestMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		return m.AddedSnapshotVersion()
+	case collaborationsyncrequest.FieldResultCount:
+		return m.AddedResultCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollaborationSyncRequestMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSnapshotVersion(v)
+		return nil
+	case collaborationsyncrequest.FieldResultCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResultCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollaborationSyncRequestMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(collaborationsyncrequest.FieldThreadID) {
+		fields = append(fields, collaborationsyncrequest.FieldThreadID)
+	}
+	if m.FieldCleared(collaborationsyncrequest.FieldCursor) {
+		fields = append(fields, collaborationsyncrequest.FieldCursor)
+	}
+	if m.FieldCleared(collaborationsyncrequest.FieldErrorCode) {
+		fields = append(fields, collaborationsyncrequest.FieldErrorCode)
+	}
+	if m.FieldCleared(collaborationsyncrequest.FieldSnapshotVersion) {
+		fields = append(fields, collaborationsyncrequest.FieldSnapshotVersion)
+	}
+	if m.FieldCleared(collaborationsyncrequest.FieldCompletedAt) {
+		fields = append(fields, collaborationsyncrequest.FieldCompletedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollaborationSyncRequestMutation) ClearField(name string) error {
+	switch name {
+	case collaborationsyncrequest.FieldThreadID:
+		m.ClearThreadID()
+		return nil
+	case collaborationsyncrequest.FieldCursor:
+		m.ClearCursor()
+		return nil
+	case collaborationsyncrequest.FieldErrorCode:
+		m.ClearErrorCode()
+		return nil
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		m.ClearSnapshotVersion()
+		return nil
+	case collaborationsyncrequest.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollaborationSyncRequestMutation) ResetField(name string) error {
+	switch name {
+	case collaborationsyncrequest.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case collaborationsyncrequest.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case collaborationsyncrequest.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case collaborationsyncrequest.FieldDeviceID:
+		m.ResetDeviceID()
+		return nil
+	case collaborationsyncrequest.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case collaborationsyncrequest.FieldKind:
+		m.ResetKind()
+		return nil
+	case collaborationsyncrequest.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case collaborationsyncrequest.FieldCursor:
+		m.ResetCursor()
+		return nil
+	case collaborationsyncrequest.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case collaborationsyncrequest.FieldErrorCode:
+		m.ResetErrorCode()
+		return nil
+	case collaborationsyncrequest.FieldSnapshotVersion:
+		m.ResetSnapshotVersion()
+		return nil
+	case collaborationsyncrequest.FieldResultCount:
+		m.ResetResultCount()
+		return nil
+	case collaborationsyncrequest.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case collaborationsyncrequest.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollaborationSyncRequestMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.user != nil {
+		edges = append(edges, collaborationsyncrequest.EdgeUser)
+	}
+	if m.device != nil {
+		edges = append(edges, collaborationsyncrequest.EdgeDevice)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollaborationSyncRequestMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collaborationsyncrequest.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case collaborationsyncrequest.EdgeDevice:
+		if id := m.device; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollaborationSyncRequestMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollaborationSyncRequestMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.cleareduser {
+		edges = append(edges, collaborationsyncrequest.EdgeUser)
+	}
+	if m.cleareddevice {
+		edges = append(edges, collaborationsyncrequest.EdgeDevice)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollaborationSyncRequestMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collaborationsyncrequest.EdgeUser:
+		return m.cleareduser
+	case collaborationsyncrequest.EdgeDevice:
+		return m.cleareddevice
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollaborationSyncRequestMutation) ClearEdge(name string) error {
+	switch name {
+	case collaborationsyncrequest.EdgeUser:
+		m.ClearUser()
+		return nil
+	case collaborationsyncrequest.EdgeDevice:
+		m.ClearDevice()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollaborationSyncRequestMutation) ResetEdge(name string) error {
+	switch name {
+	case collaborationsyncrequest.EdgeUser:
+		m.ResetUser()
+		return nil
+	case collaborationsyncrequest.EdgeDevice:
+		m.ResetDevice()
+		return nil
+	}
+	return fmt.Errorf("unknown CollaborationSyncRequest edge %s", name)
 }
 
 // CompositeModelRouteMutation represents an operation that mutates the CompositeModelRoute nodes in the graph.
@@ -47373,82 +52379,94 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	frozen_balance                *float64
-	addfrozen_balance             *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                                 Op
+	typ                                string
+	id                                 *int64
+	created_at                         *time.Time
+	updated_at                         *time.Time
+	deleted_at                         *time.Time
+	email                              *string
+	password_hash                      *string
+	role                               *string
+	balance                            *float64
+	addbalance                         *float64
+	frozen_balance                     *float64
+	addfrozen_balance                  *float64
+	concurrency                        *int
+	addconcurrency                     *int
+	status                             *string
+	username                           *string
+	notes                              *string
+	totp_secret_encrypted              *string
+	totp_enabled                       *bool
+	totp_enabled_at                    *time.Time
+	signup_source                      *string
+	last_login_at                      *time.Time
+	last_active_at                     *time.Time
+	balance_notify_enabled             *bool
+	balance_notify_threshold_type      *string
+	balance_notify_threshold           *float64
+	addbalance_notify_threshold        *float64
+	balance_notify_extra_emails        *string
+	total_recharged                    *float64
+	addtotal_recharged                 *float64
+	rpm_limit                          *int
+	addrpm_limit                       *int
+	clearedFields                      map[string]struct{}
+	api_keys                           map[int64]struct{}
+	removedapi_keys                    map[int64]struct{}
+	clearedapi_keys                    bool
+	redeem_codes                       map[int64]struct{}
+	removedredeem_codes                map[int64]struct{}
+	clearedredeem_codes                bool
+	subscriptions                      map[int64]struct{}
+	removedsubscriptions               map[int64]struct{}
+	clearedsubscriptions               bool
+	assigned_subscriptions             map[int64]struct{}
+	removedassigned_subscriptions      map[int64]struct{}
+	clearedassigned_subscriptions      bool
+	announcement_reads                 map[int64]struct{}
+	removedannouncement_reads          map[int64]struct{}
+	clearedannouncement_reads          bool
+	allowed_groups                     map[int64]struct{}
+	removedallowed_groups              map[int64]struct{}
+	clearedallowed_groups              bool
+	usage_logs                         map[int64]struct{}
+	removedusage_logs                  map[int64]struct{}
+	clearedusage_logs                  bool
+	attribute_values                   map[int64]struct{}
+	removedattribute_values            map[int64]struct{}
+	clearedattribute_values            bool
+	promo_code_usages                  map[int64]struct{}
+	removedpromo_code_usages           map[int64]struct{}
+	clearedpromo_code_usages           bool
+	payment_orders                     map[int64]struct{}
+	removedpayment_orders              map[int64]struct{}
+	clearedpayment_orders              bool
+	auth_identities                    map[int64]struct{}
+	removedauth_identities             map[int64]struct{}
+	clearedauth_identities             bool
+	pending_auth_sessions              map[int64]struct{}
+	removedpending_auth_sessions       map[int64]struct{}
+	clearedpending_auth_sessions       bool
+	platform_quotas                    map[int64]struct{}
+	removedplatform_quotas             map[int64]struct{}
+	clearedplatform_quotas             bool
+	collaboration_devices              map[uuid.UUID]struct{}
+	removedcollaboration_devices       map[uuid.UUID]struct{}
+	clearedcollaboration_devices       bool
+	collaboration_sync_requests        map[uuid.UUID]struct{}
+	removedcollaboration_sync_requests map[uuid.UUID]struct{}
+	clearedcollaboration_sync_requests bool
+	collaboration_commands             map[uuid.UUID]struct{}
+	removedcollaboration_commands      map[uuid.UUID]struct{}
+	clearedcollaboration_commands      bool
+	collaboration_charges              map[uuid.UUID]struct{}
+	removedcollaboration_charges       map[uuid.UUID]struct{}
+	clearedcollaboration_charges       bool
+	done                               bool
+	oldValue                           func(context.Context) (*User, error)
+	predicates                         []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -49314,6 +54332,222 @@ func (m *UserMutation) ResetPlatformQuotas() {
 	m.removedplatform_quotas = nil
 }
 
+// AddCollaborationDeviceIDs adds the "collaboration_devices" edge to the CollaborationDevice entity by ids.
+func (m *UserMutation) AddCollaborationDeviceIDs(ids ...uuid.UUID) {
+	if m.collaboration_devices == nil {
+		m.collaboration_devices = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.collaboration_devices[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCollaborationDevices clears the "collaboration_devices" edge to the CollaborationDevice entity.
+func (m *UserMutation) ClearCollaborationDevices() {
+	m.clearedcollaboration_devices = true
+}
+
+// CollaborationDevicesCleared reports if the "collaboration_devices" edge to the CollaborationDevice entity was cleared.
+func (m *UserMutation) CollaborationDevicesCleared() bool {
+	return m.clearedcollaboration_devices
+}
+
+// RemoveCollaborationDeviceIDs removes the "collaboration_devices" edge to the CollaborationDevice entity by IDs.
+func (m *UserMutation) RemoveCollaborationDeviceIDs(ids ...uuid.UUID) {
+	if m.removedcollaboration_devices == nil {
+		m.removedcollaboration_devices = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.collaboration_devices, ids[i])
+		m.removedcollaboration_devices[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCollaborationDevices returns the removed IDs of the "collaboration_devices" edge to the CollaborationDevice entity.
+func (m *UserMutation) RemovedCollaborationDevicesIDs() (ids []uuid.UUID) {
+	for id := range m.removedcollaboration_devices {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CollaborationDevicesIDs returns the "collaboration_devices" edge IDs in the mutation.
+func (m *UserMutation) CollaborationDevicesIDs() (ids []uuid.UUID) {
+	for id := range m.collaboration_devices {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCollaborationDevices resets all changes to the "collaboration_devices" edge.
+func (m *UserMutation) ResetCollaborationDevices() {
+	m.collaboration_devices = nil
+	m.clearedcollaboration_devices = false
+	m.removedcollaboration_devices = nil
+}
+
+// AddCollaborationSyncRequestIDs adds the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity by ids.
+func (m *UserMutation) AddCollaborationSyncRequestIDs(ids ...uuid.UUID) {
+	if m.collaboration_sync_requests == nil {
+		m.collaboration_sync_requests = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.collaboration_sync_requests[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCollaborationSyncRequests clears the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity.
+func (m *UserMutation) ClearCollaborationSyncRequests() {
+	m.clearedcollaboration_sync_requests = true
+}
+
+// CollaborationSyncRequestsCleared reports if the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity was cleared.
+func (m *UserMutation) CollaborationSyncRequestsCleared() bool {
+	return m.clearedcollaboration_sync_requests
+}
+
+// RemoveCollaborationSyncRequestIDs removes the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity by IDs.
+func (m *UserMutation) RemoveCollaborationSyncRequestIDs(ids ...uuid.UUID) {
+	if m.removedcollaboration_sync_requests == nil {
+		m.removedcollaboration_sync_requests = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.collaboration_sync_requests, ids[i])
+		m.removedcollaboration_sync_requests[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCollaborationSyncRequests returns the removed IDs of the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity.
+func (m *UserMutation) RemovedCollaborationSyncRequestsIDs() (ids []uuid.UUID) {
+	for id := range m.removedcollaboration_sync_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CollaborationSyncRequestsIDs returns the "collaboration_sync_requests" edge IDs in the mutation.
+func (m *UserMutation) CollaborationSyncRequestsIDs() (ids []uuid.UUID) {
+	for id := range m.collaboration_sync_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCollaborationSyncRequests resets all changes to the "collaboration_sync_requests" edge.
+func (m *UserMutation) ResetCollaborationSyncRequests() {
+	m.collaboration_sync_requests = nil
+	m.clearedcollaboration_sync_requests = false
+	m.removedcollaboration_sync_requests = nil
+}
+
+// AddCollaborationCommandIDs adds the "collaboration_commands" edge to the CollaborationCommand entity by ids.
+func (m *UserMutation) AddCollaborationCommandIDs(ids ...uuid.UUID) {
+	if m.collaboration_commands == nil {
+		m.collaboration_commands = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.collaboration_commands[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCollaborationCommands clears the "collaboration_commands" edge to the CollaborationCommand entity.
+func (m *UserMutation) ClearCollaborationCommands() {
+	m.clearedcollaboration_commands = true
+}
+
+// CollaborationCommandsCleared reports if the "collaboration_commands" edge to the CollaborationCommand entity was cleared.
+func (m *UserMutation) CollaborationCommandsCleared() bool {
+	return m.clearedcollaboration_commands
+}
+
+// RemoveCollaborationCommandIDs removes the "collaboration_commands" edge to the CollaborationCommand entity by IDs.
+func (m *UserMutation) RemoveCollaborationCommandIDs(ids ...uuid.UUID) {
+	if m.removedcollaboration_commands == nil {
+		m.removedcollaboration_commands = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.collaboration_commands, ids[i])
+		m.removedcollaboration_commands[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCollaborationCommands returns the removed IDs of the "collaboration_commands" edge to the CollaborationCommand entity.
+func (m *UserMutation) RemovedCollaborationCommandsIDs() (ids []uuid.UUID) {
+	for id := range m.removedcollaboration_commands {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CollaborationCommandsIDs returns the "collaboration_commands" edge IDs in the mutation.
+func (m *UserMutation) CollaborationCommandsIDs() (ids []uuid.UUID) {
+	for id := range m.collaboration_commands {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCollaborationCommands resets all changes to the "collaboration_commands" edge.
+func (m *UserMutation) ResetCollaborationCommands() {
+	m.collaboration_commands = nil
+	m.clearedcollaboration_commands = false
+	m.removedcollaboration_commands = nil
+}
+
+// AddCollaborationChargeIDs adds the "collaboration_charges" edge to the CollaborationCharge entity by ids.
+func (m *UserMutation) AddCollaborationChargeIDs(ids ...uuid.UUID) {
+	if m.collaboration_charges == nil {
+		m.collaboration_charges = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.collaboration_charges[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCollaborationCharges clears the "collaboration_charges" edge to the CollaborationCharge entity.
+func (m *UserMutation) ClearCollaborationCharges() {
+	m.clearedcollaboration_charges = true
+}
+
+// CollaborationChargesCleared reports if the "collaboration_charges" edge to the CollaborationCharge entity was cleared.
+func (m *UserMutation) CollaborationChargesCleared() bool {
+	return m.clearedcollaboration_charges
+}
+
+// RemoveCollaborationChargeIDs removes the "collaboration_charges" edge to the CollaborationCharge entity by IDs.
+func (m *UserMutation) RemoveCollaborationChargeIDs(ids ...uuid.UUID) {
+	if m.removedcollaboration_charges == nil {
+		m.removedcollaboration_charges = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.collaboration_charges, ids[i])
+		m.removedcollaboration_charges[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCollaborationCharges returns the removed IDs of the "collaboration_charges" edge to the CollaborationCharge entity.
+func (m *UserMutation) RemovedCollaborationChargesIDs() (ids []uuid.UUID) {
+	for id := range m.removedcollaboration_charges {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CollaborationChargesIDs returns the "collaboration_charges" edge IDs in the mutation.
+func (m *UserMutation) CollaborationChargesIDs() (ids []uuid.UUID) {
+	for id := range m.collaboration_charges {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCollaborationCharges resets all changes to the "collaboration_charges" edge.
+func (m *UserMutation) ResetCollaborationCharges() {
+	m.collaboration_charges = nil
+	m.clearedcollaboration_charges = false
+	m.removedcollaboration_charges = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -49952,7 +55186,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 17)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -49991,6 +55225,18 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.platform_quotas != nil {
 		edges = append(edges, user.EdgePlatformQuotas)
+	}
+	if m.collaboration_devices != nil {
+		edges = append(edges, user.EdgeCollaborationDevices)
+	}
+	if m.collaboration_sync_requests != nil {
+		edges = append(edges, user.EdgeCollaborationSyncRequests)
+	}
+	if m.collaboration_commands != nil {
+		edges = append(edges, user.EdgeCollaborationCommands)
+	}
+	if m.collaboration_charges != nil {
+		edges = append(edges, user.EdgeCollaborationCharges)
 	}
 	return edges
 }
@@ -50077,13 +55323,37 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCollaborationDevices:
+		ids := make([]ent.Value, 0, len(m.collaboration_devices))
+		for id := range m.collaboration_devices {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationSyncRequests:
+		ids := make([]ent.Value, 0, len(m.collaboration_sync_requests))
+		for id := range m.collaboration_sync_requests {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationCommands:
+		ids := make([]ent.Value, 0, len(m.collaboration_commands))
+		for id := range m.collaboration_commands {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationCharges:
+		ids := make([]ent.Value, 0, len(m.collaboration_charges))
+		for id := range m.collaboration_charges {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 17)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50122,6 +55392,18 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedplatform_quotas != nil {
 		edges = append(edges, user.EdgePlatformQuotas)
+	}
+	if m.removedcollaboration_devices != nil {
+		edges = append(edges, user.EdgeCollaborationDevices)
+	}
+	if m.removedcollaboration_sync_requests != nil {
+		edges = append(edges, user.EdgeCollaborationSyncRequests)
+	}
+	if m.removedcollaboration_commands != nil {
+		edges = append(edges, user.EdgeCollaborationCommands)
+	}
+	if m.removedcollaboration_charges != nil {
+		edges = append(edges, user.EdgeCollaborationCharges)
 	}
 	return edges
 }
@@ -50208,13 +55490,37 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCollaborationDevices:
+		ids := make([]ent.Value, 0, len(m.removedcollaboration_devices))
+		for id := range m.removedcollaboration_devices {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationSyncRequests:
+		ids := make([]ent.Value, 0, len(m.removedcollaboration_sync_requests))
+		for id := range m.removedcollaboration_sync_requests {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationCommands:
+		ids := make([]ent.Value, 0, len(m.removedcollaboration_commands))
+		for id := range m.removedcollaboration_commands {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeCollaborationCharges:
+		ids := make([]ent.Value, 0, len(m.removedcollaboration_charges))
+		for id := range m.removedcollaboration_charges {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 17)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50254,6 +55560,18 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.clearedplatform_quotas {
 		edges = append(edges, user.EdgePlatformQuotas)
 	}
+	if m.clearedcollaboration_devices {
+		edges = append(edges, user.EdgeCollaborationDevices)
+	}
+	if m.clearedcollaboration_sync_requests {
+		edges = append(edges, user.EdgeCollaborationSyncRequests)
+	}
+	if m.clearedcollaboration_commands {
+		edges = append(edges, user.EdgeCollaborationCommands)
+	}
+	if m.clearedcollaboration_charges {
+		edges = append(edges, user.EdgeCollaborationCharges)
+	}
 	return edges
 }
 
@@ -50287,6 +55605,14 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedpending_auth_sessions
 	case user.EdgePlatformQuotas:
 		return m.clearedplatform_quotas
+	case user.EdgeCollaborationDevices:
+		return m.clearedcollaboration_devices
+	case user.EdgeCollaborationSyncRequests:
+		return m.clearedcollaboration_sync_requests
+	case user.EdgeCollaborationCommands:
+		return m.clearedcollaboration_commands
+	case user.EdgeCollaborationCharges:
+		return m.clearedcollaboration_charges
 	}
 	return false
 }
@@ -50341,6 +55667,18 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgePlatformQuotas:
 		m.ResetPlatformQuotas()
+		return nil
+	case user.EdgeCollaborationDevices:
+		m.ResetCollaborationDevices()
+		return nil
+	case user.EdgeCollaborationSyncRequests:
+		m.ResetCollaborationSyncRequests()
+		return nil
+	case user.EdgeCollaborationCommands:
+		m.ResetCollaborationCommands()
+		return nil
+	case user.EdgeCollaborationCharges:
+		m.ResetCollaborationCharges()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

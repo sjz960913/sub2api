@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/Wei-Shaw/sub2api/ent/migrate"
+	"github.com/google/uuid"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -29,6 +30,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -91,6 +96,14 @@ type Client struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CollaborationCharge is the client for interacting with the CollaborationCharge builders.
+	CollaborationCharge *CollaborationChargeClient
+	// CollaborationCommand is the client for interacting with the CollaborationCommand builders.
+	CollaborationCommand *CollaborationCommandClient
+	// CollaborationDevice is the client for interacting with the CollaborationDevice builders.
+	CollaborationDevice *CollaborationDeviceClient
+	// CollaborationSyncRequest is the client for interacting with the CollaborationSyncRequest builders.
+	CollaborationSyncRequest *CollaborationSyncRequestClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -166,6 +179,10 @@ func (c *Client) init() {
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
+	c.CollaborationCharge = NewCollaborationChargeClient(c.config)
+	c.CollaborationCommand = NewCollaborationCommandClient(c.config)
+	c.CollaborationDevice = NewCollaborationDeviceClient(c.config)
+	c.CollaborationSyncRequest = NewCollaborationSyncRequestClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
@@ -297,6 +314,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CollaborationCharge:           NewCollaborationChargeClient(cfg),
+		CollaborationCommand:          NewCollaborationCommandClient(cfg),
+		CollaborationDevice:           NewCollaborationDeviceClient(cfg),
+		CollaborationSyncRequest:      NewCollaborationSyncRequestClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -355,6 +376,10 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CollaborationCharge:           NewCollaborationChargeClient(cfg),
+		CollaborationCommand:          NewCollaborationCommandClient(cfg),
+		CollaborationDevice:           NewCollaborationDeviceClient(cfg),
+		CollaborationSyncRequest:      NewCollaborationSyncRequestClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -413,12 +438,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CollaborationCharge, c.CollaborationCommand, c.CollaborationDevice,
+		c.CollaborationSyncRequest, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
@@ -433,12 +459,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CollaborationCharge, c.CollaborationCommand, c.CollaborationDevice,
+		c.CollaborationSyncRequest, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
@@ -476,6 +503,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorHistory.mutate(ctx, m)
 	case *ChannelMonitorRequestTemplateMutation:
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
+	case *CollaborationChargeMutation:
+		return c.CollaborationCharge.mutate(ctx, m)
+	case *CollaborationCommandMutation:
+		return c.CollaborationCommand.mutate(ctx, m)
+	case *CollaborationDeviceMutation:
+		return c.CollaborationDevice.mutate(ctx, m)
+	case *CollaborationSyncRequestMutation:
+		return c.CollaborationSyncRequest.mutate(ctx, m)
 	case *CompositeModelRouteMutation:
 		return c.CompositeModelRoute.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
@@ -2729,6 +2764,698 @@ func (c *ChannelMonitorRequestTemplateClient) mutate(ctx context.Context, m *Cha
 		return (&ChannelMonitorRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChannelMonitorRequestTemplate mutation op: %q", m.Op())
+	}
+}
+
+// CollaborationChargeClient is a client for the CollaborationCharge schema.
+type CollaborationChargeClient struct {
+	config
+}
+
+// NewCollaborationChargeClient returns a client for the CollaborationCharge from the given config.
+func NewCollaborationChargeClient(c config) *CollaborationChargeClient {
+	return &CollaborationChargeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collaborationcharge.Hooks(f(g(h())))`.
+func (c *CollaborationChargeClient) Use(hooks ...Hook) {
+	c.hooks.CollaborationCharge = append(c.hooks.CollaborationCharge, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collaborationcharge.Intercept(f(g(h())))`.
+func (c *CollaborationChargeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CollaborationCharge = append(c.inters.CollaborationCharge, interceptors...)
+}
+
+// Create returns a builder for creating a CollaborationCharge entity.
+func (c *CollaborationChargeClient) Create() *CollaborationChargeCreate {
+	mutation := newCollaborationChargeMutation(c.config, OpCreate)
+	return &CollaborationChargeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CollaborationCharge entities.
+func (c *CollaborationChargeClient) CreateBulk(builders ...*CollaborationChargeCreate) *CollaborationChargeCreateBulk {
+	return &CollaborationChargeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollaborationChargeClient) MapCreateBulk(slice any, setFunc func(*CollaborationChargeCreate, int)) *CollaborationChargeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollaborationChargeCreateBulk{err: fmt.Errorf("calling to CollaborationChargeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollaborationChargeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollaborationChargeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CollaborationCharge.
+func (c *CollaborationChargeClient) Update() *CollaborationChargeUpdate {
+	mutation := newCollaborationChargeMutation(c.config, OpUpdate)
+	return &CollaborationChargeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollaborationChargeClient) UpdateOne(_m *CollaborationCharge) *CollaborationChargeUpdateOne {
+	mutation := newCollaborationChargeMutation(c.config, OpUpdateOne, withCollaborationCharge(_m))
+	return &CollaborationChargeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollaborationChargeClient) UpdateOneID(id uuid.UUID) *CollaborationChargeUpdateOne {
+	mutation := newCollaborationChargeMutation(c.config, OpUpdateOne, withCollaborationChargeID(id))
+	return &CollaborationChargeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CollaborationCharge.
+func (c *CollaborationChargeClient) Delete() *CollaborationChargeDelete {
+	mutation := newCollaborationChargeMutation(c.config, OpDelete)
+	return &CollaborationChargeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollaborationChargeClient) DeleteOne(_m *CollaborationCharge) *CollaborationChargeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollaborationChargeClient) DeleteOneID(id uuid.UUID) *CollaborationChargeDeleteOne {
+	builder := c.Delete().Where(collaborationcharge.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollaborationChargeDeleteOne{builder}
+}
+
+// Query returns a query builder for CollaborationCharge.
+func (c *CollaborationChargeClient) Query() *CollaborationChargeQuery {
+	return &CollaborationChargeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollaborationCharge},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CollaborationCharge entity by its id.
+func (c *CollaborationChargeClient) Get(ctx context.Context, id uuid.UUID) (*CollaborationCharge, error) {
+	return c.Query().Where(collaborationcharge.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollaborationChargeClient) GetX(ctx context.Context, id uuid.UUID) *CollaborationCharge {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCommand queries the command edge of a CollaborationCharge.
+func (c *CollaborationChargeClient) QueryCommand(_m *CollaborationCharge) *CollaborationCommandQuery {
+	query := (&CollaborationCommandClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationcharge.Table, collaborationcharge.FieldID, id),
+			sqlgraph.To(collaborationcommand.Table, collaborationcommand.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, collaborationcharge.CommandTable, collaborationcharge.CommandColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a CollaborationCharge.
+func (c *CollaborationChargeClient) QueryUser(_m *CollaborationCharge) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationcharge.Table, collaborationcharge.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationcharge.UserTable, collaborationcharge.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollaborationChargeClient) Hooks() []Hook {
+	return c.hooks.CollaborationCharge
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollaborationChargeClient) Interceptors() []Interceptor {
+	return c.inters.CollaborationCharge
+}
+
+func (c *CollaborationChargeClient) mutate(ctx context.Context, m *CollaborationChargeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollaborationChargeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollaborationChargeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollaborationChargeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollaborationChargeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CollaborationCharge mutation op: %q", m.Op())
+	}
+}
+
+// CollaborationCommandClient is a client for the CollaborationCommand schema.
+type CollaborationCommandClient struct {
+	config
+}
+
+// NewCollaborationCommandClient returns a client for the CollaborationCommand from the given config.
+func NewCollaborationCommandClient(c config) *CollaborationCommandClient {
+	return &CollaborationCommandClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collaborationcommand.Hooks(f(g(h())))`.
+func (c *CollaborationCommandClient) Use(hooks ...Hook) {
+	c.hooks.CollaborationCommand = append(c.hooks.CollaborationCommand, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collaborationcommand.Intercept(f(g(h())))`.
+func (c *CollaborationCommandClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CollaborationCommand = append(c.inters.CollaborationCommand, interceptors...)
+}
+
+// Create returns a builder for creating a CollaborationCommand entity.
+func (c *CollaborationCommandClient) Create() *CollaborationCommandCreate {
+	mutation := newCollaborationCommandMutation(c.config, OpCreate)
+	return &CollaborationCommandCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CollaborationCommand entities.
+func (c *CollaborationCommandClient) CreateBulk(builders ...*CollaborationCommandCreate) *CollaborationCommandCreateBulk {
+	return &CollaborationCommandCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollaborationCommandClient) MapCreateBulk(slice any, setFunc func(*CollaborationCommandCreate, int)) *CollaborationCommandCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollaborationCommandCreateBulk{err: fmt.Errorf("calling to CollaborationCommandClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollaborationCommandCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollaborationCommandCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CollaborationCommand.
+func (c *CollaborationCommandClient) Update() *CollaborationCommandUpdate {
+	mutation := newCollaborationCommandMutation(c.config, OpUpdate)
+	return &CollaborationCommandUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollaborationCommandClient) UpdateOne(_m *CollaborationCommand) *CollaborationCommandUpdateOne {
+	mutation := newCollaborationCommandMutation(c.config, OpUpdateOne, withCollaborationCommand(_m))
+	return &CollaborationCommandUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollaborationCommandClient) UpdateOneID(id uuid.UUID) *CollaborationCommandUpdateOne {
+	mutation := newCollaborationCommandMutation(c.config, OpUpdateOne, withCollaborationCommandID(id))
+	return &CollaborationCommandUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CollaborationCommand.
+func (c *CollaborationCommandClient) Delete() *CollaborationCommandDelete {
+	mutation := newCollaborationCommandMutation(c.config, OpDelete)
+	return &CollaborationCommandDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollaborationCommandClient) DeleteOne(_m *CollaborationCommand) *CollaborationCommandDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollaborationCommandClient) DeleteOneID(id uuid.UUID) *CollaborationCommandDeleteOne {
+	builder := c.Delete().Where(collaborationcommand.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollaborationCommandDeleteOne{builder}
+}
+
+// Query returns a query builder for CollaborationCommand.
+func (c *CollaborationCommandClient) Query() *CollaborationCommandQuery {
+	return &CollaborationCommandQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollaborationCommand},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CollaborationCommand entity by its id.
+func (c *CollaborationCommandClient) Get(ctx context.Context, id uuid.UUID) (*CollaborationCommand, error) {
+	return c.Query().Where(collaborationcommand.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollaborationCommandClient) GetX(ctx context.Context, id uuid.UUID) *CollaborationCommand {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a CollaborationCommand.
+func (c *CollaborationCommandClient) QueryUser(_m *CollaborationCommand) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationcommand.Table, collaborationcommand.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationcommand.UserTable, collaborationcommand.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDevice queries the device edge of a CollaborationCommand.
+func (c *CollaborationCommandClient) QueryDevice(_m *CollaborationCommand) *CollaborationDeviceQuery {
+	query := (&CollaborationDeviceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationcommand.Table, collaborationcommand.FieldID, id),
+			sqlgraph.To(collaborationdevice.Table, collaborationdevice.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationcommand.DeviceTable, collaborationcommand.DeviceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCharge queries the charge edge of a CollaborationCommand.
+func (c *CollaborationCommandClient) QueryCharge(_m *CollaborationCommand) *CollaborationChargeQuery {
+	query := (&CollaborationChargeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationcommand.Table, collaborationcommand.FieldID, id),
+			sqlgraph.To(collaborationcharge.Table, collaborationcharge.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, collaborationcommand.ChargeTable, collaborationcommand.ChargeColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollaborationCommandClient) Hooks() []Hook {
+	return c.hooks.CollaborationCommand
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollaborationCommandClient) Interceptors() []Interceptor {
+	return c.inters.CollaborationCommand
+}
+
+func (c *CollaborationCommandClient) mutate(ctx context.Context, m *CollaborationCommandMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollaborationCommandCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollaborationCommandUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollaborationCommandUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollaborationCommandDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CollaborationCommand mutation op: %q", m.Op())
+	}
+}
+
+// CollaborationDeviceClient is a client for the CollaborationDevice schema.
+type CollaborationDeviceClient struct {
+	config
+}
+
+// NewCollaborationDeviceClient returns a client for the CollaborationDevice from the given config.
+func NewCollaborationDeviceClient(c config) *CollaborationDeviceClient {
+	return &CollaborationDeviceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collaborationdevice.Hooks(f(g(h())))`.
+func (c *CollaborationDeviceClient) Use(hooks ...Hook) {
+	c.hooks.CollaborationDevice = append(c.hooks.CollaborationDevice, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collaborationdevice.Intercept(f(g(h())))`.
+func (c *CollaborationDeviceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CollaborationDevice = append(c.inters.CollaborationDevice, interceptors...)
+}
+
+// Create returns a builder for creating a CollaborationDevice entity.
+func (c *CollaborationDeviceClient) Create() *CollaborationDeviceCreate {
+	mutation := newCollaborationDeviceMutation(c.config, OpCreate)
+	return &CollaborationDeviceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CollaborationDevice entities.
+func (c *CollaborationDeviceClient) CreateBulk(builders ...*CollaborationDeviceCreate) *CollaborationDeviceCreateBulk {
+	return &CollaborationDeviceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollaborationDeviceClient) MapCreateBulk(slice any, setFunc func(*CollaborationDeviceCreate, int)) *CollaborationDeviceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollaborationDeviceCreateBulk{err: fmt.Errorf("calling to CollaborationDeviceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollaborationDeviceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollaborationDeviceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CollaborationDevice.
+func (c *CollaborationDeviceClient) Update() *CollaborationDeviceUpdate {
+	mutation := newCollaborationDeviceMutation(c.config, OpUpdate)
+	return &CollaborationDeviceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollaborationDeviceClient) UpdateOne(_m *CollaborationDevice) *CollaborationDeviceUpdateOne {
+	mutation := newCollaborationDeviceMutation(c.config, OpUpdateOne, withCollaborationDevice(_m))
+	return &CollaborationDeviceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollaborationDeviceClient) UpdateOneID(id uuid.UUID) *CollaborationDeviceUpdateOne {
+	mutation := newCollaborationDeviceMutation(c.config, OpUpdateOne, withCollaborationDeviceID(id))
+	return &CollaborationDeviceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CollaborationDevice.
+func (c *CollaborationDeviceClient) Delete() *CollaborationDeviceDelete {
+	mutation := newCollaborationDeviceMutation(c.config, OpDelete)
+	return &CollaborationDeviceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollaborationDeviceClient) DeleteOne(_m *CollaborationDevice) *CollaborationDeviceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollaborationDeviceClient) DeleteOneID(id uuid.UUID) *CollaborationDeviceDeleteOne {
+	builder := c.Delete().Where(collaborationdevice.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollaborationDeviceDeleteOne{builder}
+}
+
+// Query returns a query builder for CollaborationDevice.
+func (c *CollaborationDeviceClient) Query() *CollaborationDeviceQuery {
+	return &CollaborationDeviceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollaborationDevice},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CollaborationDevice entity by its id.
+func (c *CollaborationDeviceClient) Get(ctx context.Context, id uuid.UUID) (*CollaborationDevice, error) {
+	return c.Query().Where(collaborationdevice.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollaborationDeviceClient) GetX(ctx context.Context, id uuid.UUID) *CollaborationDevice {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a CollaborationDevice.
+func (c *CollaborationDeviceClient) QueryUser(_m *CollaborationDevice) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationdevice.Table, collaborationdevice.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationdevice.UserTable, collaborationdevice.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySyncRequests queries the sync_requests edge of a CollaborationDevice.
+func (c *CollaborationDeviceClient) QuerySyncRequests(_m *CollaborationDevice) *CollaborationSyncRequestQuery {
+	query := (&CollaborationSyncRequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationdevice.Table, collaborationdevice.FieldID, id),
+			sqlgraph.To(collaborationsyncrequest.Table, collaborationsyncrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collaborationdevice.SyncRequestsTable, collaborationdevice.SyncRequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCommands queries the commands edge of a CollaborationDevice.
+func (c *CollaborationDeviceClient) QueryCommands(_m *CollaborationDevice) *CollaborationCommandQuery {
+	query := (&CollaborationCommandClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationdevice.Table, collaborationdevice.FieldID, id),
+			sqlgraph.To(collaborationcommand.Table, collaborationcommand.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collaborationdevice.CommandsTable, collaborationdevice.CommandsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollaborationDeviceClient) Hooks() []Hook {
+	return c.hooks.CollaborationDevice
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollaborationDeviceClient) Interceptors() []Interceptor {
+	return c.inters.CollaborationDevice
+}
+
+func (c *CollaborationDeviceClient) mutate(ctx context.Context, m *CollaborationDeviceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollaborationDeviceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollaborationDeviceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollaborationDeviceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollaborationDeviceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CollaborationDevice mutation op: %q", m.Op())
+	}
+}
+
+// CollaborationSyncRequestClient is a client for the CollaborationSyncRequest schema.
+type CollaborationSyncRequestClient struct {
+	config
+}
+
+// NewCollaborationSyncRequestClient returns a client for the CollaborationSyncRequest from the given config.
+func NewCollaborationSyncRequestClient(c config) *CollaborationSyncRequestClient {
+	return &CollaborationSyncRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collaborationsyncrequest.Hooks(f(g(h())))`.
+func (c *CollaborationSyncRequestClient) Use(hooks ...Hook) {
+	c.hooks.CollaborationSyncRequest = append(c.hooks.CollaborationSyncRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collaborationsyncrequest.Intercept(f(g(h())))`.
+func (c *CollaborationSyncRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CollaborationSyncRequest = append(c.inters.CollaborationSyncRequest, interceptors...)
+}
+
+// Create returns a builder for creating a CollaborationSyncRequest entity.
+func (c *CollaborationSyncRequestClient) Create() *CollaborationSyncRequestCreate {
+	mutation := newCollaborationSyncRequestMutation(c.config, OpCreate)
+	return &CollaborationSyncRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CollaborationSyncRequest entities.
+func (c *CollaborationSyncRequestClient) CreateBulk(builders ...*CollaborationSyncRequestCreate) *CollaborationSyncRequestCreateBulk {
+	return &CollaborationSyncRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollaborationSyncRequestClient) MapCreateBulk(slice any, setFunc func(*CollaborationSyncRequestCreate, int)) *CollaborationSyncRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollaborationSyncRequestCreateBulk{err: fmt.Errorf("calling to CollaborationSyncRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollaborationSyncRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollaborationSyncRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CollaborationSyncRequest.
+func (c *CollaborationSyncRequestClient) Update() *CollaborationSyncRequestUpdate {
+	mutation := newCollaborationSyncRequestMutation(c.config, OpUpdate)
+	return &CollaborationSyncRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollaborationSyncRequestClient) UpdateOne(_m *CollaborationSyncRequest) *CollaborationSyncRequestUpdateOne {
+	mutation := newCollaborationSyncRequestMutation(c.config, OpUpdateOne, withCollaborationSyncRequest(_m))
+	return &CollaborationSyncRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollaborationSyncRequestClient) UpdateOneID(id uuid.UUID) *CollaborationSyncRequestUpdateOne {
+	mutation := newCollaborationSyncRequestMutation(c.config, OpUpdateOne, withCollaborationSyncRequestID(id))
+	return &CollaborationSyncRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CollaborationSyncRequest.
+func (c *CollaborationSyncRequestClient) Delete() *CollaborationSyncRequestDelete {
+	mutation := newCollaborationSyncRequestMutation(c.config, OpDelete)
+	return &CollaborationSyncRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollaborationSyncRequestClient) DeleteOne(_m *CollaborationSyncRequest) *CollaborationSyncRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollaborationSyncRequestClient) DeleteOneID(id uuid.UUID) *CollaborationSyncRequestDeleteOne {
+	builder := c.Delete().Where(collaborationsyncrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollaborationSyncRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for CollaborationSyncRequest.
+func (c *CollaborationSyncRequestClient) Query() *CollaborationSyncRequestQuery {
+	return &CollaborationSyncRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollaborationSyncRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CollaborationSyncRequest entity by its id.
+func (c *CollaborationSyncRequestClient) Get(ctx context.Context, id uuid.UUID) (*CollaborationSyncRequest, error) {
+	return c.Query().Where(collaborationsyncrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollaborationSyncRequestClient) GetX(ctx context.Context, id uuid.UUID) *CollaborationSyncRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a CollaborationSyncRequest.
+func (c *CollaborationSyncRequestClient) QueryUser(_m *CollaborationSyncRequest) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationsyncrequest.Table, collaborationsyncrequest.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationsyncrequest.UserTable, collaborationsyncrequest.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDevice queries the device edge of a CollaborationSyncRequest.
+func (c *CollaborationSyncRequestClient) QueryDevice(_m *CollaborationSyncRequest) *CollaborationDeviceQuery {
+	query := (&CollaborationDeviceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collaborationsyncrequest.Table, collaborationsyncrequest.FieldID, id),
+			sqlgraph.To(collaborationdevice.Table, collaborationdevice.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collaborationsyncrequest.DeviceTable, collaborationsyncrequest.DeviceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollaborationSyncRequestClient) Hooks() []Hook {
+	return c.hooks.CollaborationSyncRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollaborationSyncRequestClient) Interceptors() []Interceptor {
+	return c.inters.CollaborationSyncRequest
+}
+
+func (c *CollaborationSyncRequestClient) mutate(ctx context.Context, m *CollaborationSyncRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollaborationSyncRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollaborationSyncRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollaborationSyncRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollaborationSyncRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CollaborationSyncRequest mutation op: %q", m.Op())
 	}
 }
 
@@ -5997,6 +6724,70 @@ func (c *UserClient) QueryPlatformQuotas(_m *User) *UserPlatformQuotaQuery {
 	return query
 }
 
+// QueryCollaborationDevices queries the collaboration_devices edge of a User.
+func (c *UserClient) QueryCollaborationDevices(_m *User) *CollaborationDeviceQuery {
+	query := (&CollaborationDeviceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(collaborationdevice.Table, collaborationdevice.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationDevicesTable, user.CollaborationDevicesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCollaborationSyncRequests queries the collaboration_sync_requests edge of a User.
+func (c *UserClient) QueryCollaborationSyncRequests(_m *User) *CollaborationSyncRequestQuery {
+	query := (&CollaborationSyncRequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(collaborationsyncrequest.Table, collaborationsyncrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationSyncRequestsTable, user.CollaborationSyncRequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCollaborationCommands queries the collaboration_commands edge of a User.
+func (c *UserClient) QueryCollaborationCommands(_m *User) *CollaborationCommandQuery {
+	query := (&CollaborationCommandClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(collaborationcommand.Table, collaborationcommand.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationCommandsTable, user.CollaborationCommandsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCollaborationCharges queries the collaboration_charges edge of a User.
+func (c *UserClient) QueryCollaborationCharges(_m *User) *CollaborationChargeQuery {
+	query := (&CollaborationChargeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(collaborationcharge.Table, collaborationcharge.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationChargesTable, user.CollaborationChargesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUserAllowedGroups queries the user_allowed_groups edge of a User.
 func (c *UserClient) QueryUserAllowedGroups(_m *User) *UserAllowedGroupQuery {
 	query := (&UserAllowedGroupClient{config: c.config}).Query()
@@ -6828,25 +7619,27 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		ChannelMonitorRequestTemplate, CollaborationCharge, CollaborationCommand,
+		CollaborationDevice, CollaborationSyncRequest, CompositeModelRoute,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		ChannelMonitorRequestTemplate, CollaborationCharge, CollaborationCommand,
+		CollaborationDevice, CollaborationSyncRequest, CompositeModelRoute,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

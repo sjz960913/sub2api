@@ -16,6 +16,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
@@ -33,25 +37,29 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                       *QueryContext
-	order                     []user.OrderOption
-	inters                    []Interceptor
-	predicates                []predicate.User
-	withAPIKeys               *APIKeyQuery
-	withRedeemCodes           *RedeemCodeQuery
-	withSubscriptions         *UserSubscriptionQuery
-	withAssignedSubscriptions *UserSubscriptionQuery
-	withAnnouncementReads     *AnnouncementReadQuery
-	withAllowedGroups         *GroupQuery
-	withUsageLogs             *UsageLogQuery
-	withAttributeValues       *UserAttributeValueQuery
-	withPromoCodeUsages       *PromoCodeUsageQuery
-	withPaymentOrders         *PaymentOrderQuery
-	withAuthIdentities        *AuthIdentityQuery
-	withPendingAuthSessions   *PendingAuthSessionQuery
-	withPlatformQuotas        *UserPlatformQuotaQuery
-	withUserAllowedGroups     *UserAllowedGroupQuery
-	modifiers                 []func(*sql.Selector)
+	ctx                           *QueryContext
+	order                         []user.OrderOption
+	inters                        []Interceptor
+	predicates                    []predicate.User
+	withAPIKeys                   *APIKeyQuery
+	withRedeemCodes               *RedeemCodeQuery
+	withSubscriptions             *UserSubscriptionQuery
+	withAssignedSubscriptions     *UserSubscriptionQuery
+	withAnnouncementReads         *AnnouncementReadQuery
+	withAllowedGroups             *GroupQuery
+	withUsageLogs                 *UsageLogQuery
+	withAttributeValues           *UserAttributeValueQuery
+	withPromoCodeUsages           *PromoCodeUsageQuery
+	withPaymentOrders             *PaymentOrderQuery
+	withAuthIdentities            *AuthIdentityQuery
+	withPendingAuthSessions       *PendingAuthSessionQuery
+	withPlatformQuotas            *UserPlatformQuotaQuery
+	withCollaborationDevices      *CollaborationDeviceQuery
+	withCollaborationSyncRequests *CollaborationSyncRequestQuery
+	withCollaborationCommands     *CollaborationCommandQuery
+	withCollaborationCharges      *CollaborationChargeQuery
+	withUserAllowedGroups         *UserAllowedGroupQuery
+	modifiers                     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -374,6 +382,94 @@ func (_q *UserQuery) QueryPlatformQuotas() *UserPlatformQuotaQuery {
 	return query
 }
 
+// QueryCollaborationDevices chains the current query on the "collaboration_devices" edge.
+func (_q *UserQuery) QueryCollaborationDevices() *CollaborationDeviceQuery {
+	query := (&CollaborationDeviceClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(collaborationdevice.Table, collaborationdevice.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationDevicesTable, user.CollaborationDevicesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCollaborationSyncRequests chains the current query on the "collaboration_sync_requests" edge.
+func (_q *UserQuery) QueryCollaborationSyncRequests() *CollaborationSyncRequestQuery {
+	query := (&CollaborationSyncRequestClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(collaborationsyncrequest.Table, collaborationsyncrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationSyncRequestsTable, user.CollaborationSyncRequestsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCollaborationCommands chains the current query on the "collaboration_commands" edge.
+func (_q *UserQuery) QueryCollaborationCommands() *CollaborationCommandQuery {
+	query := (&CollaborationCommandClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(collaborationcommand.Table, collaborationcommand.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationCommandsTable, user.CollaborationCommandsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCollaborationCharges chains the current query on the "collaboration_charges" edge.
+func (_q *UserQuery) QueryCollaborationCharges() *CollaborationChargeQuery {
+	query := (&CollaborationChargeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(collaborationcharge.Table, collaborationcharge.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CollaborationChargesTable, user.CollaborationChargesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryUserAllowedGroups chains the current query on the "user_allowed_groups" edge.
 func (_q *UserQuery) QueryUserAllowedGroups() *UserAllowedGroupQuery {
 	query := (&UserAllowedGroupClient{config: _q.config}).Query()
@@ -583,25 +679,29 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:                    _q.config,
-		ctx:                       _q.ctx.Clone(),
-		order:                     append([]user.OrderOption{}, _q.order...),
-		inters:                    append([]Interceptor{}, _q.inters...),
-		predicates:                append([]predicate.User{}, _q.predicates...),
-		withAPIKeys:               _q.withAPIKeys.Clone(),
-		withRedeemCodes:           _q.withRedeemCodes.Clone(),
-		withSubscriptions:         _q.withSubscriptions.Clone(),
-		withAssignedSubscriptions: _q.withAssignedSubscriptions.Clone(),
-		withAnnouncementReads:     _q.withAnnouncementReads.Clone(),
-		withAllowedGroups:         _q.withAllowedGroups.Clone(),
-		withUsageLogs:             _q.withUsageLogs.Clone(),
-		withAttributeValues:       _q.withAttributeValues.Clone(),
-		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
-		withPaymentOrders:         _q.withPaymentOrders.Clone(),
-		withAuthIdentities:        _q.withAuthIdentities.Clone(),
-		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
-		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
-		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
+		config:                        _q.config,
+		ctx:                           _q.ctx.Clone(),
+		order:                         append([]user.OrderOption{}, _q.order...),
+		inters:                        append([]Interceptor{}, _q.inters...),
+		predicates:                    append([]predicate.User{}, _q.predicates...),
+		withAPIKeys:                   _q.withAPIKeys.Clone(),
+		withRedeemCodes:               _q.withRedeemCodes.Clone(),
+		withSubscriptions:             _q.withSubscriptions.Clone(),
+		withAssignedSubscriptions:     _q.withAssignedSubscriptions.Clone(),
+		withAnnouncementReads:         _q.withAnnouncementReads.Clone(),
+		withAllowedGroups:             _q.withAllowedGroups.Clone(),
+		withUsageLogs:                 _q.withUsageLogs.Clone(),
+		withAttributeValues:           _q.withAttributeValues.Clone(),
+		withPromoCodeUsages:           _q.withPromoCodeUsages.Clone(),
+		withPaymentOrders:             _q.withPaymentOrders.Clone(),
+		withAuthIdentities:            _q.withAuthIdentities.Clone(),
+		withPendingAuthSessions:       _q.withPendingAuthSessions.Clone(),
+		withPlatformQuotas:            _q.withPlatformQuotas.Clone(),
+		withCollaborationDevices:      _q.withCollaborationDevices.Clone(),
+		withCollaborationSyncRequests: _q.withCollaborationSyncRequests.Clone(),
+		withCollaborationCommands:     _q.withCollaborationCommands.Clone(),
+		withCollaborationCharges:      _q.withCollaborationCharges.Clone(),
+		withUserAllowedGroups:         _q.withUserAllowedGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -751,6 +851,50 @@ func (_q *UserQuery) WithPlatformQuotas(opts ...func(*UserPlatformQuotaQuery)) *
 	return _q
 }
 
+// WithCollaborationDevices tells the query-builder to eager-load the nodes that are connected to
+// the "collaboration_devices" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithCollaborationDevices(opts ...func(*CollaborationDeviceQuery)) *UserQuery {
+	query := (&CollaborationDeviceClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollaborationDevices = query
+	return _q
+}
+
+// WithCollaborationSyncRequests tells the query-builder to eager-load the nodes that are connected to
+// the "collaboration_sync_requests" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithCollaborationSyncRequests(opts ...func(*CollaborationSyncRequestQuery)) *UserQuery {
+	query := (&CollaborationSyncRequestClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollaborationSyncRequests = query
+	return _q
+}
+
+// WithCollaborationCommands tells the query-builder to eager-load the nodes that are connected to
+// the "collaboration_commands" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithCollaborationCommands(opts ...func(*CollaborationCommandQuery)) *UserQuery {
+	query := (&CollaborationCommandClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollaborationCommands = query
+	return _q
+}
+
+// WithCollaborationCharges tells the query-builder to eager-load the nodes that are connected to
+// the "collaboration_charges" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithCollaborationCharges(opts ...func(*CollaborationChargeQuery)) *UserQuery {
+	query := (&CollaborationChargeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollaborationCharges = query
+	return _q
+}
+
 // WithUserAllowedGroups tells the query-builder to eager-load the nodes that are connected to
 // the "user_allowed_groups" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *UserQuery) WithUserAllowedGroups(opts ...func(*UserAllowedGroupQuery)) *UserQuery {
@@ -840,7 +984,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [14]bool{
+		loadedTypes = [18]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -854,6 +998,10 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			_q.withAuthIdentities != nil,
 			_q.withPendingAuthSessions != nil,
 			_q.withPlatformQuotas != nil,
+			_q.withCollaborationDevices != nil,
+			_q.withCollaborationSyncRequests != nil,
+			_q.withCollaborationCommands != nil,
+			_q.withCollaborationCharges != nil,
 			_q.withUserAllowedGroups != nil,
 		}
 	)
@@ -970,6 +1118,42 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadPlatformQuotas(ctx, query, nodes,
 			func(n *User) { n.Edges.PlatformQuotas = []*UserPlatformQuota{} },
 			func(n *User, e *UserPlatformQuota) { n.Edges.PlatformQuotas = append(n.Edges.PlatformQuotas, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCollaborationDevices; query != nil {
+		if err := _q.loadCollaborationDevices(ctx, query, nodes,
+			func(n *User) { n.Edges.CollaborationDevices = []*CollaborationDevice{} },
+			func(n *User, e *CollaborationDevice) {
+				n.Edges.CollaborationDevices = append(n.Edges.CollaborationDevices, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCollaborationSyncRequests; query != nil {
+		if err := _q.loadCollaborationSyncRequests(ctx, query, nodes,
+			func(n *User) { n.Edges.CollaborationSyncRequests = []*CollaborationSyncRequest{} },
+			func(n *User, e *CollaborationSyncRequest) {
+				n.Edges.CollaborationSyncRequests = append(n.Edges.CollaborationSyncRequests, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCollaborationCommands; query != nil {
+		if err := _q.loadCollaborationCommands(ctx, query, nodes,
+			func(n *User) { n.Edges.CollaborationCommands = []*CollaborationCommand{} },
+			func(n *User, e *CollaborationCommand) {
+				n.Edges.CollaborationCommands = append(n.Edges.CollaborationCommands, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCollaborationCharges; query != nil {
+		if err := _q.loadCollaborationCharges(ctx, query, nodes,
+			func(n *User) { n.Edges.CollaborationCharges = []*CollaborationCharge{} },
+			func(n *User, e *CollaborationCharge) {
+				n.Edges.CollaborationCharges = append(n.Edges.CollaborationCharges, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1398,6 +1582,126 @@ func (_q *UserQuery) loadPlatformQuotas(ctx context.Context, query *UserPlatform
 	}
 	query.Where(predicate.UserPlatformQuota(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.PlatformQuotasColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadCollaborationDevices(ctx context.Context, query *CollaborationDeviceQuery, nodes []*User, init func(*User), assign func(*User, *CollaborationDevice)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collaborationdevice.FieldUserID)
+	}
+	query.Where(predicate.CollaborationDevice(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CollaborationDevicesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadCollaborationSyncRequests(ctx context.Context, query *CollaborationSyncRequestQuery, nodes []*User, init func(*User), assign func(*User, *CollaborationSyncRequest)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collaborationsyncrequest.FieldUserID)
+	}
+	query.Where(predicate.CollaborationSyncRequest(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CollaborationSyncRequestsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadCollaborationCommands(ctx context.Context, query *CollaborationCommandQuery, nodes []*User, init func(*User), assign func(*User, *CollaborationCommand)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collaborationcommand.FieldUserID)
+	}
+	query.Where(predicate.CollaborationCommand(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CollaborationCommandsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadCollaborationCharges(ctx context.Context, query *CollaborationChargeQuery, nodes []*User, init func(*User), assign func(*User, *CollaborationCharge)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collaborationcharge.FieldUserID)
+	}
+	query.Where(predicate.CollaborationCharge(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CollaborationChargesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

@@ -177,6 +177,54 @@ func (f ChannelMonitorRequestTemplateFunc) Mutate(ctx context.Context, m ent.Mut
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChannelMonitorRequestTemplateMutation", m)
 }
 
+// The CollaborationChargeFunc type is an adapter to allow the use of ordinary
+// function as CollaborationCharge mutator.
+type CollaborationChargeFunc func(context.Context, *ent.CollaborationChargeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollaborationChargeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollaborationChargeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollaborationChargeMutation", m)
+}
+
+// The CollaborationCommandFunc type is an adapter to allow the use of ordinary
+// function as CollaborationCommand mutator.
+type CollaborationCommandFunc func(context.Context, *ent.CollaborationCommandMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollaborationCommandFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollaborationCommandMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollaborationCommandMutation", m)
+}
+
+// The CollaborationDeviceFunc type is an adapter to allow the use of ordinary
+// function as CollaborationDevice mutator.
+type CollaborationDeviceFunc func(context.Context, *ent.CollaborationDeviceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollaborationDeviceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollaborationDeviceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollaborationDeviceMutation", m)
+}
+
+// The CollaborationSyncRequestFunc type is an adapter to allow the use of ordinary
+// function as CollaborationSyncRequest mutator.
+type CollaborationSyncRequestFunc func(context.Context, *ent.CollaborationSyncRequestMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollaborationSyncRequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollaborationSyncRequestMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollaborationSyncRequestMutation", m)
+}
+
 // The CompositeModelRouteFunc type is an adapter to allow the use of ordinary
 // function as CompositeModelRoute mutator.
 type CompositeModelRouteFunc func(context.Context, *ent.CompositeModelRouteMutation) (ent.Value, error)

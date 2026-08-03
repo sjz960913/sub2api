@@ -48,6 +48,18 @@ type ChannelMonitorHistory func(*sql.Selector)
 // ChannelMonitorRequestTemplate is the predicate function for channelmonitorrequesttemplate builders.
 type ChannelMonitorRequestTemplate func(*sql.Selector)
 
+// CollaborationCharge is the predicate function for collaborationcharge builders.
+type CollaborationCharge func(*sql.Selector)
+
+// CollaborationCommand is the predicate function for collaborationcommand builders.
+type CollaborationCommand func(*sql.Selector)
+
+// CollaborationDevice is the predicate function for collaborationdevice builders.
+type CollaborationDevice func(*sql.Selector)
+
+// CollaborationSyncRequest is the predicate function for collaborationsyncrequest builders.
+type CollaborationSyncRequest func(*sql.Selector)
+
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
 

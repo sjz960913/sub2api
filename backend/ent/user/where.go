@@ -1684,6 +1684,98 @@ func HasPlatformQuotasWith(preds ...predicate.UserPlatformQuota) predicate.User 
 	})
 }
 
+// HasCollaborationDevices applies the HasEdge predicate on the "collaboration_devices" edge.
+func HasCollaborationDevices() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollaborationDevicesTable, CollaborationDevicesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollaborationDevicesWith applies the HasEdge predicate on the "collaboration_devices" edge with a given conditions (other predicates).
+func HasCollaborationDevicesWith(preds ...predicate.CollaborationDevice) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCollaborationDevicesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCollaborationSyncRequests applies the HasEdge predicate on the "collaboration_sync_requests" edge.
+func HasCollaborationSyncRequests() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollaborationSyncRequestsTable, CollaborationSyncRequestsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollaborationSyncRequestsWith applies the HasEdge predicate on the "collaboration_sync_requests" edge with a given conditions (other predicates).
+func HasCollaborationSyncRequestsWith(preds ...predicate.CollaborationSyncRequest) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCollaborationSyncRequestsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCollaborationCommands applies the HasEdge predicate on the "collaboration_commands" edge.
+func HasCollaborationCommands() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollaborationCommandsTable, CollaborationCommandsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollaborationCommandsWith applies the HasEdge predicate on the "collaboration_commands" edge with a given conditions (other predicates).
+func HasCollaborationCommandsWith(preds ...predicate.CollaborationCommand) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCollaborationCommandsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCollaborationCharges applies the HasEdge predicate on the "collaboration_charges" edge.
+func HasCollaborationCharges() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollaborationChargesTable, CollaborationChargesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollaborationChargesWith applies the HasEdge predicate on the "collaboration_charges" edge with a given conditions (other predicates).
+func HasCollaborationChargesWith(preds ...predicate.CollaborationCharge) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCollaborationChargesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasUserAllowedGroups applies the HasEdge predicate on the "user_allowed_groups" edge.
 func HasUserAllowedGroups() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

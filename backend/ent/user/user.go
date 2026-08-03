@@ -89,6 +89,14 @@ const (
 	EdgePendingAuthSessions = "pending_auth_sessions"
 	// EdgePlatformQuotas holds the string denoting the platform_quotas edge name in mutations.
 	EdgePlatformQuotas = "platform_quotas"
+	// EdgeCollaborationDevices holds the string denoting the collaboration_devices edge name in mutations.
+	EdgeCollaborationDevices = "collaboration_devices"
+	// EdgeCollaborationSyncRequests holds the string denoting the collaboration_sync_requests edge name in mutations.
+	EdgeCollaborationSyncRequests = "collaboration_sync_requests"
+	// EdgeCollaborationCommands holds the string denoting the collaboration_commands edge name in mutations.
+	EdgeCollaborationCommands = "collaboration_commands"
+	// EdgeCollaborationCharges holds the string denoting the collaboration_charges edge name in mutations.
+	EdgeCollaborationCharges = "collaboration_charges"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
@@ -182,6 +190,34 @@ const (
 	PlatformQuotasInverseTable = "user_platform_quotas"
 	// PlatformQuotasColumn is the table column denoting the platform_quotas relation/edge.
 	PlatformQuotasColumn = "user_id"
+	// CollaborationDevicesTable is the table that holds the collaboration_devices relation/edge.
+	CollaborationDevicesTable = "collaboration_devices"
+	// CollaborationDevicesInverseTable is the table name for the CollaborationDevice entity.
+	// It exists in this package in order to avoid circular dependency with the "collaborationdevice" package.
+	CollaborationDevicesInverseTable = "collaboration_devices"
+	// CollaborationDevicesColumn is the table column denoting the collaboration_devices relation/edge.
+	CollaborationDevicesColumn = "user_id"
+	// CollaborationSyncRequestsTable is the table that holds the collaboration_sync_requests relation/edge.
+	CollaborationSyncRequestsTable = "collaboration_sync_requests"
+	// CollaborationSyncRequestsInverseTable is the table name for the CollaborationSyncRequest entity.
+	// It exists in this package in order to avoid circular dependency with the "collaborationsyncrequest" package.
+	CollaborationSyncRequestsInverseTable = "collaboration_sync_requests"
+	// CollaborationSyncRequestsColumn is the table column denoting the collaboration_sync_requests relation/edge.
+	CollaborationSyncRequestsColumn = "user_id"
+	// CollaborationCommandsTable is the table that holds the collaboration_commands relation/edge.
+	CollaborationCommandsTable = "collaboration_commands"
+	// CollaborationCommandsInverseTable is the table name for the CollaborationCommand entity.
+	// It exists in this package in order to avoid circular dependency with the "collaborationcommand" package.
+	CollaborationCommandsInverseTable = "collaboration_commands"
+	// CollaborationCommandsColumn is the table column denoting the collaboration_commands relation/edge.
+	CollaborationCommandsColumn = "user_id"
+	// CollaborationChargesTable is the table that holds the collaboration_charges relation/edge.
+	CollaborationChargesTable = "collaboration_charges"
+	// CollaborationChargesInverseTable is the table name for the CollaborationCharge entity.
+	// It exists in this package in order to avoid circular dependency with the "collaborationcharge" package.
+	CollaborationChargesInverseTable = "collaboration_charges"
+	// CollaborationChargesColumn is the table column denoting the collaboration_charges relation/edge.
+	CollaborationChargesColumn = "user_id"
 	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
 	UserAllowedGroupsTable = "user_allowed_groups"
 	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
@@ -602,6 +638,62 @@ func ByPlatformQuotas(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCollaborationDevicesCount orders the results by collaboration_devices count.
+func ByCollaborationDevicesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollaborationDevicesStep(), opts...)
+	}
+}
+
+// ByCollaborationDevices orders the results by collaboration_devices terms.
+func ByCollaborationDevices(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollaborationDevicesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCollaborationSyncRequestsCount orders the results by collaboration_sync_requests count.
+func ByCollaborationSyncRequestsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollaborationSyncRequestsStep(), opts...)
+	}
+}
+
+// ByCollaborationSyncRequests orders the results by collaboration_sync_requests terms.
+func ByCollaborationSyncRequests(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollaborationSyncRequestsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCollaborationCommandsCount orders the results by collaboration_commands count.
+func ByCollaborationCommandsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollaborationCommandsStep(), opts...)
+	}
+}
+
+// ByCollaborationCommands orders the results by collaboration_commands terms.
+func ByCollaborationCommands(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollaborationCommandsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCollaborationChargesCount orders the results by collaboration_charges count.
+func ByCollaborationChargesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollaborationChargesStep(), opts...)
+	}
+}
+
+// ByCollaborationCharges orders the results by collaboration_charges terms.
+func ByCollaborationCharges(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollaborationChargesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
 func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -704,6 +796,34 @@ func newPlatformQuotasStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PlatformQuotasInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PlatformQuotasTable, PlatformQuotasColumn),
+	)
+}
+func newCollaborationDevicesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollaborationDevicesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollaborationDevicesTable, CollaborationDevicesColumn),
+	)
+}
+func newCollaborationSyncRequestsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollaborationSyncRequestsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollaborationSyncRequestsTable, CollaborationSyncRequestsColumn),
+	)
+}
+func newCollaborationCommandsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollaborationCommandsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollaborationCommandsTable, CollaborationCommandsColumn),
+	)
+}
+func newCollaborationChargesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollaborationChargesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollaborationChargesTable, CollaborationChargesColumn),
 	)
 }
 func newUserAllowedGroupsStep() *sqlgraph.Step {

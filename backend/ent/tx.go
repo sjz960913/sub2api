@@ -42,6 +42,14 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CollaborationCharge is the client for interacting with the CollaborationCharge builders.
+	CollaborationCharge *CollaborationChargeClient
+	// CollaborationCommand is the client for interacting with the CollaborationCommand builders.
+	CollaborationCommand *CollaborationCommandClient
+	// CollaborationDevice is the client for interacting with the CollaborationDevice builders.
+	CollaborationDevice *CollaborationDeviceClient
+	// CollaborationSyncRequest is the client for interacting with the CollaborationSyncRequest builders.
+	CollaborationSyncRequest *CollaborationSyncRequestClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -237,6 +245,10 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.CollaborationCharge = NewCollaborationChargeClient(tx.config)
+	tx.CollaborationCommand = NewCollaborationCommandClient(tx.config)
+	tx.CollaborationDevice = NewCollaborationDeviceClient(tx.config)
+	tx.CollaborationSyncRequest = NewCollaborationSyncRequestClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)

@@ -19,6 +19,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -46,6 +50,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/google/uuid"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -866,6 +871,217 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	collaborationchargeFields := schema.CollaborationCharge{}.Fields()
+	_ = collaborationchargeFields
+	// collaborationchargeDescCurrency is the schema descriptor for currency field.
+	collaborationchargeDescCurrency := collaborationchargeFields[4].Descriptor()
+	// collaborationcharge.DefaultCurrency holds the default value on creation for the currency field.
+	collaborationcharge.DefaultCurrency = collaborationchargeDescCurrency.Default.(string)
+	// collaborationcharge.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
+	collaborationcharge.CurrencyValidator = collaborationchargeDescCurrency.Validators[0].(func(string) error)
+	// collaborationchargeDescReason is the schema descriptor for reason field.
+	collaborationchargeDescReason := collaborationchargeFields[8].Descriptor()
+	// collaborationcharge.ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
+	collaborationcharge.ReasonValidator = collaborationchargeDescReason.Validators[0].(func(string) error)
+	// collaborationchargeDescChargedAt is the schema descriptor for charged_at field.
+	collaborationchargeDescChargedAt := collaborationchargeFields[9].Descriptor()
+	// collaborationcharge.DefaultChargedAt holds the default value on creation for the charged_at field.
+	collaborationcharge.DefaultChargedAt = collaborationchargeDescChargedAt.Default.(func() time.Time)
+	// collaborationchargeDescID is the schema descriptor for id field.
+	collaborationchargeDescID := collaborationchargeFields[0].Descriptor()
+	// collaborationcharge.DefaultID holds the default value on creation for the id field.
+	collaborationcharge.DefaultID = collaborationchargeDescID.Default.(func() uuid.UUID)
+	collaborationcommandMixin := schema.CollaborationCommand{}.Mixin()
+	collaborationcommandMixinFields0 := collaborationcommandMixin[0].Fields()
+	_ = collaborationcommandMixinFields0
+	collaborationcommandFields := schema.CollaborationCommand{}.Fields()
+	_ = collaborationcommandFields
+	// collaborationcommandDescCreatedAt is the schema descriptor for created_at field.
+	collaborationcommandDescCreatedAt := collaborationcommandMixinFields0[0].Descriptor()
+	// collaborationcommand.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collaborationcommand.DefaultCreatedAt = collaborationcommandDescCreatedAt.Default.(func() time.Time)
+	// collaborationcommandDescUpdatedAt is the schema descriptor for updated_at field.
+	collaborationcommandDescUpdatedAt := collaborationcommandMixinFields0[1].Descriptor()
+	// collaborationcommand.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	collaborationcommand.DefaultUpdatedAt = collaborationcommandDescUpdatedAt.Default.(func() time.Time)
+	// collaborationcommand.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	collaborationcommand.UpdateDefaultUpdatedAt = collaborationcommandDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collaborationcommandDescThreadID is the schema descriptor for thread_id field.
+	collaborationcommandDescThreadID := collaborationcommandFields[3].Descriptor()
+	// collaborationcommand.ThreadIDValidator is a validator for the "thread_id" field. It is called by the builders before save.
+	collaborationcommand.ThreadIDValidator = func() func(string) error {
+		validators := collaborationcommandDescThreadID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(thread_id string) error {
+			for _, fn := range fns {
+				if err := fn(thread_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// collaborationcommandDescPromptSha256 is the schema descriptor for prompt_sha256 field.
+	collaborationcommandDescPromptSha256 := collaborationcommandFields[5].Descriptor()
+	// collaborationcommand.PromptSha256Validator is a validator for the "prompt_sha256" field. It is called by the builders before save.
+	collaborationcommand.PromptSha256Validator = func() func(string) error {
+		validators := collaborationcommandDescPromptSha256.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(prompt_sha256 string) error {
+			for _, fn := range fns {
+				if err := fn(prompt_sha256); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// collaborationcommandDescPromptBytes is the schema descriptor for prompt_bytes field.
+	collaborationcommandDescPromptBytes := collaborationcommandFields[6].Descriptor()
+	// collaborationcommand.PromptBytesValidator is a validator for the "prompt_bytes" field. It is called by the builders before save.
+	collaborationcommand.PromptBytesValidator = collaborationcommandDescPromptBytes.Validators[0].(func(int) error)
+	// collaborationcommandDescTurnID is the schema descriptor for turn_id field.
+	collaborationcommandDescTurnID := collaborationcommandFields[8].Descriptor()
+	// collaborationcommand.TurnIDValidator is a validator for the "turn_id" field. It is called by the builders before save.
+	collaborationcommand.TurnIDValidator = collaborationcommandDescTurnID.Validators[0].(func(string) error)
+	// collaborationcommandDescErrorCode is the schema descriptor for error_code field.
+	collaborationcommandDescErrorCode := collaborationcommandFields[9].Descriptor()
+	// collaborationcommand.ErrorCodeValidator is a validator for the "error_code" field. It is called by the builders before save.
+	collaborationcommand.ErrorCodeValidator = collaborationcommandDescErrorCode.Validators[0].(func(string) error)
+	// collaborationcommandDescID is the schema descriptor for id field.
+	collaborationcommandDescID := collaborationcommandFields[0].Descriptor()
+	// collaborationcommand.DefaultID holds the default value on creation for the id field.
+	collaborationcommand.DefaultID = collaborationcommandDescID.Default.(func() uuid.UUID)
+	collaborationdeviceMixin := schema.CollaborationDevice{}.Mixin()
+	collaborationdeviceMixinFields0 := collaborationdeviceMixin[0].Fields()
+	_ = collaborationdeviceMixinFields0
+	collaborationdeviceFields := schema.CollaborationDevice{}.Fields()
+	_ = collaborationdeviceFields
+	// collaborationdeviceDescCreatedAt is the schema descriptor for created_at field.
+	collaborationdeviceDescCreatedAt := collaborationdeviceMixinFields0[0].Descriptor()
+	// collaborationdevice.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collaborationdevice.DefaultCreatedAt = collaborationdeviceDescCreatedAt.Default.(func() time.Time)
+	// collaborationdeviceDescUpdatedAt is the schema descriptor for updated_at field.
+	collaborationdeviceDescUpdatedAt := collaborationdeviceMixinFields0[1].Descriptor()
+	// collaborationdevice.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	collaborationdevice.DefaultUpdatedAt = collaborationdeviceDescUpdatedAt.Default.(func() time.Time)
+	// collaborationdevice.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	collaborationdevice.UpdateDefaultUpdatedAt = collaborationdeviceDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collaborationdeviceDescInstallationIDHash is the schema descriptor for installation_id_hash field.
+	collaborationdeviceDescInstallationIDHash := collaborationdeviceFields[2].Descriptor()
+	// collaborationdevice.InstallationIDHashValidator is a validator for the "installation_id_hash" field. It is called by the builders before save.
+	collaborationdevice.InstallationIDHashValidator = func() func(string) error {
+		validators := collaborationdeviceDescInstallationIDHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(installation_id_hash string) error {
+			for _, fn := range fns {
+				if err := fn(installation_id_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// collaborationdeviceDescName is the schema descriptor for name field.
+	collaborationdeviceDescName := collaborationdeviceFields[3].Descriptor()
+	// collaborationdevice.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	collaborationdevice.NameValidator = func() func(string) error {
+		validators := collaborationdeviceDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// collaborationdeviceDescPlatformVersion is the schema descriptor for platform_version field.
+	collaborationdeviceDescPlatformVersion := collaborationdeviceFields[5].Descriptor()
+	// collaborationdevice.PlatformVersionValidator is a validator for the "platform_version" field. It is called by the builders before save.
+	collaborationdevice.PlatformVersionValidator = collaborationdeviceDescPlatformVersion.Validators[0].(func(string) error)
+	// collaborationdeviceDescCompanionVersion is the schema descriptor for companion_version field.
+	collaborationdeviceDescCompanionVersion := collaborationdeviceFields[6].Descriptor()
+	// collaborationdevice.CompanionVersionValidator is a validator for the "companion_version" field. It is called by the builders before save.
+	collaborationdevice.CompanionVersionValidator = func() func(string) error {
+		validators := collaborationdeviceDescCompanionVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(companion_version string) error {
+			for _, fn := range fns {
+				if err := fn(companion_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// collaborationdeviceDescCodexVersion is the schema descriptor for codex_version field.
+	collaborationdeviceDescCodexVersion := collaborationdeviceFields[7].Descriptor()
+	// collaborationdevice.CodexVersionValidator is a validator for the "codex_version" field. It is called by the builders before save.
+	collaborationdevice.CodexVersionValidator = collaborationdeviceDescCodexVersion.Validators[0].(func(string) error)
+	// collaborationdeviceDescCapabilities is the schema descriptor for capabilities field.
+	collaborationdeviceDescCapabilities := collaborationdeviceFields[10].Descriptor()
+	// collaborationdevice.DefaultCapabilities holds the default value on creation for the capabilities field.
+	collaborationdevice.DefaultCapabilities = collaborationdeviceDescCapabilities.Default.(func() map[string]interface{})
+	// collaborationdeviceDescRegisteredAt is the schema descriptor for registered_at field.
+	collaborationdeviceDescRegisteredAt := collaborationdeviceFields[13].Descriptor()
+	// collaborationdevice.DefaultRegisteredAt holds the default value on creation for the registered_at field.
+	collaborationdevice.DefaultRegisteredAt = collaborationdeviceDescRegisteredAt.Default.(func() time.Time)
+	// collaborationdeviceDescID is the schema descriptor for id field.
+	collaborationdeviceDescID := collaborationdeviceFields[0].Descriptor()
+	// collaborationdevice.DefaultID holds the default value on creation for the id field.
+	collaborationdevice.DefaultID = collaborationdeviceDescID.Default.(func() uuid.UUID)
+	collaborationsyncrequestMixin := schema.CollaborationSyncRequest{}.Mixin()
+	collaborationsyncrequestMixinFields0 := collaborationsyncrequestMixin[0].Fields()
+	_ = collaborationsyncrequestMixinFields0
+	collaborationsyncrequestFields := schema.CollaborationSyncRequest{}.Fields()
+	_ = collaborationsyncrequestFields
+	// collaborationsyncrequestDescCreatedAt is the schema descriptor for created_at field.
+	collaborationsyncrequestDescCreatedAt := collaborationsyncrequestMixinFields0[0].Descriptor()
+	// collaborationsyncrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collaborationsyncrequest.DefaultCreatedAt = collaborationsyncrequestDescCreatedAt.Default.(func() time.Time)
+	// collaborationsyncrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	collaborationsyncrequestDescUpdatedAt := collaborationsyncrequestMixinFields0[1].Descriptor()
+	// collaborationsyncrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	collaborationsyncrequest.DefaultUpdatedAt = collaborationsyncrequestDescUpdatedAt.Default.(func() time.Time)
+	// collaborationsyncrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	collaborationsyncrequest.UpdateDefaultUpdatedAt = collaborationsyncrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collaborationsyncrequestDescThreadID is the schema descriptor for thread_id field.
+	collaborationsyncrequestDescThreadID := collaborationsyncrequestFields[5].Descriptor()
+	// collaborationsyncrequest.ThreadIDValidator is a validator for the "thread_id" field. It is called by the builders before save.
+	collaborationsyncrequest.ThreadIDValidator = collaborationsyncrequestDescThreadID.Validators[0].(func(string) error)
+	// collaborationsyncrequestDescCursor is the schema descriptor for cursor field.
+	collaborationsyncrequestDescCursor := collaborationsyncrequestFields[6].Descriptor()
+	// collaborationsyncrequest.CursorValidator is a validator for the "cursor" field. It is called by the builders before save.
+	collaborationsyncrequest.CursorValidator = collaborationsyncrequestDescCursor.Validators[0].(func(string) error)
+	// collaborationsyncrequestDescErrorCode is the schema descriptor for error_code field.
+	collaborationsyncrequestDescErrorCode := collaborationsyncrequestFields[8].Descriptor()
+	// collaborationsyncrequest.ErrorCodeValidator is a validator for the "error_code" field. It is called by the builders before save.
+	collaborationsyncrequest.ErrorCodeValidator = collaborationsyncrequestDescErrorCode.Validators[0].(func(string) error)
+	// collaborationsyncrequestDescResultCount is the schema descriptor for result_count field.
+	collaborationsyncrequestDescResultCount := collaborationsyncrequestFields[10].Descriptor()
+	// collaborationsyncrequest.DefaultResultCount holds the default value on creation for the result_count field.
+	collaborationsyncrequest.DefaultResultCount = collaborationsyncrequestDescResultCount.Default.(int)
+	// collaborationsyncrequestDescID is the schema descriptor for id field.
+	collaborationsyncrequestDescID := collaborationsyncrequestFields[0].Descriptor()
+	// collaborationsyncrequest.DefaultID holds the default value on creation for the id field.
+	collaborationsyncrequest.DefaultID = collaborationsyncrequestDescID.Default.(func() uuid.UUID)
 	compositemodelrouteMixin := schema.CompositeModelRoute{}.Mixin()
 	compositemodelrouteMixinHooks1 := compositemodelrouteMixin[1].Hooks()
 	compositemodelroute.Hooks[0] = compositemodelrouteMixinHooks1[0]

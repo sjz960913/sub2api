@@ -14,6 +14,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
@@ -24,6 +28,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/google/uuid"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -547,6 +552,66 @@ func (_c *UserCreate) AddPlatformQuotas(v ...*UserPlatformQuota) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddPlatformQuotaIDs(ids...)
+}
+
+// AddCollaborationDeviceIDs adds the "collaboration_devices" edge to the CollaborationDevice entity by IDs.
+func (_c *UserCreate) AddCollaborationDeviceIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddCollaborationDeviceIDs(ids...)
+	return _c
+}
+
+// AddCollaborationDevices adds the "collaboration_devices" edges to the CollaborationDevice entity.
+func (_c *UserCreate) AddCollaborationDevices(v ...*CollaborationDevice) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollaborationDeviceIDs(ids...)
+}
+
+// AddCollaborationSyncRequestIDs adds the "collaboration_sync_requests" edge to the CollaborationSyncRequest entity by IDs.
+func (_c *UserCreate) AddCollaborationSyncRequestIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddCollaborationSyncRequestIDs(ids...)
+	return _c
+}
+
+// AddCollaborationSyncRequests adds the "collaboration_sync_requests" edges to the CollaborationSyncRequest entity.
+func (_c *UserCreate) AddCollaborationSyncRequests(v ...*CollaborationSyncRequest) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollaborationSyncRequestIDs(ids...)
+}
+
+// AddCollaborationCommandIDs adds the "collaboration_commands" edge to the CollaborationCommand entity by IDs.
+func (_c *UserCreate) AddCollaborationCommandIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddCollaborationCommandIDs(ids...)
+	return _c
+}
+
+// AddCollaborationCommands adds the "collaboration_commands" edges to the CollaborationCommand entity.
+func (_c *UserCreate) AddCollaborationCommands(v ...*CollaborationCommand) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollaborationCommandIDs(ids...)
+}
+
+// AddCollaborationChargeIDs adds the "collaboration_charges" edge to the CollaborationCharge entity by IDs.
+func (_c *UserCreate) AddCollaborationChargeIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddCollaborationChargeIDs(ids...)
+	return _c
+}
+
+// AddCollaborationCharges adds the "collaboration_charges" edges to the CollaborationCharge entity.
+func (_c *UserCreate) AddCollaborationCharges(v ...*CollaborationCharge) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollaborationChargeIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -1073,6 +1138,70 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userplatformquota.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CollaborationDevicesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CollaborationDevicesTable,
+			Columns: []string{user.CollaborationDevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collaborationdevice.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CollaborationSyncRequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CollaborationSyncRequestsTable,
+			Columns: []string{user.CollaborationSyncRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collaborationsyncrequest.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CollaborationCommandsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CollaborationCommandsTable,
+			Columns: []string{user.CollaborationCommandsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collaborationcommand.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CollaborationChargesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CollaborationChargesTable,
+			Columns: []string{user.CollaborationChargesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collaborationcharge.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

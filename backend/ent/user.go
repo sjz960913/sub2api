@@ -99,11 +99,19 @@ type UserEdges struct {
 	PendingAuthSessions []*PendingAuthSession `json:"pending_auth_sessions,omitempty"`
 	// PlatformQuotas holds the value of the platform_quotas edge.
 	PlatformQuotas []*UserPlatformQuota `json:"platform_quotas,omitempty"`
+	// CollaborationDevices holds the value of the collaboration_devices edge.
+	CollaborationDevices []*CollaborationDevice `json:"collaboration_devices,omitempty"`
+	// CollaborationSyncRequests holds the value of the collaboration_sync_requests edge.
+	CollaborationSyncRequests []*CollaborationSyncRequest `json:"collaboration_sync_requests,omitempty"`
+	// CollaborationCommands holds the value of the collaboration_commands edge.
+	CollaborationCommands []*CollaborationCommand `json:"collaboration_commands,omitempty"`
+	// CollaborationCharges holds the value of the collaboration_charges edge.
+	CollaborationCharges []*CollaborationCharge `json:"collaboration_charges,omitempty"`
 	// UserAllowedGroups holds the value of the user_allowed_groups edge.
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [14]bool
+	loadedTypes [18]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -223,10 +231,46 @@ func (e UserEdges) PlatformQuotasOrErr() ([]*UserPlatformQuota, error) {
 	return nil, &NotLoadedError{edge: "platform_quotas"}
 }
 
+// CollaborationDevicesOrErr returns the CollaborationDevices value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) CollaborationDevicesOrErr() ([]*CollaborationDevice, error) {
+	if e.loadedTypes[13] {
+		return e.CollaborationDevices, nil
+	}
+	return nil, &NotLoadedError{edge: "collaboration_devices"}
+}
+
+// CollaborationSyncRequestsOrErr returns the CollaborationSyncRequests value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) CollaborationSyncRequestsOrErr() ([]*CollaborationSyncRequest, error) {
+	if e.loadedTypes[14] {
+		return e.CollaborationSyncRequests, nil
+	}
+	return nil, &NotLoadedError{edge: "collaboration_sync_requests"}
+}
+
+// CollaborationCommandsOrErr returns the CollaborationCommands value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) CollaborationCommandsOrErr() ([]*CollaborationCommand, error) {
+	if e.loadedTypes[15] {
+		return e.CollaborationCommands, nil
+	}
+	return nil, &NotLoadedError{edge: "collaboration_commands"}
+}
+
+// CollaborationChargesOrErr returns the CollaborationCharges value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) CollaborationChargesOrErr() ([]*CollaborationCharge, error) {
+	if e.loadedTypes[16] {
+		return e.CollaborationCharges, nil
+	}
+	return nil, &NotLoadedError{edge: "collaboration_charges"}
+}
+
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[17] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -494,6 +538,26 @@ func (_m *User) QueryPendingAuthSessions() *PendingAuthSessionQuery {
 // QueryPlatformQuotas queries the "platform_quotas" edge of the User entity.
 func (_m *User) QueryPlatformQuotas() *UserPlatformQuotaQuery {
 	return NewUserClient(_m.config).QueryPlatformQuotas(_m)
+}
+
+// QueryCollaborationDevices queries the "collaboration_devices" edge of the User entity.
+func (_m *User) QueryCollaborationDevices() *CollaborationDeviceQuery {
+	return NewUserClient(_m.config).QueryCollaborationDevices(_m)
+}
+
+// QueryCollaborationSyncRequests queries the "collaboration_sync_requests" edge of the User entity.
+func (_m *User) QueryCollaborationSyncRequests() *CollaborationSyncRequestQuery {
+	return NewUserClient(_m.config).QueryCollaborationSyncRequests(_m)
+}
+
+// QueryCollaborationCommands queries the "collaboration_commands" edge of the User entity.
+func (_m *User) QueryCollaborationCommands() *CollaborationCommandQuery {
+	return NewUserClient(_m.config).QueryCollaborationCommands(_m)
+}
+
+// QueryCollaborationCharges queries the "collaboration_charges" edge of the User entity.
+func (_m *User) QueryCollaborationCharges() *CollaborationChargeQuery {
+	return NewUserClient(_m.config).QueryCollaborationCharges(_m)
 }
 
 // QueryUserAllowedGroups queries the "user_allowed_groups" edge of the User entity.

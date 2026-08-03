@@ -793,6 +793,237 @@ var (
 			},
 		},
 	}
+	// CollaborationChargesColumns holds the columns for the "collaboration_charges" table.
+	CollaborationChargesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "amount", Type: field.TypeString, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
+		{Name: "currency", Type: field.TypeString, Size: 3, Default: "USD"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"charged"}, Default: "charged"},
+		{Name: "balance_before", Type: field.TypeString, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
+		{Name: "balance_after", Type: field.TypeString, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
+		{Name: "reason", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "charged_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "command_id", Type: field.TypeUUID, Unique: true},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// CollaborationChargesTable holds the schema information for the "collaboration_charges" table.
+	CollaborationChargesTable = &schema.Table{
+		Name:       "collaboration_charges",
+		Columns:    CollaborationChargesColumns,
+		PrimaryKey: []*schema.Column{CollaborationChargesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collaboration_charges_collaboration_commands_charge",
+				Columns:    []*schema.Column{CollaborationChargesColumns[8]},
+				RefColumns: []*schema.Column{CollaborationCommandsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "collaboration_charges_users_collaboration_charges",
+				Columns:    []*schema.Column{CollaborationChargesColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collaborationcharge_command_id",
+				Unique:  true,
+				Columns: []*schema.Column{CollaborationChargesColumns[8]},
+			},
+			{
+				Name:    "collaborationcharge_user_id_charged_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationChargesColumns[9], CollaborationChargesColumns[7]},
+			},
+		},
+	}
+	// CollaborationCommandsColumns holds the columns for the "collaboration_commands" table.
+	CollaborationCommandsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "thread_id", Type: field.TypeString, Size: 512},
+		{Name: "idempotency_key", Type: field.TypeUUID},
+		{Name: "prompt_sha256", Type: field.TypeString, Size: 64},
+		{Name: "prompt_bytes", Type: field.TypeInt},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"accepted", "dispatched", "started", "completed", "failed", "expired"}, Default: "accepted"},
+		{Name: "turn_id", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "error_code", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "dispatched_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "device_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// CollaborationCommandsTable holds the schema information for the "collaboration_commands" table.
+	CollaborationCommandsTable = &schema.Table{
+		Name:       "collaboration_commands",
+		Columns:    CollaborationCommandsColumns,
+		PrimaryKey: []*schema.Column{CollaborationCommandsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collaboration_commands_collaboration_devices_commands",
+				Columns:    []*schema.Column{CollaborationCommandsColumns[14]},
+				RefColumns: []*schema.Column{CollaborationDevicesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "collaboration_commands_users_collaboration_commands",
+				Columns:    []*schema.Column{CollaborationCommandsColumns[15]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collaborationcommand_user_id_idempotency_key",
+				Unique:  true,
+				Columns: []*schema.Column{CollaborationCommandsColumns[15], CollaborationCommandsColumns[4]},
+			},
+			{
+				Name:    "collaborationcommand_user_id_id",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationCommandsColumns[15], CollaborationCommandsColumns[0]},
+			},
+			{
+				Name:    "collaborationcommand_user_id_device_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationCommandsColumns[15], CollaborationCommandsColumns[14], CollaborationCommandsColumns[1]},
+			},
+			{
+				Name:    "collaborationcommand_user_id_device_id_thread_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationCommandsColumns[15], CollaborationCommandsColumns[14], CollaborationCommandsColumns[3], CollaborationCommandsColumns[7]},
+			},
+			{
+				Name:    "collaborationcommand_status_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationCommandsColumns[7], CollaborationCommandsColumns[10]},
+			},
+		},
+	}
+	// CollaborationDevicesColumns holds the columns for the "collaboration_devices" table.
+	CollaborationDevicesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "installation_id_hash", Type: field.TypeString, Size: 80},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "platform", Type: field.TypeEnum, Enums: []string{"windows", "macos", "linux"}},
+		{Name: "platform_version", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "companion_version", Type: field.TypeString, Size: 64},
+		{Name: "codex_version", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "protocol_version", Type: field.TypeInt},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"offline", "online", "degraded", "revoked"}, Default: "offline"},
+		{Name: "capabilities", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "last_seen_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "registered_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// CollaborationDevicesTable holds the schema information for the "collaboration_devices" table.
+	CollaborationDevicesTable = &schema.Table{
+		Name:       "collaboration_devices",
+		Columns:    CollaborationDevicesColumns,
+		PrimaryKey: []*schema.Column{CollaborationDevicesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collaboration_devices_users_collaboration_devices",
+				Columns:    []*schema.Column{CollaborationDevicesColumns[15]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collaborationdevice_user_id_installation_id_hash",
+				Unique:  true,
+				Columns: []*schema.Column{CollaborationDevicesColumns[15], CollaborationDevicesColumns[3]},
+			},
+			{
+				Name:    "collaborationdevice_user_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationDevicesColumns[15], CollaborationDevicesColumns[10]},
+			},
+			{
+				Name:    "collaborationdevice_user_id_updated_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationDevicesColumns[15], CollaborationDevicesColumns[2]},
+			},
+			{
+				Name:    "collaborationdevice_last_seen_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationDevicesColumns[12]},
+			},
+			{
+				Name:    "collaborationdevice_revoked_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationDevicesColumns[13]},
+			},
+		},
+	}
+	// CollaborationSyncRequestsColumns holds the columns for the "collaboration_sync_requests" table.
+	CollaborationSyncRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "idempotency_key", Type: field.TypeUUID},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"session_list", "thread_snapshot"}},
+		{Name: "thread_id", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "cursor", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "running", "completed", "failed", "expired"}, Default: "pending"},
+		{Name: "error_code", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "snapshot_version", Type: field.TypeInt64, Nullable: true},
+		{Name: "result_count", Type: field.TypeInt, Default: 0},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "device_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// CollaborationSyncRequestsTable holds the schema information for the "collaboration_sync_requests" table.
+	CollaborationSyncRequestsTable = &schema.Table{
+		Name:       "collaboration_sync_requests",
+		Columns:    CollaborationSyncRequestsColumns,
+		PrimaryKey: []*schema.Column{CollaborationSyncRequestsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collaboration_sync_requests_collaboration_devices_sync_requests",
+				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[13]},
+				RefColumns: []*schema.Column{CollaborationDevicesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "collaboration_sync_requests_users_collaboration_sync_requests",
+				Columns:    []*schema.Column{CollaborationSyncRequestsColumns[14]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collaborationsyncrequest_user_id_idempotency_key",
+				Unique:  true,
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[3]},
+			},
+			{
+				Name:    "collaborationsyncrequest_user_id_device_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[13], CollaborationSyncRequestsColumns[1]},
+			},
+			{
+				Name:    "collaborationsyncrequest_user_id_id",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[14], CollaborationSyncRequestsColumns[0]},
+			},
+			{
+				Name:    "collaborationsyncrequest_status_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{CollaborationSyncRequestsColumns[7], CollaborationSyncRequestsColumns[11]},
+			},
+		},
+	}
 	// CompositeModelRoutesColumns holds the columns for the "composite_model_routes" table.
 	CompositeModelRoutesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2080,6 +2311,10 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		CollaborationChargesTable,
+		CollaborationCommandsTable,
+		CollaborationDevicesTable,
+		CollaborationSyncRequestsTable,
 		CompositeModelRoutesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
@@ -2163,6 +2398,25 @@ func init() {
 	}
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
+	}
+	CollaborationChargesTable.ForeignKeys[0].RefTable = CollaborationCommandsTable
+	CollaborationChargesTable.ForeignKeys[1].RefTable = UsersTable
+	CollaborationChargesTable.Annotation = &entsql.Annotation{
+		Table: "collaboration_charges",
+	}
+	CollaborationCommandsTable.ForeignKeys[0].RefTable = CollaborationDevicesTable
+	CollaborationCommandsTable.ForeignKeys[1].RefTable = UsersTable
+	CollaborationCommandsTable.Annotation = &entsql.Annotation{
+		Table: "collaboration_commands",
+	}
+	CollaborationDevicesTable.ForeignKeys[0].RefTable = UsersTable
+	CollaborationDevicesTable.Annotation = &entsql.Annotation{
+		Table: "collaboration_devices",
+	}
+	CollaborationSyncRequestsTable.ForeignKeys[0].RefTable = CollaborationDevicesTable
+	CollaborationSyncRequestsTable.ForeignKeys[1].RefTable = UsersTable
+	CollaborationSyncRequestsTable.Annotation = &entsql.Annotation{
+		Table: "collaboration_sync_requests",
 	}
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{

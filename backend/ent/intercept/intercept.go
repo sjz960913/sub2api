@@ -22,6 +22,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcharge"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationcommand"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationdevice"
+	"github.com/Wei-Shaw/sub2api/ent/collaborationsyncrequest"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -482,6 +486,114 @@ func (f TraverseChannelMonitorRequestTemplate) Traverse(ctx context.Context, q e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChannelMonitorRequestTemplateQuery", q)
+}
+
+// The CollaborationChargeFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CollaborationChargeFunc func(context.Context, *ent.CollaborationChargeQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CollaborationChargeFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CollaborationChargeQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CollaborationChargeQuery", q)
+}
+
+// The TraverseCollaborationCharge type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCollaborationCharge func(context.Context, *ent.CollaborationChargeQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCollaborationCharge) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCollaborationCharge) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CollaborationChargeQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CollaborationChargeQuery", q)
+}
+
+// The CollaborationCommandFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CollaborationCommandFunc func(context.Context, *ent.CollaborationCommandQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CollaborationCommandFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CollaborationCommandQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CollaborationCommandQuery", q)
+}
+
+// The TraverseCollaborationCommand type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCollaborationCommand func(context.Context, *ent.CollaborationCommandQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCollaborationCommand) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCollaborationCommand) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CollaborationCommandQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CollaborationCommandQuery", q)
+}
+
+// The CollaborationDeviceFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CollaborationDeviceFunc func(context.Context, *ent.CollaborationDeviceQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CollaborationDeviceFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CollaborationDeviceQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CollaborationDeviceQuery", q)
+}
+
+// The TraverseCollaborationDevice type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCollaborationDevice func(context.Context, *ent.CollaborationDeviceQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCollaborationDevice) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCollaborationDevice) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CollaborationDeviceQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CollaborationDeviceQuery", q)
+}
+
+// The CollaborationSyncRequestFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CollaborationSyncRequestFunc func(context.Context, *ent.CollaborationSyncRequestQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CollaborationSyncRequestFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CollaborationSyncRequestQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CollaborationSyncRequestQuery", q)
+}
+
+// The TraverseCollaborationSyncRequest type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCollaborationSyncRequest func(context.Context, *ent.CollaborationSyncRequestQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCollaborationSyncRequest) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCollaborationSyncRequest) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CollaborationSyncRequestQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CollaborationSyncRequestQuery", q)
 }
 
 // The CompositeModelRouteFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1190,6 +1302,14 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorHistoryQuery, predicate.ChannelMonitorHistory, channelmonitorhistory.OrderOption]{typ: ent.TypeChannelMonitorHistory, tq: q}, nil
 	case *ent.ChannelMonitorRequestTemplateQuery:
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
+	case *ent.CollaborationChargeQuery:
+		return &query[*ent.CollaborationChargeQuery, predicate.CollaborationCharge, collaborationcharge.OrderOption]{typ: ent.TypeCollaborationCharge, tq: q}, nil
+	case *ent.CollaborationCommandQuery:
+		return &query[*ent.CollaborationCommandQuery, predicate.CollaborationCommand, collaborationcommand.OrderOption]{typ: ent.TypeCollaborationCommand, tq: q}, nil
+	case *ent.CollaborationDeviceQuery:
+		return &query[*ent.CollaborationDeviceQuery, predicate.CollaborationDevice, collaborationdevice.OrderOption]{typ: ent.TypeCollaborationDevice, tq: q}, nil
+	case *ent.CollaborationSyncRequestQuery:
+		return &query[*ent.CollaborationSyncRequestQuery, predicate.CollaborationSyncRequest, collaborationsyncrequest.OrderOption]{typ: ent.TypeCollaborationSyncRequest, tq: q}, nil
 	case *ent.CompositeModelRouteQuery:
 		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:

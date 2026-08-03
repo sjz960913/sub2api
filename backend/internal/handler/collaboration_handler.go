@@ -225,6 +225,8 @@ func writeCollaborationError(c *gin.Context, err error) {
 		response.ErrorWithDetails(c, http.StatusConflict, "Collaboration state has changed", "COLLAB_STATE_CONFLICT", nil)
 	case errors.Is(err, collaborationservice.ErrConnectionLimit):
 		response.ErrorWithDetails(c, http.StatusTooManyRequests, "Too many collaboration connections", "COLLAB_CONNECTION_LIMIT", nil)
+	case errors.Is(err, collaborationservice.ErrCommandRateLimit):
+		response.ErrorWithDetails(c, http.StatusTooManyRequests, "Too many collaboration commands", "COLLAB_RATE_LIMITED", nil)
 	case errors.As(err, &insufficientBalance):
 		response.ErrorWithDetails(c, http.StatusConflict, "Insufficient balance", "COLLAB_INSUFFICIENT_BALANCE", map[string]string{
 			"available_balance": insufficientBalance.Available.String(),

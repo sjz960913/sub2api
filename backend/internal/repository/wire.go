@@ -106,6 +106,7 @@ var ProviderSet = wire.NewSet(
 	NewCollaborationRepository,
 	NewCollaborationPresenceStore,
 	NewCollaborationConnectionLeaseStore,
+	NewCollaborationCommandRateLimiter,
 	NewCollaborationEventBus,
 	NewCollaborationPayloadStore,
 

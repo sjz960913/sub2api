@@ -25,6 +25,7 @@ var (
 	ErrDeviceOffline    = errors.New("collaboration device offline")
 	ErrDeviceCapability = errors.New("collaboration device capability unavailable")
 	ErrRelayUnavailable = errors.New("collaboration relay unavailable")
+	ErrCommandRateLimit = errors.New("collaboration command rate limit reached")
 )
 
 var installationHashPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -42,6 +43,7 @@ type Service struct {
 	balanceCache    BalanceCacheInvalidator
 	authCache       AuthCacheInvalidator
 	presence        PresenceStore
+	commandLimiter  CommandRateLimiter
 	eventBus        EventBus
 	payloads        PayloadStore
 	now             func() time.Time
@@ -54,6 +56,10 @@ func (s *Service) SetPresenceStore(presence PresenceStore) {
 func (s *Service) SetRealtime(eventBus EventBus, payloads PayloadStore) {
 	s.eventBus = eventBus
 	s.payloads = payloads
+}
+
+func (s *Service) SetCommandRateLimiter(limiter CommandRateLimiter) {
+	s.commandLimiter = limiter
 }
 
 func NewService(repository Repository, cfg config.CollaborationConfig) (*Service, error) {
@@ -466,13 +472,9 @@ func (s *Service) SubmitCommand(
 	userID int64,
 	input SubmitCommandInput,
 ) (CreateCommandResult, error) {
-	input.ThreadID = strings.TrimSpace(input.ThreadID)
-	promptBytes := []byte(input.Prompt)
-	if userID <= 0 || input.DeviceID == uuid.Nil || input.IdempotencyKey == uuid.Nil {
-		return CreateCommandResult{}, ErrInvalidArgument
-	}
-	if input.ThreadID == "" || len(input.ThreadID) > 512 || len(promptBytes) == 0 || len(promptBytes) > s.maxPromptBytes {
-		return CreateCommandResult{}, ErrInvalidArgument
+	input, promptBytes, err := s.validatedCommandInput(userID, input)
+	if err != nil {
+		return CreateCommandResult{}, err
 	}
 
 	digest := sha256.Sum256(promptBytes)
@@ -517,8 +519,22 @@ func (s *Service) DispatchCommand(
 	userID int64,
 	input SubmitCommandInput,
 ) (DispatchCommandResult, error) {
+	input, _, err := s.validatedCommandInput(userID, input)
+	if err != nil {
+		return DispatchCommandResult{}, err
+	}
 	if _, err := s.requireOnlineDevice(ctx, userID, input.DeviceID, "thread_write"); err != nil {
 		return DispatchCommandResult{}, err
+	}
+	if s.commandLimiter == nil {
+		return DispatchCommandResult{}, ErrRelayUnavailable
+	}
+	allowed, err := s.commandLimiter.Allow(ctx, userID, input.IdempotencyKey)
+	if err != nil {
+		return DispatchCommandResult{}, ErrRelayUnavailable
+	}
+	if !allowed {
+		return DispatchCommandResult{}, ErrCommandRateLimit
 	}
 	created, err := s.SubmitCommand(ctx, userID, input)
 	if err != nil {
@@ -569,6 +585,19 @@ func (s *Service) DispatchCommand(
 		return result, transitionErr
 	}
 	return result, nil
+}
+
+func (s *Service) validatedCommandInput(
+	userID int64,
+	input SubmitCommandInput,
+) (SubmitCommandInput, []byte, error) {
+	input.ThreadID = strings.TrimSpace(input.ThreadID)
+	promptBytes := []byte(input.Prompt)
+	if userID <= 0 || input.DeviceID == uuid.Nil || input.IdempotencyKey == uuid.Nil ||
+		input.ThreadID == "" || len(input.ThreadID) > 512 || len(promptBytes) == 0 || len(promptBytes) > s.maxPromptBytes {
+		return SubmitCommandInput{}, nil, ErrInvalidArgument
+	}
+	return input, promptBytes, nil
 }
 
 func (s *Service) failCommandDispatch(

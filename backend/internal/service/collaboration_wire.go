@@ -11,6 +11,7 @@ func ProvideCollaborationService(
 	billingCache *BillingCacheService,
 	authCache APIKeyAuthCacheInvalidator,
 	presence collaborationservice.PresenceStore,
+	commandLimiter collaborationservice.CommandRateLimiter,
 	eventBus collaborationservice.EventBus,
 	payloads collaborationservice.PayloadStore,
 ) (*collaborationservice.Service, error) {
@@ -20,6 +21,7 @@ func ProvideCollaborationService(
 	}
 	service.SetChargeCacheInvalidators(billingCache, authCache)
 	service.SetPresenceStore(presence)
+	service.SetCommandRateLimiter(commandLimiter)
 	service.SetRealtime(eventBus, payloads)
 	return service, nil
 }

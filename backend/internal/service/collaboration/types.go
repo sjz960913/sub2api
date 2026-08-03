@@ -216,6 +216,10 @@ type ConnectionLeaseStore interface {
 	Release(context.Context, ConnectionLease) error
 }
 
+type CommandRateLimiter interface {
+	Allow(context.Context, int64, uuid.UUID) (bool, error)
+}
+
 type PayloadStore interface {
 	PutCommand(context.Context, int64, uuid.UUID, string) error
 	GetCommand(context.Context, int64, uuid.UUID) (string, error)

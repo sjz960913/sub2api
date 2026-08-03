@@ -130,6 +130,17 @@ type payloadStoreStub struct {
 	deletedSync   uuid.UUID
 }
 
+type commandRateLimiterStub struct {
+	allowed bool
+	err     error
+	keys    []uuid.UUID
+}
+
+func (s *commandRateLimiterStub) Allow(_ context.Context, _ int64, idempotencyKey uuid.UUID) (bool, error) {
+	s.keys = append(s.keys, idempotencyKey)
+	return s.allowed, s.err
+}
+
 func (s *payloadStoreStub) PutCommand(_ context.Context, _ int64, _ uuid.UUID, prompt string) error {
 	s.commandPrompt = prompt
 	return nil
@@ -411,6 +422,7 @@ func TestDispatchCommandStoresPromptAndFailsClosedWhenRelayIsGone(t *testing.T) 
 		t.Fatalf("NewService() error = %v", err)
 	}
 	service.SetPresenceStore(presence)
+	service.SetCommandRateLimiter(&commandRateLimiterStub{allowed: true})
 	service.SetRealtime(events, payloads)
 	result, err := service.DispatchCommand(context.Background(), 42, SubmitCommandInput{
 		DeviceID: deviceID, ThreadID: "thread_123", IdempotencyKey: uuid.New(), Prompt: "continue",
@@ -426,6 +438,38 @@ func TestDispatchCommandStoresPromptAndFailsClosedWhenRelayIsGone(t *testing.T) 
 	}
 	if result.Command.ErrorCode == nil || *result.Command.ErrorCode != "relay_unavailable" {
 		t.Fatalf("command error = %#v", result.Command.ErrorCode)
+	}
+}
+
+func TestDispatchCommandRateLimitPreventsCharge(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	repository := &repositoryStub{device: Device{
+		ID: deviceID, UserID: 42, ProtocolVersion: 1,
+		Capabilities: map[string]bool{"thread_write": true},
+	}}
+	presence := &presenceStoreStub{items: map[uuid.UUID]DevicePresence{
+		deviceID: {
+			DeviceID: deviceID, UserID: 42, Status: collabdomain.DeviceStatusOnline,
+			AppServerStatus: "ready", LastSeenAt: time.Now(),
+		},
+	}}
+	limiter := &commandRateLimiterStub{allowed: false}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	service.SetCommandRateLimiter(limiter)
+	_, err = service.DispatchCommand(context.Background(), 42, SubmitCommandInput{
+		DeviceID: deviceID, ThreadID: "thread_123", IdempotencyKey: uuid.New(), Prompt: "continue",
+	})
+	if err != ErrCommandRateLimit {
+		t.Fatalf("DispatchCommand() error = %v, want ErrCommandRateLimit", err)
+	}
+	if repository.commandInput != nil || len(limiter.keys) != 1 {
+		t.Fatalf("rate-limited command reached repository: input=%#v keys=%v", repository.commandInput, limiter.keys)
 	}
 }
 

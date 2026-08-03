@@ -186,6 +186,7 @@ func TestCollaborationCreateCommandDispatchesWithoutExposingBackendFee(t *testin
 		t.Fatalf("NewService() error = %v", err)
 	}
 	service.SetPresenceStore(presence)
+	service.SetCommandRateLimiter(collaborationHandlerCommandLimiterStub{})
 	service.SetRealtime(eventBus, payloads)
 	handler := NewCollaborationHandler(service, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
 	router := gin.New()
@@ -257,6 +258,12 @@ type collaborationHandlerEventBusStub struct {
 
 type collaborationHandlerPayloadStoreStub struct {
 	prompt string
+}
+
+type collaborationHandlerCommandLimiterStub struct{}
+
+func (collaborationHandlerCommandLimiterStub) Allow(context.Context, int64, uuid.UUID) (bool, error) {
+	return true, nil
 }
 
 func (s *collaborationHandlerPayloadStoreStub) PutCommand(_ context.Context, _ int64, _ uuid.UUID, prompt string) error {

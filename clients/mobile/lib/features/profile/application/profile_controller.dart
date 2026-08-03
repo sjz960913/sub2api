@@ -31,6 +31,8 @@ class ProfileState {
   }
 }
 
+final profileStateSeedProvider = Provider<ProfileState?>((_) => null);
+
 final profileControllerProvider = NotifierProvider<ProfileController, ProfileState>(
   ProfileController.new,
 );
@@ -38,6 +40,10 @@ final profileControllerProvider = NotifierProvider<ProfileController, ProfileSta
 class ProfileController extends Notifier<ProfileState> {
   @override
   ProfileState build() {
+    final seed = ref.watch(profileStateSeedProvider);
+    if (seed != null) {
+      return seed;
+    }
     final authenticated = ref.watch(
       sessionControllerProvider.select((session) => session.isAuthenticated),
     );

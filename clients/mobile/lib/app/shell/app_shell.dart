@@ -1,17 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/profile/application/profile_controller.dart';
+import '../../features/profile/domain/user_announcement.dart';
 import '../theme.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
   @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  bool _handledPopupAnnouncement = false;
+
+  @override
   Widget build(BuildContext context) {
+    ref.listen(profileControllerProvider, (previous, next) {
+      if (_handledPopupAnnouncement) {
+        return;
+      }
+      final popup = _firstUnreadPopup(next.announcements);
+      if (popup == null) {
+        return;
+      }
+      _handledPopupAnnouncement = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) {
+          return;
+        }
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(popup.title),
+            content: SingleChildScrollView(child: SelectableText(popup.content)),
+            actions: [
+              FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+            ],
+          ),
+        );
+        await ref.read(profileControllerProvider.notifier).markRead(popup.id);
+      });
+    }, fireImmediately: true);
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: DecoratedBox(
@@ -26,11 +62,11 @@ class AppShell extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(26),
             child: NavigationBar(
-              selectedIndex: navigationShell.currentIndex,
+              selectedIndex: widget.navigationShell.currentIndex,
               onDestinationSelected: (index) {
-                navigationShell.goBranch(
+                widget.navigationShell.goBranch(
                   index,
-                  initialLocation: index == navigationShell.currentIndex,
+                  initialLocation: index == widget.navigationShell.currentIndex,
                 );
               },
               destinations: const [
@@ -61,4 +97,13 @@ class AppShell extends StatelessWidget {
       ),
     );
   }
+}
+
+UserAnnouncement? _firstUnreadPopup(List<UserAnnouncement> announcements) {
+  for (final announcement in announcements) {
+    if (announcement.isUnread && announcement.notifyMode == 'popup') {
+      return announcement;
+    }
+  }
+  return null;
 }

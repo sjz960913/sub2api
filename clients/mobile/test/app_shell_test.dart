@@ -7,6 +7,8 @@ import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dar
 import 'package:sub2api_mobile/features/api_keys/domain/api_key_summary.dart';
 import 'package:sub2api_mobile/features/auth/application/session_controller.dart';
 import 'package:sub2api_mobile/features/auth/domain/panel_session.dart';
+import 'package:sub2api_mobile/features/profile/application/profile_controller.dart';
+import 'package:sub2api_mobile/features/profile/domain/user_announcement.dart';
 import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
 
 const _authenticatedSession = SessionState(
@@ -153,5 +155,40 @@ void main() {
     expect(find.text('充值'), findsOneWidget);
     expect(find.text('公告'), findsOneWidget);
     expect(find.textContaining('0.10'), findsNothing);
+  });
+
+  testWidgets('unread popup announcement is shown once and can be dismissed', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+        profileStateSeedProvider.overrideWithValue(
+          const ProfileState(
+            announcements: [
+              UserAnnouncement(
+                id: 7,
+                title: '系统公告',
+                content: '今日服务已更新。',
+                notifyMode: 'popup',
+                createdAt: null,
+                readAt: null,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('系统公告'), findsOneWidget);
+    expect(find.text('今日服务已更新。'), findsOneWidget);
+    await tester.tap(find.text('知道了'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日服务已更新。'), findsNothing);
   });
 }

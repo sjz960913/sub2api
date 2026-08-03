@@ -25,6 +25,7 @@ use std::time::Duration;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_PROMPT_BYTES: usize = 32 * 1024;
+const EVENT_BUFFER_CAPACITY: usize = 256;
 
 type PendingResponse = mpsc::Sender<Result<Value, AdapterError>>;
 
@@ -73,7 +74,7 @@ struct AppServerEvent {
 struct AppServerInner {
     stdin: Mutex<ChildStdin>,
     pending: Mutex<HashMap<u64, PendingResponse>>,
-    event_tx: mpsc::Sender<AppServerEvent>,
+    event_tx: mpsc::SyncSender<AppServerEvent>,
     next_id: AtomicU64,
 }
 
@@ -126,7 +127,7 @@ impl AppServerClient {
         let stdin = child.stdin.take().ok_or(AdapterError::Io)?;
         let stdout = child.stdout.take().ok_or(AdapterError::Io)?;
         let stderr = child.stderr.take().ok_or(AdapterError::Io)?;
-        let (event_tx, event_rx) = mpsc::channel();
+        let (event_tx, event_rx) = mpsc::sync_channel(EVENT_BUFFER_CAPACITY);
         let inner = Arc::new(AppServerInner {
             stdin: Mutex::new(stdin),
             pending: Mutex::new(HashMap::new()),
@@ -180,7 +181,11 @@ impl AppServerClient {
         search_term: Option<&str>,
         archived: bool,
     ) -> Result<ThreadPage, AdapterError> {
-        if limit == 0 || limit > 100 || search_term.is_some_and(|value| value.len() > 200) {
+        if limit == 0
+            || limit > 100
+            || cursor.is_some_and(|value| value.len() > 1024)
+            || search_term.is_some_and(|value| value.len() > 200)
+        {
             return Err(AdapterError::InvalidInput);
         }
         let raw = self.request(
@@ -202,7 +207,7 @@ impl AppServerClient {
         let thread_id = thread_id.trim();
         if thread_id.is_empty()
             || thread_id.len() > 512
-            || prompt.is_empty()
+            || prompt.trim().is_empty()
             || prompt.len() > MAX_PROMPT_BYTES
         {
             return Err(AdapterError::InvalidInput);
@@ -340,7 +345,7 @@ fn route_message(inner: &Arc<AppServerInner>, message: Value) {
     if let (Some(id), Some(method)) = (id, method) {
         let response = non_interactive_server_response(id, method);
         let _ = write_message(inner, &response);
-        let _ = inner.event_tx.send(AppServerEvent {
+        let _ = inner.event_tx.try_send(AppServerEvent {
             method: "adapter/serverRequestRejected".to_owned(),
             params: json!({"method": method}),
         });
@@ -358,17 +363,14 @@ fn route_message(inner: &Arc<AppServerInner>, message: Value) {
                     code: error.get("code").and_then(Value::as_i64).unwrap_or(-32000),
                 })
             } else {
-                message
-                    .get("result")
-                    .cloned()
-                    .ok_or(AdapterError::Protocol)
+                message.get("result").cloned().ok_or(AdapterError::Protocol)
             };
             let _ = sender.send(result);
         }
         return;
     }
     if let Some(method) = method {
-        let _ = inner.event_tx.send(AppServerEvent {
+        let _ = inner.event_tx.try_send(AppServerEvent {
             method: method.to_owned(),
             params: message.get("params").cloned().unwrap_or_else(|| json!({})),
         });

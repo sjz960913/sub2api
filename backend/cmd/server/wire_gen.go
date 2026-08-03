@@ -305,9 +305,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	batchImageHandler := handler.ProvideBatchImageHandler(batchImagePublicService, batchImageDownloadService, batchImageCleanupService, openAIGatewayHandler)
 	collaborationRepository := repository.NewCollaborationRepository(db)
 	presenceStore := repository.NewCollaborationPresenceStore(redisClient, configConfig)
+	commandRateLimiter := repository.NewCollaborationCommandRateLimiter(redisClient, configConfig)
 	eventBus := repository.NewCollaborationEventBus(redisClient)
 	payloadStore := repository.NewCollaborationPayloadStore(redisClient, configConfig)
-	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator, presenceStore, eventBus, payloadStore)
+	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator, presenceStore, commandRateLimiter, eventBus, payloadStore)
 	if err != nil {
 		return nil, err
 	}

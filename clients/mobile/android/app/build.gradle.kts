@@ -4,6 +4,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseStorePath = System.getenv("SUB2API_ANDROID_KEYSTORE")
+val releaseStorePassword = System.getenv("SUB2API_ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("SUB2API_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("SUB2API_ANDROID_KEY_PASSWORD")
+
 android {
     namespace = "cn.ldxp.sub2api.mobile"
     compileSdk = flutter.compileSdkVersion
@@ -26,9 +31,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (
+            !releaseStorePath.isNullOrBlank() &&
+            !releaseStorePassword.isNullOrBlank() &&
+            !releaseKeyAlias.isNullOrBlank() &&
+            !releaseKeyPassword.isNullOrBlank()
+        ) {
+            create("release") {
+                storeFile = file(releaseStorePath)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 }

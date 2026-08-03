@@ -135,6 +135,10 @@ func (User) Edges() []ent.Edge {
 			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("pending_auth_sessions", PendingAuthSession.Type),
 		edge.To("platform_quotas", UserPlatformQuota.Type),
+		edge.To("collaboration_devices", CollaborationDevice.Type),
+		edge.To("collaboration_sync_requests", CollaborationSyncRequest.Type),
+		edge.To("collaboration_commands", CollaborationCommand.Type),
+		edge.To("collaboration_charges", CollaborationCharge.Type),
 	}
 }
 

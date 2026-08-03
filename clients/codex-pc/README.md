@@ -13,9 +13,9 @@ npm run build
 npm run tauri build
 ```
 
-CI builds a Linux Debian installer and publishes `sub2api-codex-pc-deb` as a seven-day workflow
-artifact. Windows and macOS bundles use the generated `.ico` and `.icns` assets in
-`src-tauri/icons`.
+CI builds Linux Debian and Windows NSIS installers, publishing `sub2api-codex-pc-deb` and
+`sub2api-codex-pc-windows` as seven-day workflow artifacts. macOS bundles can use the generated
+`.icns` asset in `src-tauri/icons` when a signing/notarization environment is available.
 
 The Rust shell now includes a bounded stdio adapter for the stable Codex
 app-server API. It initializes with `experimentalApi: false`, normalizes thread

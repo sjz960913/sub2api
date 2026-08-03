@@ -7,6 +7,9 @@ use codex_adapter::AppServerClient;
 use codex_adapter::StartedTask;
 use codex_adapter::ThreadPage;
 use serde::Serialize;
+use secret_store::NativeSecretStore;
+use secret_store::SecretStore;
+use std::sync::Arc;
 use std::sync::Mutex;
 use tauri::State;
 
@@ -27,11 +30,23 @@ struct CodexAdapterStatus {
     running: bool,
 }
 
+struct SecretStoreState {
+    store: Arc<dyn SecretStore>,
+}
+
+impl Default for SecretStoreState {
+    fn default() -> Self {
+        Self {
+            store: Arc::new(NativeSecretStore::default()),
+        }
+    }
+}
+
 #[tauri::command]
-fn companion_status() -> CompanionStatus {
+fn companion_status(state: State<'_, SecretStoreState>) -> CompanionStatus {
     CompanionStatus {
         protocol_version: 1,
-        keyring_available: false,
+        keyring_available: state.store.is_supported(),
         approval_ui: false,
     }
 }
@@ -96,6 +111,7 @@ fn codex_interrupt(
 pub fn run() {
     tauri::Builder::default()
         .manage(CodexAdapterState::default())
+        .manage(SecretStoreState::default())
         .invoke_handler(tauri::generate_handler![
             companion_status,
             codex_start,

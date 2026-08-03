@@ -143,6 +143,14 @@ jobs:
       - run: flutter gen-l10n
       - run: flutter analyze
       - run: flutter test
+      - run: flutter build apk --debug
+      - name: Preserve Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sub2api-mobile-debug-apk
+          path: clients/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
       - name: Preserve Flutter lockfile
         uses: actions/upload-artifact@v4
         with:

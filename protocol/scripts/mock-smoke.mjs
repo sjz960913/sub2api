@@ -10,7 +10,12 @@ const address = server.address();
 assert(address && typeof address === 'object');
 
 try {
-  const health = await fetch(`http://127.0.0.1:${address.port}/api/v1/collaboration/health`, {headers: {authorization: 'Bearer mock-panel-jwt'}});
+  const health = await fetch(`http://127.0.0.1:${address.port}/api/v1/collaboration/health`, {
+    headers: {
+      authorization: 'Bearer mock-panel-jwt',
+      connection: 'close',
+    },
+  });
   assert.equal(health.status, 200);
   assert.equal((await health.json()).data.protocol_version, 1);
 
@@ -39,7 +44,7 @@ try {
       const headerLength = shortLength === 126 ? 4 : 2;
       const length = shortLength === 126 ? data.readUInt16BE(2) : shortLength;
       if (data.length < headerLength + length) return;
-      socket.end();
+      socket.destroy();
       resolve(JSON.parse(data.subarray(headerLength, headerLength + length).toString()));
     });
     socket.on('error', reject);
@@ -47,7 +52,8 @@ try {
   assert.equal(frame.type, 'heartbeat.ack');
   console.log('fake relay REST and WebSocket smoke test passed');
 } finally {
-  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  server.close();
+  server.closeAllConnections();
 }
 
 // Node 20's built-in fetch dispatcher keeps its connection pool alive briefly;

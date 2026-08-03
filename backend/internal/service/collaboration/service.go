@@ -46,6 +46,7 @@ type Service struct {
 	commandLimiter  CommandRateLimiter
 	eventBus        EventBus
 	payloads        PayloadStore
+	metrics         *Metrics
 	now             func() time.Time
 }
 
@@ -93,6 +94,7 @@ func NewService(repository Repository, cfg config.CollaborationConfig) (*Service
 		syncTTL:         syncTTL,
 		maxPromptBytes:  cfg.MaxPromptBytes,
 		maxEventBytes:   maxEventBytes,
+		metrics:         newMetrics(),
 		now:             time.Now,
 	}, nil
 }
@@ -162,6 +164,7 @@ func (s *Service) RequestSync(
 	if err != nil {
 		return result, err
 	}
+	s.metrics.observeSyncRequested(input.Kind, result.Replayed)
 	if result.Replayed && result.Sync.Status != collabdomain.SyncStatusPending {
 		return result, nil
 	}
@@ -216,7 +219,9 @@ func (s *Service) failSyncDispatch(
 	})
 	if err == nil {
 		result.Sync = failed
+		s.metrics.observeSyncTerminal(failed)
 	}
+	s.metrics.relayPublishFailure.Add(1)
 	return result, dispatchErr
 }
 
@@ -380,15 +385,18 @@ func (s *Service) RevokeDevice(
 	}
 	device, err := s.repository.RevokeDevice(ctx, userID, deviceID)
 	if err == nil {
+		s.metrics.observePresence(deviceID, collabdomain.DeviceStatusRevoked)
 		if s.presence != nil {
 			if removeErr := s.presence.Remove(ctx, deviceID); removeErr != nil {
 				slog.Warn("remove revoked collaboration presence failed", "device_id", deviceID, "error", removeErr)
 			}
 		}
 		if s.eventBus != nil {
-			_, _ = s.eventBus.PublishDevice(ctx, userID, deviceID, "server.shutdown", nil, map[string]any{
+			if _, publishErr := s.eventBus.PublishDevice(ctx, userID, deviceID, "server.shutdown", nil, map[string]any{
 				"reason": "device_revoked",
-			})
+			}); publishErr != nil {
+				s.metrics.relayPublishFailure.Add(1)
+			}
 		}
 	}
 	return device, err
@@ -449,6 +457,7 @@ func (s *Service) RecordHeartbeat(
 			return DevicePresence{}, err
 		}
 	}
+	s.metrics.observePresence(deviceID, status)
 	return presence, nil
 }
 
@@ -465,6 +474,7 @@ func (s *Service) RecordDisconnect(ctx context.Context, userID int64, deviceID u
 	if err := s.repository.UpdateDevicePresence(ctx, userID, deviceID, collabdomain.DeviceStatusOffline, now); err != nil {
 		slog.Warn("mark collaboration device offline failed", "device_id", deviceID, "error", err)
 	}
+	s.metrics.observePresence(deviceID, collabdomain.DeviceStatusOffline)
 }
 
 type SubmitCommandInput struct {
@@ -496,6 +506,7 @@ func (s *Service) SubmitCommand(
 		Currency:       s.currency,
 		ExpiresAt:      s.now().UTC().Add(s.commandTTL),
 	})
+	s.metrics.observeChargeResult(result, err)
 	if err != nil || result.Replayed {
 		return result, err
 	}
@@ -541,6 +552,7 @@ func (s *Service) DispatchCommand(
 		return DispatchCommandResult{}, ErrRelayUnavailable
 	}
 	if !allowed {
+		s.metrics.commandRateLimited.Add(1)
 		return DispatchCommandResult{}, ErrCommandRateLimit
 	}
 	created, err := s.SubmitCommand(ctx, userID, input)
@@ -572,7 +584,9 @@ func (s *Service) DispatchCommand(
 		return result, err
 	}
 	result.Command = dispatched
+	s.metrics.observeCommandStatus(dispatched)
 	if s.eventBus == nil {
+		s.metrics.relayPublishFailure.Add(1)
 		failed, transitionErr := s.failCommandDispatch(ctx, dispatched, "relay_unavailable")
 		result.Command = failed
 		return result, transitionErr
@@ -587,6 +601,7 @@ func (s *Service) DispatchCommand(
 		"expires_at": dispatched.ExpiresAt,
 	})
 	if publishErr != nil {
+		s.metrics.relayPublishFailure.Add(1)
 		failed, transitionErr := s.failCommandDispatch(ctx, dispatched, "relay_unavailable")
 		result.Command = failed
 		return result, transitionErr
@@ -612,7 +627,7 @@ func (s *Service) failCommandDispatch(
 	command Command,
 	errorCode string,
 ) (Command, error) {
-	return s.repository.TransitionCommand(ctx, CommandTransitionInput{
+	failed, err := s.repository.TransitionCommand(ctx, CommandTransitionInput{
 		UserID:     command.UserID,
 		DeviceID:   command.DeviceID,
 		CommandID:  command.ID,
@@ -620,6 +635,10 @@ func (s *Service) failCommandDispatch(
 		ErrorCode:  &errorCode,
 		OccurredAt: s.now().UTC(),
 	})
+	if err == nil {
+		s.metrics.observeCommandStatus(failed)
+	}
+	return failed, err
 }
 
 func (s *Service) GetCommand(
@@ -659,6 +678,7 @@ func (s *Service) HandleDeviceEvent(
 		if command.Status == collabdomain.CommandStatusAccepted {
 			return ErrInvalidTransition
 		}
+		s.metrics.commandReceived.Add(1)
 		s.publishUserBestEffort(ctx, userID, event.Type, event.RequestID, map[string]any{
 			"command_id": command.ID.String(),
 			"status":     command.Status,
@@ -688,6 +708,7 @@ func (s *Service) HandleDeviceEvent(
 			!itemOK || !validCollaborationItem(item) {
 			return ErrInvalidArgument
 		}
+		s.metrics.commandItem.Add(1)
 		s.publishUserBestEffort(ctx, userID, event.Type, event.RequestID, map[string]any{
 			"command_id": command.ID.String(),
 			"thread_id":  command.ThreadID,
@@ -753,6 +774,7 @@ func (s *Service) completeSync(
 		_ = s.payloads.DeleteSync(ctx, userID, syncID, kind)
 		return err
 	}
+	s.metrics.observeSyncTerminal(completed)
 	s.publishUserBestEffort(ctx, userID, event.Type, event.RequestID, map[string]any{
 		"sync_id":          completed.ID.String(),
 		"status":           completed.Status,
@@ -804,6 +826,7 @@ func (s *Service) failSync(
 	if err != nil {
 		return err
 	}
+	s.metrics.observeSyncTerminal(failed)
 	s.publishUserBestEffort(ctx, userID, event.Type, event.RequestID, map[string]any{
 		"sync_id":    failed.ID.String(),
 		"status":     failed.Status,
@@ -862,6 +885,7 @@ func (s *Service) transitionCommandEvent(
 	if err != nil {
 		return err
 	}
+	s.metrics.observeCommandStatus(updated)
 	s.publishCommandStatus(ctx, userID, event, updated)
 	return nil
 }
@@ -911,7 +935,9 @@ func (s *Service) publishUserBestEffort(
 	payload map[string]any,
 ) {
 	if s.eventBus != nil {
-		_, _ = s.eventBus.PublishUser(ctx, userID, eventType, requestID, payload)
+		if _, err := s.eventBus.PublishUser(ctx, userID, eventType, requestID, payload); err != nil {
+			s.metrics.relayPublishFailure.Add(1)
+		}
 	}
 }
 

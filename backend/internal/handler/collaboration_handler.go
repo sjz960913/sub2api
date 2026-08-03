@@ -323,6 +323,7 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 		return
 	}
 	defer func() { _ = connection.Close() }()
+	h.service.RecordWebSocketOpened(clientType)
 	connection.SetReadLimit(h.maxEventBytes)
 	_ = connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
 	connection.SetPongHandler(func(string) error {
@@ -340,7 +341,7 @@ func (h *CollaborationHandler) WebSocket(c *gin.Context) {
 	}
 
 	writerDone := make(chan struct{})
-	go h.writeCollaborationEvents(requestContext, connection, subscription.Events(), tokenExpired, writerDone)
+	go h.writeCollaborationEvents(requestContext, connection, clientType, subscription.Events(), tokenExpired, writerDone)
 	h.readCollaborationEvents(requestContext, connection, clientType, lease)
 	cancel()
 	<-writerDone
@@ -421,6 +422,7 @@ func (h *CollaborationHandler) readCollaborationEvents(
 func (h *CollaborationHandler) writeCollaborationEvents(
 	ctx context.Context,
 	connection *websocket.Conn,
+	clientType string,
 	events <-chan collaborationservice.EventEnvelope,
 	tokenExpired <-chan time.Time,
 	done chan<- struct{},
@@ -430,6 +432,7 @@ func (h *CollaborationHandler) writeCollaborationEvents(
 	for {
 		select {
 		case <-tokenExpired:
+			h.service.RecordWebSocketClosed(clientType, "token_expired")
 			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
 			_ = connection.WriteControl(
 				websocket.CloseMessage,
@@ -438,16 +441,19 @@ func (h *CollaborationHandler) writeCollaborationEvents(
 			)
 			return
 		case <-ctx.Done():
+			h.service.RecordWebSocketClosed(clientType, "normal")
 			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
 			_ = connection.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "closed"), time.Now().Add(collaborationWebSocketWriteTimeout))
 			return
 		case event, ok := <-events:
 			if !ok {
+				h.service.RecordWebSocketClosed(clientType, "relay_overflow")
 				_ = connection.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(collaborationCloseTryAgainLater, "relay overflow"), time.Now().Add(collaborationWebSocketWriteTimeout))
 				return
 			}
 			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
 			if err := connection.WriteJSON(event); err != nil {
+				h.service.RecordWebSocketClosed(clientType, "write_error")
 				return
 			}
 			if event.Type == "server.shutdown" {
@@ -456,6 +462,9 @@ func (h *CollaborationHandler) writeCollaborationEvents(
 				if reason, _ := event.Payload["reason"].(string); reason == "device_revoked" {
 					closeCode = collaborationCloseDeviceRevoked
 					closeReason = "device revoked"
+					h.service.RecordWebSocketClosed(clientType, "device_revoked")
+				} else {
+					h.service.RecordWebSocketClosed(clientType, "normal")
 				}
 				_ = connection.WriteControl(
 					websocket.CloseMessage,

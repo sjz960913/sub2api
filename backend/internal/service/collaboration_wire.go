@@ -11,6 +11,8 @@ func ProvideCollaborationService(
 	billingCache *BillingCacheService,
 	authCache APIKeyAuthCacheInvalidator,
 	presence collaborationservice.PresenceStore,
+	eventBus collaborationservice.EventBus,
+	payloads collaborationservice.PayloadStore,
 ) (*collaborationservice.Service, error) {
 	service, err := collaborationservice.NewService(repository, cfg.Collaboration)
 	if err != nil {
@@ -18,6 +20,7 @@ func ProvideCollaborationService(
 	}
 	service.SetChargeCacheInvalidators(billingCache, authCache)
 	service.SetPresenceStore(presence)
+	service.SetRealtime(eventBus, payloads)
 	return service, nil
 }
 

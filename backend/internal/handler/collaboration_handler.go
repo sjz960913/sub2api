@@ -207,9 +207,28 @@ func collaborationDeviceRequestContext(c *gin.Context) (servermiddleware.AuthSub
 }
 
 func writeCollaborationError(c *gin.Context, err error) {
+	var insufficientBalance *collaborationservice.InsufficientBalanceError
 	switch {
 	case errors.Is(err, collaborationservice.ErrInvalidArgument):
 		response.BadRequest(c, "Invalid collaboration request")
+	case errors.Is(err, collaborationservice.ErrIdempotencyConflict):
+		response.ErrorWithDetails(c, http.StatusConflict, "Idempotency key conflicts with an earlier request", "COLLAB_IDEMPOTENCY_CONFLICT", nil)
+	case errors.Is(err, collaborationservice.ErrDeviceOffline):
+		response.ErrorWithDetails(c, http.StatusConflict, "Collaboration device is offline", "COLLAB_DEVICE_OFFLINE", nil)
+	case errors.Is(err, collaborationservice.ErrDeviceCapability):
+		response.ErrorWithDetails(c, http.StatusUnprocessableEntity, "Collaboration capability is unavailable", "COLLAB_CODEX_INCOMPATIBLE", nil)
+	case errors.Is(err, collaborationservice.ErrRelayUnavailable):
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "Collaboration relay unavailable", "COLLAB_RELAY_UNAVAILABLE", nil)
+	case errors.Is(err, collaborationservice.ErrPayloadNotFound):
+		response.ErrorWithDetails(c, http.StatusGone, "Collaboration snapshot has expired", "COLLAB_SNAPSHOT_EXPIRED", nil)
+	case errors.Is(err, collaborationservice.ErrInvalidTransition):
+		response.ErrorWithDetails(c, http.StatusConflict, "Collaboration state has changed", "COLLAB_STATE_CONFLICT", nil)
+	case errors.Is(err, collaborationservice.ErrConnectionLimit):
+		response.ErrorWithDetails(c, http.StatusTooManyRequests, "Too many collaboration connections", "COLLAB_CONNECTION_LIMIT", nil)
+	case errors.As(err, &insufficientBalance):
+		response.ErrorWithDetails(c, http.StatusConflict, "Insufficient balance", "COLLAB_INSUFFICIENT_BALANCE", map[string]string{
+			"available_balance": insufficientBalance.Available.String(),
+		})
 	case errors.Is(err, collaborationservice.ErrProtocolMismatch):
 		response.ErrorWithDetails(c, http.StatusConflict, "Unsupported collaboration protocol", "PROTOCOL_MISMATCH", nil)
 	case errors.Is(err, collaborationservice.ErrDeviceRevoked):
@@ -355,10 +374,10 @@ func (h *CollaborationHandler) readCollaborationEvents(
 			continue
 		}
 		if event.Type != "heartbeat" {
-			// Command and sync events are enabled only after their authoritative
-			// state transition handlers are attached. Unknown client writes fail
-			// closed instead of being blindly rebroadcast.
-			return
+			if err := h.service.HandleDeviceEvent(ctx, lease.UserID, lease.DeviceID, event); err != nil {
+				return
+			}
+			continue
 		}
 		appServerStatus, ok := event.Payload["app_server_status"].(string)
 		if !ok {

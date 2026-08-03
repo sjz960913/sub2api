@@ -205,6 +205,219 @@ func (r *collaborationRepository) RevokeDevice(
 	return device, err
 }
 
+func (r *collaborationRepository) CreateSync(
+	ctx context.Context,
+	input collabservice.CreateSyncInput,
+) (collabservice.CreateSyncResult, error) {
+	now := r.now().UTC()
+	row := r.db.QueryRowContext(ctx, `
+		INSERT INTO collaboration_sync_requests (
+			id, user_id, device_id, idempotency_key, request_sha256,
+			kind, thread_id, cursor, status, expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, $10)
+		ON CONFLICT (user_id, idempotency_key) DO NOTHING
+		RETURNING
+			id, user_id, device_id, idempotency_key, request_sha256,
+			kind, thread_id, cursor, status, error_code, snapshot_version,
+			result_count, expires_at, completed_at, created_at, updated_at
+	`, uuid.New(), input.UserID, input.DeviceID, input.IdempotencyKey,
+		input.RequestSHA256, input.Kind, input.ThreadID, input.Cursor,
+		input.ExpiresAt.UTC(), now)
+	syncRequest, err := scanCollaborationSync(row)
+	if err == nil {
+		return collabservice.CreateSyncResult{Sync: syncRequest}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return collabservice.CreateSyncResult{}, err
+	}
+
+	existing, err := r.getSyncByIdempotencyKey(ctx, input.UserID, input.IdempotencyKey)
+	if err != nil {
+		return collabservice.CreateSyncResult{}, err
+	}
+	if existing.DeviceID != input.DeviceID || existing.RequestSHA256 != input.RequestSHA256 ||
+		existing.Kind != input.Kind || !equalOptionalString(existing.ThreadID, input.ThreadID) ||
+		!equalOptionalString(existing.Cursor, input.Cursor) {
+		return collabservice.CreateSyncResult{}, collabservice.ErrIdempotencyConflict
+	}
+	return collabservice.CreateSyncResult{Sync: existing, Replayed: true}, nil
+}
+
+func (r *collaborationRepository) GetSync(
+	ctx context.Context,
+	userID int64,
+	syncID uuid.UUID,
+) (collabservice.SyncRequest, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT
+			id, user_id, device_id, idempotency_key, request_sha256,
+			kind, thread_id, cursor, status, error_code, snapshot_version,
+			result_count, expires_at, completed_at, created_at, updated_at
+		FROM collaboration_sync_requests
+		WHERE user_id = $1 AND id = $2
+	`, userID, syncID)
+	syncRequest, err := scanCollaborationSync(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return collabservice.SyncRequest{}, collabservice.ErrNotFound
+	}
+	return syncRequest, err
+}
+
+func (r *collaborationRepository) TransitionSync(
+	ctx context.Context,
+	input collabservice.SyncTransitionInput,
+) (collabservice.SyncRequest, error) {
+	switch input.Status {
+	case collabdomain.SyncStatusRunning:
+	case collabdomain.SyncStatusCompleted, collabdomain.SyncStatusFailed:
+	default:
+		return collabservice.SyncRequest{}, collabservice.ErrInvalidTransition
+	}
+	row := r.db.QueryRowContext(ctx, `
+		UPDATE collaboration_sync_requests
+		SET
+			status = $4,
+			error_code = CASE WHEN $4 = 'failed' THEN $5 ELSE NULL END,
+			snapshot_version = CASE WHEN $4 = 'completed' THEN $6 ELSE snapshot_version END,
+			result_count = CASE WHEN $4 = 'completed' THEN $7 ELSE result_count END,
+			completed_at = CASE WHEN $4 IN ('completed', 'failed') THEN $8 ELSE completed_at END,
+			updated_at = $8
+		WHERE user_id = $1 AND device_id = $2 AND id = $3
+			AND (($4 = 'running' AND status = 'pending')
+				OR ($4 IN ('completed', 'failed') AND status IN ('pending', 'running')))
+		RETURNING
+			id, user_id, device_id, idempotency_key, request_sha256,
+			kind, thread_id, cursor, status, error_code, snapshot_version,
+			result_count, expires_at, completed_at, created_at, updated_at
+	`, input.UserID, input.DeviceID, input.SyncID,
+		input.Status, input.ErrorCode, input.SnapshotVersion, input.ResultCount,
+		input.OccurredAt.UTC())
+	syncRequest, err := scanCollaborationSync(row)
+	if err == nil {
+		return syncRequest, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return collabservice.SyncRequest{}, err
+	}
+	current, err := r.GetSync(ctx, input.UserID, input.SyncID)
+	if err != nil {
+		return collabservice.SyncRequest{}, err
+	}
+	if current.DeviceID != input.DeviceID {
+		return collabservice.SyncRequest{}, collabservice.ErrNotFound
+	}
+	if current.Status == input.Status {
+		if input.Status == collabdomain.SyncStatusCompleted &&
+			(!equalOptionalInt64(current.SnapshotVersion, input.SnapshotVersion) || current.ResultCount != input.ResultCount) {
+			return collabservice.SyncRequest{}, collabservice.ErrInvalidTransition
+		}
+		if input.Status == collabdomain.SyncStatusFailed && !equalOptionalString(current.ErrorCode, input.ErrorCode) {
+			return collabservice.SyncRequest{}, collabservice.ErrInvalidTransition
+		}
+		return current, nil
+	}
+	return collabservice.SyncRequest{}, collabservice.ErrInvalidTransition
+}
+
+func (r *collaborationRepository) getSyncByIdempotencyKey(
+	ctx context.Context,
+	userID int64,
+	idempotencyKey uuid.UUID,
+) (collabservice.SyncRequest, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT
+			id, user_id, device_id, idempotency_key, request_sha256,
+			kind, thread_id, cursor, status, error_code, snapshot_version,
+			result_count, expires_at, completed_at, created_at, updated_at
+		FROM collaboration_sync_requests
+		WHERE user_id = $1 AND idempotency_key = $2
+	`, userID, idempotencyKey)
+	syncRequest, err := scanCollaborationSync(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return collabservice.SyncRequest{}, collabservice.ErrNotFound
+	}
+	return syncRequest, err
+}
+
+func (r *collaborationRepository) GetCommand(
+	ctx context.Context,
+	userID int64,
+	commandID uuid.UUID,
+) (collabservice.Command, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT
+			id, user_id, device_id, thread_id, idempotency_key,
+			prompt_sha256, prompt_bytes, status, turn_id, error_code,
+			expires_at, dispatched_at, started_at, completed_at, created_at, updated_at
+		FROM collaboration_commands
+		WHERE user_id = $1 AND id = $2
+	`, userID, commandID)
+	command, err := scanCollaborationCommand(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return collabservice.Command{}, collabservice.ErrNotFound
+	}
+	return command, err
+}
+
+func (r *collaborationRepository) TransitionCommand(
+	ctx context.Context,
+	input collabservice.CommandTransitionInput,
+) (collabservice.Command, error) {
+	switch input.Status {
+	case collabdomain.CommandStatusDispatched:
+	case collabdomain.CommandStatusStarted:
+	case collabdomain.CommandStatusCompleted:
+	case collabdomain.CommandStatusFailed:
+	default:
+		return collabservice.Command{}, collabservice.ErrInvalidTransition
+	}
+	row := r.db.QueryRowContext(ctx, `
+		UPDATE collaboration_commands
+		SET
+			status = $4,
+			turn_id = CASE WHEN $4 = 'started' THEN COALESCE($5, turn_id) ELSE turn_id END,
+			error_code = CASE WHEN $4 = 'failed' THEN $6 ELSE NULL END,
+			dispatched_at = CASE WHEN $4 = 'dispatched' THEN COALESCE(dispatched_at, $7) ELSE dispatched_at END,
+			started_at = CASE WHEN $4 = 'started' THEN COALESCE(started_at, $7) ELSE started_at END,
+			completed_at = CASE WHEN $4 IN ('completed', 'failed') THEN COALESCE(completed_at, $7) ELSE completed_at END,
+			updated_at = $7
+		WHERE user_id = $1 AND device_id = $2 AND id = $3
+			AND (($4 = 'dispatched' AND status = 'accepted')
+				OR ($4 = 'started' AND status IN ('accepted', 'dispatched'))
+				OR ($4 = 'completed' AND status = 'started')
+				OR ($4 = 'failed' AND status IN ('accepted', 'dispatched', 'started')))
+		RETURNING
+			id, user_id, device_id, thread_id, idempotency_key,
+			prompt_sha256, prompt_bytes, status, turn_id, error_code,
+			expires_at, dispatched_at, started_at, completed_at, created_at, updated_at
+	`, input.UserID, input.DeviceID, input.CommandID,
+		input.Status, input.TurnID, input.ErrorCode, input.OccurredAt.UTC())
+	command, err := scanCollaborationCommand(row)
+	if err == nil {
+		return command, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return collabservice.Command{}, err
+	}
+	current, err := r.GetCommand(ctx, input.UserID, input.CommandID)
+	if err != nil {
+		return collabservice.Command{}, err
+	}
+	if current.DeviceID != input.DeviceID {
+		return collabservice.Command{}, collabservice.ErrNotFound
+	}
+	if current.Status == input.Status {
+		if input.Status == collabdomain.CommandStatusStarted && !equalOptionalString(current.TurnID, input.TurnID) {
+			return collabservice.Command{}, collabservice.ErrInvalidTransition
+		}
+		if input.Status == collabdomain.CommandStatusFailed && !equalOptionalString(current.ErrorCode, input.ErrorCode) {
+			return collabservice.Command{}, collabservice.ErrInvalidTransition
+		}
+		return current, nil
+	}
+	return collabservice.Command{}, collabservice.ErrInvalidTransition
+}
+
 func (r *collaborationRepository) CreateCommandAndCharge(
 	ctx context.Context,
 	input collabservice.CreateCommandInput,
@@ -437,6 +650,95 @@ func scanCollaborationDevice(scanner collaborationScanner) (collabservice.Device
 		return collabservice.Device{}, fmt.Errorf("decode collaboration capabilities: %w", err)
 	}
 	return device, nil
+}
+
+func scanCollaborationSync(scanner collaborationScanner) (collabservice.SyncRequest, error) {
+	var (
+		syncRequest     collabservice.SyncRequest
+		threadID        sql.NullString
+		cursor          sql.NullString
+		errorCode       sql.NullString
+		snapshotVersion sql.NullInt64
+		completedAt     sql.NullTime
+	)
+	err := scanner.Scan(
+		&syncRequest.ID, &syncRequest.UserID, &syncRequest.DeviceID,
+		&syncRequest.IdempotencyKey, &syncRequest.RequestSHA256,
+		&syncRequest.Kind, &threadID, &cursor, &syncRequest.Status,
+		&errorCode, &snapshotVersion, &syncRequest.ResultCount,
+		&syncRequest.ExpiresAt, &completedAt, &syncRequest.CreatedAt,
+		&syncRequest.UpdatedAt,
+	)
+	if err != nil {
+		return collabservice.SyncRequest{}, err
+	}
+	if threadID.Valid {
+		syncRequest.ThreadID = &threadID.String
+	}
+	if cursor.Valid {
+		syncRequest.Cursor = &cursor.String
+	}
+	if errorCode.Valid {
+		syncRequest.ErrorCode = &errorCode.String
+	}
+	if snapshotVersion.Valid {
+		syncRequest.SnapshotVersion = &snapshotVersion.Int64
+	}
+	if completedAt.Valid {
+		syncRequest.CompletedAt = &completedAt.Time
+	}
+	return syncRequest, nil
+}
+
+func scanCollaborationCommand(scanner collaborationScanner) (collabservice.Command, error) {
+	var (
+		command      collabservice.Command
+		turnID       sql.NullString
+		errorCode    sql.NullString
+		dispatchedAt sql.NullTime
+		startedAt    sql.NullTime
+		completedAt  sql.NullTime
+	)
+	err := scanner.Scan(
+		&command.ID, &command.UserID, &command.DeviceID, &command.ThreadID,
+		&command.IdempotencyKey, &command.PromptSHA256, &command.PromptBytes,
+		&command.Status, &turnID, &errorCode, &command.ExpiresAt,
+		&dispatchedAt, &startedAt, &completedAt, &command.CreatedAt,
+		&command.UpdatedAt,
+	)
+	if err != nil {
+		return collabservice.Command{}, err
+	}
+	if turnID.Valid {
+		command.TurnID = &turnID.String
+	}
+	if errorCode.Valid {
+		command.ErrorCode = &errorCode.String
+	}
+	if dispatchedAt.Valid {
+		command.DispatchedAt = &dispatchedAt.Time
+	}
+	if startedAt.Valid {
+		command.StartedAt = &startedAt.Time
+	}
+	if completedAt.Valid {
+		command.CompletedAt = &completedAt.Time
+	}
+	return command, nil
+}
+
+func equalOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func equalOptionalInt64(left, right *int64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func findExistingCollaborationCommand(

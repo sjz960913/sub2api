@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -229,10 +230,10 @@ func TestCollaborationExpirePendingConvergesWithoutRefund(t *testing.T) {
 	} {
 		if _, err := integrationDB.Exec(`
 			INSERT INTO collaboration_sync_requests (
-				id, user_id, device_id, idempotency_key, kind, status,
+				id, user_id, device_id, idempotency_key, request_sha256, kind, status,
 				expires_at, created_at, updated_at
-			) VALUES ($1, $2, $3, $4, 'session_list', $5, $6, $7, $7)
-		`, item.id, user.ID, device.ID, uuid.New(), item.status, now.Add(-time.Minute), now.Add(-2*time.Minute)); err != nil {
+			) VALUES ($1, $2, $3, $4, $5, 'session_list', $6, $7, $8, $8)
+		`, item.id, user.ID, device.ID, uuid.New(), strings.Repeat("0", 64), item.status, now.Add(-time.Minute), now.Add(-2*time.Minute)); err != nil {
 			t.Fatalf("insert %s sync request: %v", item.status, err)
 		}
 	}
@@ -271,6 +272,126 @@ func TestCollaborationExpirePendingConvergesWithoutRefund(t *testing.T) {
 	}
 }
 
+func TestCollaborationSyncLifecycleIsIdempotentAndTenantScoped(t *testing.T) {
+	owner := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	other := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	repository := NewCollaborationRepository(integrationDB)
+	device := registerCollaborationTestDevice(t, repository, owner.ID)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	idempotencyKey := uuid.New()
+	input := collabservice.CreateSyncInput{
+		UserID:         owner.ID,
+		DeviceID:       device.ID,
+		IdempotencyKey: idempotencyKey,
+		RequestSHA256:  strings.Repeat("a", 64),
+		Kind:           collabdomain.SyncKindSessionList,
+		ExpiresAt:      now.Add(time.Minute),
+	}
+	created, err := repository.CreateSync(context.Background(), input)
+	if err != nil || created.Replayed {
+		t.Fatalf("CreateSync() = %#v, %v", created, err)
+	}
+	replayed, err := repository.CreateSync(context.Background(), input)
+	if err != nil || !replayed.Replayed || replayed.Sync.ID != created.Sync.ID {
+		t.Fatalf("CreateSync(replay) = %#v, %v", replayed, err)
+	}
+	conflict := input
+	conflict.RequestSHA256 = strings.Repeat("b", 64)
+	if _, err := repository.CreateSync(context.Background(), conflict); !errors.Is(err, collabservice.ErrIdempotencyConflict) {
+		t.Fatalf("CreateSync(conflict) error = %v", err)
+	}
+	if _, err := repository.GetSync(context.Background(), other.ID, created.Sync.ID); !errors.Is(err, collabservice.ErrNotFound) {
+		t.Fatalf("GetSync(cross-user) error = %v", err)
+	}
+	running, err := repository.TransitionSync(context.Background(), collabservice.SyncTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, SyncID: created.Sync.ID,
+		Status: collabdomain.SyncStatusRunning, OccurredAt: now,
+	})
+	if err != nil || running.Status != collabdomain.SyncStatusRunning {
+		t.Fatalf("TransitionSync(running) = %#v, %v", running, err)
+	}
+	snapshotVersion := int64(4)
+	completed, err := repository.TransitionSync(context.Background(), collabservice.SyncTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, SyncID: created.Sync.ID,
+		Status: collabdomain.SyncStatusCompleted, SnapshotVersion: &snapshotVersion,
+		ResultCount: 2, OccurredAt: now.Add(time.Second),
+	})
+	if err != nil || completed.Status != collabdomain.SyncStatusCompleted || completed.SnapshotVersion == nil || *completed.SnapshotVersion != 4 || completed.ResultCount != 2 {
+		t.Fatalf("TransitionSync(completed) = %#v, %v", completed, err)
+	}
+	if replayed, err := repository.TransitionSync(context.Background(), collabservice.SyncTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, SyncID: created.Sync.ID,
+		Status: collabdomain.SyncStatusCompleted, SnapshotVersion: &snapshotVersion,
+		ResultCount: 2, OccurredAt: now.Add(2 * time.Second),
+	}); err != nil || replayed.ID != completed.ID {
+		t.Fatalf("TransitionSync(completed replay) = %#v, %v", replayed, err)
+	}
+	conflictingVersion := int64(5)
+	if _, err := repository.TransitionSync(context.Background(), collabservice.SyncTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, SyncID: created.Sync.ID,
+		Status: collabdomain.SyncStatusCompleted, SnapshotVersion: &conflictingVersion,
+		ResultCount: 2, OccurredAt: now.Add(2 * time.Second),
+	}); !errors.Is(err, collabservice.ErrInvalidTransition) {
+		t.Fatalf("TransitionSync(conflicting replay) error = %v", err)
+	}
+	if _, err := repository.TransitionSync(context.Background(), collabservice.SyncTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, SyncID: created.Sync.ID,
+		Status: collabdomain.SyncStatusFailed, OccurredAt: now.Add(2 * time.Second),
+	}); !errors.Is(err, collabservice.ErrInvalidTransition) {
+		t.Fatalf("TransitionSync(terminal) error = %v", err)
+	}
+}
+
+func TestCollaborationCommandTransitionsAreAtomicAndTenantScoped(t *testing.T) {
+	owner := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	other := createCollaborationTestUser(t, decimal.NewFromInt(1), decimal.Zero)
+	repository := NewCollaborationRepository(integrationDB)
+	device := registerCollaborationTestDevice(t, repository, owner.ID)
+	created, err := repository.CreateCommandAndCharge(context.Background(), collaborationCommandInput(owner.ID, device.ID, uuid.New()))
+	if err != nil {
+		t.Fatalf("CreateCommandAndCharge() error = %v", err)
+	}
+	if _, err := repository.GetCommand(context.Background(), other.ID, created.Command.ID); !errors.Is(err, collabservice.ErrNotFound) {
+		t.Fatalf("GetCommand(cross-user) error = %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	dispatched, err := repository.TransitionCommand(context.Background(), collabservice.CommandTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, CommandID: created.Command.ID,
+		Status: collabdomain.CommandStatusDispatched, OccurredAt: now,
+	})
+	if err != nil || dispatched.DispatchedAt == nil {
+		t.Fatalf("TransitionCommand(dispatched) = %#v, %v", dispatched, err)
+	}
+	turnID := "turn_123"
+	started, err := repository.TransitionCommand(context.Background(), collabservice.CommandTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, CommandID: created.Command.ID,
+		Status: collabdomain.CommandStatusStarted, TurnID: &turnID, OccurredAt: now.Add(time.Second),
+	})
+	if err != nil || started.TurnID == nil || *started.TurnID != turnID {
+		t.Fatalf("TransitionCommand(started) = %#v, %v", started, err)
+	}
+	conflictingTurnID := "turn_other"
+	if _, err := repository.TransitionCommand(context.Background(), collabservice.CommandTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, CommandID: created.Command.ID,
+		Status: collabdomain.CommandStatusStarted, TurnID: &conflictingTurnID, OccurredAt: now.Add(time.Second),
+	}); !errors.Is(err, collabservice.ErrInvalidTransition) {
+		t.Fatalf("TransitionCommand(conflicting replay) error = %v", err)
+	}
+	completed, err := repository.TransitionCommand(context.Background(), collabservice.CommandTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, CommandID: created.Command.ID,
+		Status: collabdomain.CommandStatusCompleted, OccurredAt: now.Add(2 * time.Second),
+	})
+	if err != nil || completed.CompletedAt == nil {
+		t.Fatalf("TransitionCommand(completed) = %#v, %v", completed, err)
+	}
+	if _, err := repository.TransitionCommand(context.Background(), collabservice.CommandTransitionInput{
+		UserID: owner.ID, DeviceID: device.ID, CommandID: created.Command.ID,
+		Status: collabdomain.CommandStatusFailed, OccurredAt: now.Add(3 * time.Second),
+	}); !errors.Is(err, collabservice.ErrInvalidTransition) {
+		t.Fatalf("TransitionCommand(terminal) error = %v", err)
+	}
+}
+
 func createCollaborationTestUser(t *testing.T, balance, frozenBalance decimal.Decimal) *dbent.User {
 	t.Helper()
 	ctx := context.Background()
@@ -302,7 +423,7 @@ func registerCollaborationTestDevice(t *testing.T, repository collabservice.Repo
 		Platform:           "linux",
 		CompanionVersion:   "0.1.0",
 		ProtocolVersion:    1,
-		Capabilities:       map[string]bool{"app_server": true, "thread_write": true},
+		Capabilities:       map[string]bool{"app_server": true, "thread_read": true, "thread_write": true},
 	})
 	if err != nil {
 		t.Fatalf("RegisterDevice() error = %v", err)

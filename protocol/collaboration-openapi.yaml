@@ -199,7 +199,7 @@
       },
       "SyncAccepted": {
         "type": "object", "required": ["sync_id", "status", "expires_at"],
-        "properties": {"sync_id": {"type": "string", "format": "uuid"}, "status": {"type": "string", "const": "pending"}, "expires_at": {"type": "string", "format": "date-time"}}
+        "properties": {"sync_id": {"type": "string", "format": "uuid"}, "status": {"type": "string", "enum": ["pending", "running"]}, "expires_at": {"type": "string", "format": "date-time"}}
       },
       "SyncAcceptedEnvelope": {"allOf": [{"$ref": "#/components/schemas/SuccessEnvelope"}, {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/SyncAccepted"}}}]},
       "CodexSession": {

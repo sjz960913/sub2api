@@ -60,4 +60,10 @@ func RegisterCollaborationRoutes(
 	devices.GET("", h.ListDevices)
 	devices.PATCH("/:device_id", h.RenameDevice)
 	devices.DELETE("/:device_id", h.RevokeDevice)
+	devices.POST("/:device_id/session-syncs", h.CreateSessionSync)
+	devices.POST("/:device_id/threads/:thread_id/syncs", h.CreateThreadSync)
+	enabled.GET("/session-syncs/:sync_id", h.GetSessionSync)
+	enabled.GET("/thread-syncs/:sync_id", h.GetThreadSync)
+	enabled.POST("/commands", h.CreateCommand)
+	enabled.GET("/commands/:command_id", h.GetCommand)
 }

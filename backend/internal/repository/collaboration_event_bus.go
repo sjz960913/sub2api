@@ -86,8 +86,12 @@ func (b *collaborationEventBus) publish(
 	if err != nil {
 		return collaborationservice.EventEnvelope{}, fmt.Errorf("marshal collaboration event: %w", err)
 	}
-	if err := b.redis.Publish(ctx, channel, encoded).Err(); err != nil {
+	subscribers, err := b.redis.Publish(ctx, channel, encoded).Result()
+	if err != nil {
 		return collaborationservice.EventEnvelope{}, err
+	}
+	if subscribers == 0 {
+		return event, collaborationservice.ErrRelayUnavailable
 	}
 	return event, nil
 }

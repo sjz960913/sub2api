@@ -13,12 +13,17 @@ import (
 )
 
 type repositoryStub struct {
-	registeredInput *RegisterDeviceInput
-	commandInput    *CreateCommandInput
-	device          Device
-	devices         []Device
-	presenceStatus  collabdomain.DeviceStatus
-	presenceSeenAt  time.Time
+	registeredInput    *RegisterDeviceInput
+	commandInput       *CreateCommandInput
+	syncInput          *CreateSyncInput
+	syncTransitions    []SyncTransitionInput
+	commandTransitions []CommandTransitionInput
+	syncRequest        SyncRequest
+	command            Command
+	device             Device
+	devices            []Device
+	presenceStatus     collabdomain.DeviceStatus
+	presenceSeenAt     time.Time
 }
 
 func (r *repositoryStub) RegisterDevice(_ context.Context, _ int64, input RegisterDeviceInput) (Device, error) {
@@ -48,10 +53,104 @@ func (r *repositoryStub) UpdateDevicePresence(_ context.Context, _ int64, _ uuid
 	return nil
 }
 
+func (r *repositoryStub) CreateSync(_ context.Context, input CreateSyncInput) (CreateSyncResult, error) {
+	r.syncInput = &input
+	if r.syncRequest.ID == uuid.Nil {
+		r.syncRequest = SyncRequest{
+			ID: input.IdempotencyKey, UserID: input.UserID, DeviceID: input.DeviceID,
+			IdempotencyKey: input.IdempotencyKey, RequestSHA256: input.RequestSHA256,
+			Kind: input.Kind, ThreadID: input.ThreadID, Cursor: input.Cursor,
+			Status: collabdomain.SyncStatusPending, ExpiresAt: input.ExpiresAt,
+		}
+	}
+	return CreateSyncResult{Sync: r.syncRequest}, nil
+}
+
+func (r *repositoryStub) GetSync(context.Context, int64, uuid.UUID) (SyncRequest, error) {
+	return r.syncRequest, nil
+}
+
+func (r *repositoryStub) TransitionSync(_ context.Context, input SyncTransitionInput) (SyncRequest, error) {
+	r.syncTransitions = append(r.syncTransitions, input)
+	r.syncRequest.Status = input.Status
+	r.syncRequest.ErrorCode = input.ErrorCode
+	r.syncRequest.SnapshotVersion = input.SnapshotVersion
+	r.syncRequest.ResultCount = input.ResultCount
+	return r.syncRequest, nil
+}
+
 type presenceStoreStub struct {
 	items   map[uuid.UUID]DevicePresence
 	touched *DevicePresence
 	removed uuid.UUID
+}
+
+type realtimeEventBusStub struct {
+	deviceEvents []EventEnvelope
+	userEvents   []EventEnvelope
+	publishErr   error
+}
+
+func (s *realtimeEventBusStub) PublishUser(
+	_ context.Context,
+	_ int64,
+	eventType string,
+	requestID *string,
+	payload map[string]any,
+) (EventEnvelope, error) {
+	event := EventEnvelope{Version: 1, Type: eventType, RequestID: requestID, Payload: payload}
+	s.userEvents = append(s.userEvents, event)
+	return event, s.publishErr
+}
+
+func (s *realtimeEventBusStub) PublishDevice(
+	_ context.Context,
+	_ int64,
+	_ uuid.UUID,
+	eventType string,
+	requestID *string,
+	payload map[string]any,
+) (EventEnvelope, error) {
+	event := EventEnvelope{Version: 1, Type: eventType, RequestID: requestID, Payload: payload}
+	s.deviceEvents = append(s.deviceEvents, event)
+	return event, s.publishErr
+}
+
+func (s *realtimeEventBusStub) SubscribeUser(context.Context, int64) (EventSubscription, error) {
+	return nil, nil
+}
+
+func (s *realtimeEventBusStub) SubscribeDevice(context.Context, uuid.UUID) (EventSubscription, error) {
+	return nil, nil
+}
+
+type payloadStoreStub struct {
+	commandPrompt string
+	syncPayload   []byte
+	deletedSync   uuid.UUID
+}
+
+func (s *payloadStoreStub) PutCommand(_ context.Context, _ int64, _ uuid.UUID, prompt string) error {
+	s.commandPrompt = prompt
+	return nil
+}
+
+func (s *payloadStoreStub) GetCommand(context.Context, int64, uuid.UUID) (string, error) {
+	return s.commandPrompt, nil
+}
+
+func (s *payloadStoreStub) PutSync(_ context.Context, _ int64, _ uuid.UUID, _ collabdomain.SyncKind, payload []byte) error {
+	s.syncPayload = payload
+	return nil
+}
+
+func (s *payloadStoreStub) GetSync(context.Context, int64, uuid.UUID, collabdomain.SyncKind) ([]byte, error) {
+	return s.syncPayload, nil
+}
+
+func (s *payloadStoreStub) DeleteSync(_ context.Context, _ int64, syncID uuid.UUID, _ collabdomain.SyncKind) error {
+	s.deletedSync = syncID
+	return nil
 }
 
 func (s *presenceStoreStub) Touch(_ context.Context, presence DevicePresence) error {
@@ -70,7 +169,27 @@ func (s *presenceStoreStub) Remove(_ context.Context, deviceID uuid.UUID) error 
 
 func (r *repositoryStub) CreateCommandAndCharge(_ context.Context, input CreateCommandInput) (CreateCommandResult, error) {
 	r.commandInput = &input
-	return CreateCommandResult{}, nil
+	if r.command.ID == uuid.Nil {
+		r.command = Command{
+			ID: input.IdempotencyKey, UserID: input.UserID, DeviceID: input.DeviceID,
+			ThreadID: input.ThreadID, IdempotencyKey: input.IdempotencyKey,
+			PromptSHA256: input.PromptSHA256, PromptBytes: input.PromptBytes,
+			Status: collabdomain.CommandStatusAccepted, ExpiresAt: input.ExpiresAt,
+		}
+	}
+	return CreateCommandResult{Command: r.command}, nil
+}
+
+func (r *repositoryStub) GetCommand(context.Context, int64, uuid.UUID) (Command, error) {
+	return r.command, nil
+}
+
+func (r *repositoryStub) TransitionCommand(_ context.Context, input CommandTransitionInput) (Command, error) {
+	r.commandTransitions = append(r.commandTransitions, input)
+	r.command.Status = input.Status
+	r.command.TurnID = input.TurnID
+	r.command.ErrorCode = input.ErrorCode
+	return r.command, nil
 }
 
 func (r *repositoryStub) ExpirePending(context.Context, time.Time) (SweepResult, error) {
@@ -217,6 +336,188 @@ func TestSubmitCommandRejectsOversizedPromptBeforeRepository(t *testing.T) {
 	}
 	if repository.commandInput != nil {
 		t.Fatal("repository must not receive an invalid prompt")
+	}
+}
+
+func TestRequestSyncRequiresOnlineDeviceAndPublishesCanonicalRequest(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	repository := &repositoryStub{device: Device{
+		ID: deviceID, UserID: 42, ProtocolVersion: 1,
+		Capabilities: map[string]bool{"thread_read": true},
+	}}
+	presence := &presenceStoreStub{items: map[uuid.UUID]DevicePresence{
+		deviceID: {
+			DeviceID: deviceID, UserID: 42, Status: collabdomain.DeviceStatusOnline,
+			AppServerStatus: "ready", LastSeenAt: time.Now(),
+		},
+	}}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	service.SetRealtime(events, &payloadStoreStub{})
+	idempotencyKey := uuid.New()
+	result, err := service.RequestSync(context.Background(), 42, RequestSyncInput{
+		DeviceID:       deviceID,
+		IdempotencyKey: idempotencyKey,
+		Kind:           collabdomain.SyncKindSessionList,
+		Payload:        map[string]any{"limit": 50, "archived": false},
+	})
+	if err != nil {
+		t.Fatalf("RequestSync() error = %v", err)
+	}
+	if result.Sync.Status != collabdomain.SyncStatusRunning || repository.syncInput == nil || len(repository.syncInput.RequestSHA256) != 64 {
+		t.Fatalf("sync result/input = %#v / %#v", result, repository.syncInput)
+	}
+	if len(events.deviceEvents) != 1 || events.deviceEvents[0].Type != "session_sync.requested" || events.deviceEvents[0].Payload["sync_id"] != idempotencyKey.String() {
+		t.Fatalf("device events = %#v", events.deviceEvents)
+	}
+
+	offlineRepository := &repositoryStub{device: repository.device}
+	offlineService, err := NewService(offlineRepository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService(offline) error = %v", err)
+	}
+	offlineService.SetPresenceStore(&presenceStoreStub{items: map[uuid.UUID]DevicePresence{}})
+	if _, err := offlineService.RequestSync(context.Background(), 42, RequestSyncInput{
+		DeviceID: deviceID, IdempotencyKey: uuid.New(), Kind: collabdomain.SyncKindSessionList,
+	}); err != ErrDeviceOffline || offlineRepository.syncInput != nil {
+		t.Fatalf("offline RequestSync() error/input = %v / %#v", err, offlineRepository.syncInput)
+	}
+}
+
+func TestDispatchCommandStoresPromptAndFailsClosedWhenRelayIsGone(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	repository := &repositoryStub{device: Device{
+		ID: deviceID, UserID: 42, ProtocolVersion: 1,
+		Capabilities: map[string]bool{"thread_write": true},
+	}}
+	presence := &presenceStoreStub{items: map[uuid.UUID]DevicePresence{
+		deviceID: {
+			DeviceID: deviceID, UserID: 42, Status: collabdomain.DeviceStatusOnline,
+			AppServerStatus: "ready", LastSeenAt: time.Now(),
+		},
+	}}
+	payloads := &payloadStoreStub{}
+	events := &realtimeEventBusStub{publishErr: ErrRelayUnavailable}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	service.SetRealtime(events, payloads)
+	result, err := service.DispatchCommand(context.Background(), 42, SubmitCommandInput{
+		DeviceID: deviceID, ThreadID: "thread_123", IdempotencyKey: uuid.New(), Prompt: "continue",
+	})
+	if err != nil {
+		t.Fatalf("DispatchCommand() error = %v", err)
+	}
+	if payloads.commandPrompt != "continue" || result.Command.Status != collabdomain.CommandStatusFailed {
+		t.Fatalf("payload/result = %q / %#v", payloads.commandPrompt, result)
+	}
+	if len(repository.commandTransitions) != 2 || repository.commandTransitions[0].Status != collabdomain.CommandStatusDispatched || repository.commandTransitions[1].Status != collabdomain.CommandStatusFailed {
+		t.Fatalf("command transitions = %#v", repository.commandTransitions)
+	}
+	if result.Command.ErrorCode == nil || *result.Command.ErrorCode != "relay_unavailable" {
+		t.Fatalf("command error = %#v", result.Command.ErrorCode)
+	}
+}
+
+func TestHandleDeviceEventCompletesSyncWithoutAllowingSnapshotOverwrite(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	syncID := uuid.New()
+	repository := &repositoryStub{syncRequest: SyncRequest{
+		ID: syncID, UserID: 42, DeviceID: deviceID,
+		Kind: collabdomain.SyncKindSessionList, Status: collabdomain.SyncStatusRunning,
+	}}
+	payloads := &payloadStoreStub{}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetRealtime(events, payloads)
+	requestID := syncID.String()
+	event := EventEnvelope{
+		Version: 1, Type: "session_sync.completed", RequestID: &requestID,
+		Payload: map[string]any{
+			"sync_id": syncID.String(), "snapshot_version": int64(7),
+			"items": []any{map[string]any{"thread_id": "thread_123", "title": "Fix tests"}},
+		},
+	}
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, event); err != nil {
+		t.Fatalf("HandleDeviceEvent() error = %v", err)
+	}
+	if repository.syncRequest.Status != collabdomain.SyncStatusCompleted || len(repository.syncTransitions) != 1 {
+		t.Fatalf("sync state/transitions = %#v / %#v", repository.syncRequest, repository.syncTransitions)
+	}
+	if len(payloads.syncPayload) == 0 || len(events.userEvents) != 1 || events.userEvents[0].Type != "session_sync.completed" {
+		t.Fatalf("payload/user events = %q / %#v", payloads.syncPayload, events.userEvents)
+	}
+
+	stored := string(payloads.syncPayload)
+	event.Payload["items"] = []any{map[string]any{"thread_id": "thread_other"}}
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, event); err != nil {
+		t.Fatalf("HandleDeviceEvent(replay) error = %v", err)
+	}
+	if got := string(payloads.syncPayload); got != stored || len(repository.syncTransitions) != 1 {
+		t.Fatalf("completed snapshot was overwritten: payload=%q transitions=%d", got, len(repository.syncTransitions))
+	}
+
+	repository.syncRequest.Status = collabdomain.SyncStatusRunning
+	if err := service.HandleDeviceEvent(context.Background(), 42, uuid.New(), event); err != ErrNotFound {
+		t.Fatalf("HandleDeviceEvent(other device) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestHandleDeviceEventAdvancesCommandAndRejectsConflictingReplay(t *testing.T) {
+	t.Parallel()
+
+	deviceID := uuid.New()
+	commandID := uuid.New()
+	repository := &repositoryStub{command: Command{
+		ID: commandID, UserID: 42, DeviceID: deviceID,
+		Status: collabdomain.CommandStatusDispatched,
+	}}
+	events := &realtimeEventBusStub{}
+	service, err := NewService(repository, testConfig())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetRealtime(events, &payloadStoreStub{})
+	started := EventEnvelope{Type: "command.started", Payload: map[string]any{
+		"command_id": commandID.String(), "turn_id": "turn_123",
+	}}
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, started); err != nil {
+		t.Fatalf("HandleDeviceEvent(started) error = %v", err)
+	}
+	if repository.command.Status != collabdomain.CommandStatusStarted || repository.command.TurnID == nil || *repository.command.TurnID != "turn_123" {
+		t.Fatalf("started command = %#v", repository.command)
+	}
+	started.Payload["turn_id"] = "turn_conflict"
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, started); err != ErrInvalidTransition {
+		t.Fatalf("HandleDeviceEvent(conflicting replay) error = %v, want ErrInvalidTransition", err)
+	}
+	completed := EventEnvelope{Type: "command.completed", Payload: map[string]any{"command_id": commandID.String()}}
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, completed); err != nil {
+		t.Fatalf("HandleDeviceEvent(completed) error = %v", err)
+	}
+	if repository.command.Status != collabdomain.CommandStatusCompleted || len(repository.commandTransitions) != 2 || len(events.userEvents) != 2 {
+		t.Fatalf("command transitions/user events = %#v / %#v", repository.commandTransitions, events.userEvents)
+	}
+	if err := service.HandleDeviceEvent(context.Background(), 42, deviceID, completed); err != nil {
+		t.Fatalf("HandleDeviceEvent(completed replay) error = %v", err)
+	}
+	if len(repository.commandTransitions) != 2 || len(events.userEvents) != 3 {
+		t.Fatalf("completed replay mutated state: transitions=%d events=%d", len(repository.commandTransitions), len(events.userEvents))
 	}
 }
 

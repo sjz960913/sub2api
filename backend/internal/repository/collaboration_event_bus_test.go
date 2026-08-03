@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	collaborationservice "github.com/Wei-Shaw/sub2api/internal/service/collaboration"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -70,8 +72,8 @@ func TestCollaborationEventBusSeparatesDeviceChannels(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = subscription.Close() })
 
-	if _, err := bus.PublishDevice(context.Background(), 42, otherDeviceID, "command.dispatched", nil, nil); err != nil {
-		t.Fatalf("PublishDevice(other) error = %v", err)
+	if _, err := bus.PublishDevice(context.Background(), 42, otherDeviceID, "command.dispatched", nil, nil); !errors.Is(err, collaborationservice.ErrRelayUnavailable) {
+		t.Fatalf("PublishDevice(other) error = %v, want ErrRelayUnavailable", err)
 	}
 	if _, err := bus.PublishDevice(context.Background(), 42, deviceID, "command.dispatched", nil, nil); err != nil {
 		t.Fatalf("PublishDevice(target) error = %v", err)

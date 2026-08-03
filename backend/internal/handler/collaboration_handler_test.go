@@ -19,10 +19,12 @@ import (
 )
 
 type collaborationHandlerRepositoryStub struct {
-	listUserID int64
-	devices    []collaborationservice.Device
-	device     collaborationservice.Device
-	statuses   chan collaborationdomain.DeviceStatus
+	listUserID   int64
+	devices      []collaborationservice.Device
+	device       collaborationservice.Device
+	command      collaborationservice.Command
+	commandInput *collaborationservice.CreateCommandInput
+	statuses     chan collaborationdomain.DeviceStatus
 }
 
 func (r *collaborationHandlerRepositoryStub) RegisterDevice(context.Context, int64, collaborationservice.RegisterDeviceInput) (collaborationservice.Device, error) {
@@ -53,8 +55,41 @@ func (r *collaborationHandlerRepositoryStub) UpdateDevicePresence(_ context.Cont
 	return nil
 }
 
-func (r *collaborationHandlerRepositoryStub) CreateCommandAndCharge(context.Context, collaborationservice.CreateCommandInput) (collaborationservice.CreateCommandResult, error) {
-	return collaborationservice.CreateCommandResult{}, nil
+func (r *collaborationHandlerRepositoryStub) CreateSync(context.Context, collaborationservice.CreateSyncInput) (collaborationservice.CreateSyncResult, error) {
+	return collaborationservice.CreateSyncResult{}, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) GetSync(context.Context, int64, uuid.UUID) (collaborationservice.SyncRequest, error) {
+	return collaborationservice.SyncRequest{}, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) TransitionSync(context.Context, collaborationservice.SyncTransitionInput) (collaborationservice.SyncRequest, error) {
+	return collaborationservice.SyncRequest{}, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) CreateCommandAndCharge(_ context.Context, input collaborationservice.CreateCommandInput) (collaborationservice.CreateCommandResult, error) {
+	r.commandInput = &input
+	if r.command.ID == uuid.Nil {
+		r.command = collaborationservice.Command{
+			ID: input.IdempotencyKey, UserID: input.UserID, DeviceID: input.DeviceID,
+			ThreadID: input.ThreadID, IdempotencyKey: input.IdempotencyKey,
+			Status: collaborationdomain.CommandStatusAccepted, ExpiresAt: input.ExpiresAt,
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		}
+	}
+	return collaborationservice.CreateCommandResult{Command: r.command}, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) GetCommand(context.Context, int64, uuid.UUID) (collaborationservice.Command, error) {
+	return r.command, nil
+}
+
+func (r *collaborationHandlerRepositoryStub) TransitionCommand(_ context.Context, input collaborationservice.CommandTransitionInput) (collaborationservice.Command, error) {
+	r.command.Status = input.Status
+	r.command.TurnID = input.TurnID
+	r.command.ErrorCode = input.ErrorCode
+	r.command.UpdatedAt = input.OccurredAt
+	return r.command, nil
 }
 
 func (r *collaborationHandlerRepositoryStub) ExpirePending(context.Context, time.Time) (collaborationservice.SweepResult, error) {
@@ -112,17 +147,90 @@ func TestCollaborationListDevicesUsesJWTSubjectAndHidesInstallationHash(t *testi
 	}
 }
 
+func TestCollaborationCommandDTOOmitsBackendBillingState(t *testing.T) {
+	dto := collaborationCommandDTO(collaborationservice.Command{
+		ID: uuid.New(), Status: collaborationdomain.CommandStatusDispatched,
+	})
+	for _, key := range []string{"charge", "fee", "amount", "currency", "balance", "balance_after"} {
+		if _, exposed := dto[key]; exposed {
+			t.Fatalf("command response exposed backend billing field %q", key)
+		}
+	}
+}
+
+func TestCollaborationCreateCommandDispatchesWithoutExposingBackendFee(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	deviceID := uuid.New()
+	idempotencyKey := uuid.New()
+	repository := &collaborationHandlerRepositoryStub{device: collaborationservice.Device{
+		ID: deviceID, UserID: 42, ProtocolVersion: 1,
+		Capabilities: map[string]bool{"thread_write": true},
+	}}
+	presence := &collaborationHandlerPresenceStub{items: map[uuid.UUID]collaborationservice.DevicePresence{
+		deviceID: {
+			DeviceID: deviceID, UserID: 42, Status: collaborationdomain.DeviceStatusOnline,
+			AppServerStatus: "ready", LastSeenAt: time.Now().UTC(),
+		},
+	}}
+	eventBus := &collaborationHandlerEventBusStub{
+		deviceEvents: make(chan collaborationservice.EventEnvelope, 1),
+		userEvents:   make(chan collaborationservice.EventEnvelope, 1),
+	}
+	payloads := &collaborationHandlerPayloadStoreStub{}
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{
+		ProtocolVersion: 1, TaskFeeAmount: "0.100000", TaskFeeCurrency: "USD",
+		CommandTTLSeconds: 300, MaxPromptBytes: 32 * 1024,
+	}}
+	service, err := collaborationservice.NewService(repository, cfg.Collaboration)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	service.SetRealtime(eventBus, payloads)
+	handler := NewCollaborationHandler(service, cfg, eventBus, collaborationHandlerConnectionLeaseStub{})
+	router := gin.New()
+	router.POST("/commands", func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 42})
+		c.Next()
+	}, handler.CreateCommand)
+	body := `{"device_id":"` + deviceID.String() + `","thread_id":"thread_123","input":[{"type":"text","text":"继续任务"}],"client_context":{"source":"android"}}`
+	request := httptest.NewRequest(http.MethodPost, "/commands", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", idempotencyKey.String())
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	responseBody := recorder.Body.String()
+	for _, forbidden := range []string{"0.100000", "USD", "charge", "balance_after", "fee"} {
+		if strings.Contains(responseBody, forbidden) {
+			t.Fatalf("response exposed backend billing data %q: %s", forbidden, responseBody)
+		}
+	}
+	if repository.commandInput == nil || repository.commandInput.Fee.StringFixed(6) != "0.100000" {
+		t.Fatalf("repository did not receive server-owned fee: %#v", repository.commandInput)
+	}
+	if payloads.prompt != "继续任务" || repository.command.Status != collaborationdomain.CommandStatusDispatched {
+		t.Fatalf("prompt/status = %q/%s", payloads.prompt, repository.command.Status)
+	}
+}
+
 type collaborationHandlerPresenceStub struct {
 	touched chan collaborationservice.DevicePresence
+	items   map[uuid.UUID]collaborationservice.DevicePresence
 }
 
 func (s *collaborationHandlerPresenceStub) Touch(_ context.Context, presence collaborationservice.DevicePresence) error {
-	s.touched <- presence
+	if s.touched != nil {
+		s.touched <- presence
+	}
 	return nil
 }
 
 func (s *collaborationHandlerPresenceStub) GetMany(context.Context, []uuid.UUID) (map[uuid.UUID]collaborationservice.DevicePresence, error) {
-	return nil, nil
+	return s.items, nil
 }
 
 func (s *collaborationHandlerPresenceStub) Remove(context.Context, uuid.UUID) error {
@@ -145,6 +253,31 @@ type collaborationHandlerEventBusStub struct {
 	deviceEvents chan collaborationservice.EventEnvelope
 	userEvents   chan collaborationservice.EventEnvelope
 	sequence     atomic.Int64
+}
+
+type collaborationHandlerPayloadStoreStub struct {
+	prompt string
+}
+
+func (s *collaborationHandlerPayloadStoreStub) PutCommand(_ context.Context, _ int64, _ uuid.UUID, prompt string) error {
+	s.prompt = prompt
+	return nil
+}
+
+func (s *collaborationHandlerPayloadStoreStub) GetCommand(context.Context, int64, uuid.UUID) (string, error) {
+	return s.prompt, nil
+}
+
+func (s *collaborationHandlerPayloadStoreStub) PutSync(context.Context, int64, uuid.UUID, collaborationdomain.SyncKind, []byte) error {
+	return nil
+}
+
+func (s *collaborationHandlerPayloadStoreStub) GetSync(context.Context, int64, uuid.UUID, collaborationdomain.SyncKind) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *collaborationHandlerPayloadStoreStub) DeleteSync(context.Context, int64, uuid.UUID, collaborationdomain.SyncKind) error {
+	return nil
 }
 
 type collaborationHandlerConnectionLeaseStub struct {

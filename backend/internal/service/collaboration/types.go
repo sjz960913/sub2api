@@ -17,6 +17,7 @@ var (
 	ErrDeviceRevoked       = errors.New("collaboration device revoked")
 	ErrConnectionLimit     = errors.New("collaboration connection limit reached")
 	ErrIdempotencyConflict = errors.New("collaboration idempotency conflict")
+	ErrInvalidTransition   = errors.New("invalid collaboration state transition")
 	ErrInvariantViolation  = errors.New("collaboration persistence invariant violated")
 	ErrPayloadNotFound     = errors.New("collaboration ephemeral payload not found")
 )
@@ -88,6 +89,62 @@ type Command struct {
 	UpdatedAt      time.Time
 }
 
+type SyncRequest struct {
+	ID              uuid.UUID
+	UserID          int64
+	DeviceID        uuid.UUID
+	IdempotencyKey  uuid.UUID
+	RequestSHA256   string
+	Kind            collabdomain.SyncKind
+	ThreadID        *string
+	Cursor          *string
+	Status          collabdomain.SyncStatus
+	ErrorCode       *string
+	SnapshotVersion *int64
+	ResultCount     int
+	ExpiresAt       time.Time
+	CompletedAt     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type CreateSyncInput struct {
+	UserID         int64
+	DeviceID       uuid.UUID
+	IdempotencyKey uuid.UUID
+	RequestSHA256  string
+	Kind           collabdomain.SyncKind
+	ThreadID       *string
+	Cursor         *string
+	ExpiresAt      time.Time
+}
+
+type CreateSyncResult struct {
+	Sync     SyncRequest
+	Replayed bool
+}
+
+type SyncTransitionInput struct {
+	UserID          int64
+	DeviceID        uuid.UUID
+	SyncID          uuid.UUID
+	Status          collabdomain.SyncStatus
+	ErrorCode       *string
+	SnapshotVersion *int64
+	ResultCount     int
+	OccurredAt      time.Time
+}
+
+type CommandTransitionInput struct {
+	UserID     int64
+	DeviceID   uuid.UUID
+	CommandID  uuid.UUID
+	Status     collabdomain.CommandStatus
+	TurnID     *string
+	ErrorCode  *string
+	OccurredAt time.Time
+}
+
 type Charge struct {
 	ID            uuid.UUID
 	CommandID     uuid.UUID
@@ -132,7 +189,12 @@ type Repository interface {
 	RevokeDevice(context.Context, int64, uuid.UUID) (Device, error)
 	GetDevice(context.Context, int64, uuid.UUID) (Device, error)
 	UpdateDevicePresence(context.Context, int64, uuid.UUID, collabdomain.DeviceStatus, time.Time) error
+	CreateSync(context.Context, CreateSyncInput) (CreateSyncResult, error)
+	GetSync(context.Context, int64, uuid.UUID) (SyncRequest, error)
+	TransitionSync(context.Context, SyncTransitionInput) (SyncRequest, error)
 	CreateCommandAndCharge(context.Context, CreateCommandInput) (CreateCommandResult, error)
+	GetCommand(context.Context, int64, uuid.UUID) (Command, error)
+	TransitionCommand(context.Context, CommandTransitionInput) (Command, error)
 	ExpirePending(context.Context, time.Time) (SweepResult, error)
 }
 

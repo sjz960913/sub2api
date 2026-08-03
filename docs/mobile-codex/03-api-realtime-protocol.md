@@ -169,7 +169,7 @@ Header：`Idempotency-Key: <uuid>`
   "message": "accepted",
   "data": {
     "sync_id": "8e1...",
-    "status": "pending",
+    "status": "running",
     "expires_at": "2026-07-31T12:00:10Z"
   }
 }

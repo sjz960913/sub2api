@@ -42,6 +42,10 @@ func (CollaborationSyncRequest) Fields() []ent.Field {
 			Immutable(),
 		field.UUID("idempotency_key", uuid.UUID{}).
 			Immutable(),
+		field.String("request_sha256").
+			MaxLen(64).
+			MinLen(64).
+			Immutable(),
 		field.Enum("kind").
 			Values("session_list", "thread_snapshot").
 			Immutable(),

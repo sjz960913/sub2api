@@ -17,7 +17,8 @@ void main() {
     expect(command.status, 'completed');
     expect(client.commandAttempts, 2);
     expect(client.idempotencyKeys.toSet(), hasLength(1));
-    expect(client.idempotencyKeys.single, isNotEmpty);
+    expect(client.idempotencyKeys.first, isNotEmpty);
+    expect(client.idempotencyKeys[1], client.idempotencyKeys.first);
   });
 }
 

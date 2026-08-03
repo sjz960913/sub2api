@@ -95,7 +95,7 @@ impl DeviceRegistrar {
                 image_input: false,
             },
         };
-        let mut response = self
+        let response = self
             .client
             .post(endpoint)
             .bearer_auth(context.access_token.as_str())

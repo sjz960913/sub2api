@@ -1,13 +1,14 @@
-use crate::codex_adapter::{AppServerClient, NormalizedCompletedItem, ThreadPage};
+use crate::codex_adapter::{
+    AppServerClient, NormalizedCompletedItem, NormalizedHistoricalItem, ThreadPage,
+};
 use crate::device_registration::RegisteredDevice;
 use crate::panel_auth::{PanelAuthService, PanelConnectionContext};
-use crate::protocol::collaboration_wire::{CodexSession, EventEnvelope};
+use crate::protocol::collaboration_wire::{CodexSession, EventEnvelope, ThreadSummary};
 use chrono::{SecondsFormat, TimeZone, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
-use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -300,15 +301,7 @@ fn handle_server_event(
             spawn_session_sync(event, codex, outgoing);
         }
         "thread_sync.requested" => {
-            let sync_id = event.payload.get("sync_id").and_then(Value::as_str);
-            if let Some(sync_id) = sync_id {
-                queue_event(
-                    &outgoing,
-                    "thread_sync.failed",
-                    event.request_id,
-                    json!({"sync_id": sync_id, "error_code": "thread_sync_unavailable"}),
-                );
-            }
+            spawn_thread_sync(event, codex, outgoing);
         }
         "command.dispatched" => {
             spawn_command(
@@ -326,6 +319,77 @@ fn handle_server_event(
         _ => {}
     }
     None
+}
+
+fn spawn_thread_sync(
+    event: EventEnvelope,
+    codex: SharedCodexClient,
+    outgoing: mpsc::UnboundedSender<OutboundEvent>,
+) {
+    let Some(sync_id) = event
+        .payload
+        .get("sync_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return;
+    };
+    let Some(thread_id) = event
+        .payload
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return;
+    };
+    let request_id = event.request_id;
+    let after_item_id = optional_string(&event.payload, "after_item_id", 512);
+    let limit = event
+        .payload
+        .get("limit")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(100)
+        .clamp(1, 200);
+    tokio::task::spawn_blocking(move || {
+        let result = with_codex(&codex, |client| {
+            client.read_thread_snapshot(&thread_id, after_item_id.as_deref(), limit)
+        });
+        match result {
+            Ok(snapshot) => {
+                let thread = ThreadSummary {
+                    thread_id: snapshot.thread_id,
+                    title: snapshot.title,
+                    status: snapshot.status,
+                    write_state: snapshot.write_state,
+                };
+                let items = snapshot
+                    .items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| historical_relay_item(item, index as i64))
+                    .collect::<Vec<_>>();
+                queue_event(
+                    &outgoing,
+                    "thread_sync.completed",
+                    request_id,
+                    json!({
+                        "sync_id": sync_id,
+                        "snapshot_version": Utc::now().timestamp_millis(),
+                        "thread": thread,
+                        "items": items,
+                        "next_cursor": null
+                    }),
+                );
+            }
+            Err(error_code) => queue_event(
+                &outgoing,
+                "thread_sync.failed",
+                request_id,
+                json!({"sync_id": sync_id, "error_code": error_code.to_lowercase()}),
+            ),
+        }
+    });
 }
 
 fn spawn_session_sync(
@@ -465,7 +529,11 @@ fn spawn_command(
                 return;
             }
         };
-        let started = match client.start_task(&thread_id, &prompt) {
+        let started = match client.start_task_with_client_message_id(
+            &thread_id,
+            &prompt,
+            Some(&command_id),
+        ) {
             Ok(started) => started,
             Err(error) => {
                 queue_event(
@@ -602,6 +670,14 @@ fn relay_item(item: &NormalizedCompletedItem, sequence: i64) -> Value {
         );
     }
     Value::Object(output)
+}
+
+fn historical_relay_item(item: &NormalizedHistoricalItem, sequence: i64) -> Value {
+    let mut value = relay_item(&item.item, sequence);
+    if let Some(object) = value.as_object_mut() {
+        object.insert("turn_id".to_owned(), json!(item.turn_id));
+    }
+    value
 }
 
 fn session_items(page: ThreadPage) -> (Vec<CodexSession>, Option<String>) {

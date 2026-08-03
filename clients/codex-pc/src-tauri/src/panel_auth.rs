@@ -456,7 +456,7 @@ impl PanelAuthService {
     }
 
     fn request<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, PanelAuthError> {
-        let mut response = request.send().map_err(|_| PanelAuthError::Network)?;
+        let response = request.send().map_err(|_| PanelAuthError::Network)?;
         let status = response.status();
         if !status.is_success() {
             return Err(match status.as_u16() {

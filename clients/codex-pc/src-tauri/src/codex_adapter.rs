@@ -7,6 +7,7 @@ use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -130,6 +131,21 @@ pub struct TurnCompletion {
     pub items: Vec<NormalizedCompletedItem>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalizedHistoricalItem {
+    pub turn_id: String,
+    pub item: NormalizedCompletedItem,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalizedThreadSnapshot {
+    pub thread_id: String,
+    pub title: String,
+    pub status: String,
+    pub write_state: String,
+    pub items: Vec<NormalizedHistoricalItem>,
+}
+
 impl AppServerClient {
     pub fn start_default() -> Result<Self, AdapterError> {
         Self::spawn("codex", DEFAULT_REQUEST_TIMEOUT)
@@ -223,11 +239,21 @@ impl AppServerClient {
     }
 
     pub fn start_task(&self, thread_id: &str, prompt: &str) -> Result<StartedTask, AdapterError> {
+        self.start_task_with_client_message_id(thread_id, prompt, None)
+    }
+
+    pub fn start_task_with_client_message_id(
+        &self,
+        thread_id: &str,
+        prompt: &str,
+        client_message_id: Option<&str>,
+    ) -> Result<StartedTask, AdapterError> {
         let thread_id = thread_id.trim();
         if thread_id.is_empty()
             || thread_id.len() > 512
             || prompt.trim().is_empty()
             || prompt.len() > MAX_PROMPT_BYTES
+            || client_message_id.is_some_and(|value| value.is_empty() || value.len() > 512)
         {
             return Err(AdapterError::InvalidInput);
         }
@@ -250,6 +276,7 @@ impl AppServerClient {
             "turn/start",
             json!({
                 "threadId": thread_id,
+                "clientUserMessageId": client_message_id,
                 "input": [{"type": "text", "text": prompt}],
                 "approvalPolicy": "never"
             }),
@@ -329,6 +356,28 @@ impl AppServerClient {
                 items,
             });
         }
+    }
+
+    pub fn read_thread_snapshot(
+        &self,
+        thread_id: &str,
+        after_item_id: Option<&str>,
+        limit: usize,
+    ) -> Result<NormalizedThreadSnapshot, AdapterError> {
+        let thread_id = thread_id.trim();
+        if thread_id.is_empty()
+            || thread_id.len() > 512
+            || after_item_id.is_some_and(|value| value.is_empty() || value.len() > 512)
+            || limit == 0
+            || limit > 200
+        {
+            return Err(AdapterError::InvalidInput);
+        }
+        let raw = self.request(
+            "thread/read",
+            json!({"threadId": thread_id, "includeTurns": true}),
+        )?;
+        normalize_thread_snapshot(&raw, thread_id, after_item_id, limit)
     }
 
     #[allow(dead_code)]
@@ -504,14 +553,18 @@ fn normalize_thread_page(raw: &Value) -> Result<ThreadPage, AdapterError> {
 
 fn normalize_completed_item(params: &Value) -> Option<NormalizedCompletedItem> {
     let item = params.get("item")?;
-    let item_id = item.get("id")?.as_str()?;
-    if item_id.is_empty() || item_id.len() > 512 {
-        return None;
-    }
     let completed_at_ms = params
         .get("completedAtMs")
         .and_then(Value::as_i64)
         .unwrap_or_default();
+    normalize_item(item, completed_at_ms)
+}
+
+fn normalize_item(item: &Value, completed_at_ms: i64) -> Option<NormalizedCompletedItem> {
+    let item_id = item.get("id")?.as_str()?;
+    if item_id.is_empty() || item_id.len() > 512 {
+        return None;
+    }
     let raw_type = item.get("type").and_then(Value::as_str).unwrap_or_default();
     let (item_type, role, title, summary, text, status) = match raw_type {
         "userMessage" => {
@@ -641,6 +694,99 @@ fn normalize_completed_item(params: &Value) -> Option<NormalizedCompletedItem> {
     })
 }
 
+fn normalize_thread_snapshot(
+    raw: &Value,
+    expected_thread_id: &str,
+    after_item_id: Option<&str>,
+    limit: usize,
+) -> Result<NormalizedThreadSnapshot, AdapterError> {
+    let thread = raw.get("thread").ok_or(AdapterError::Protocol)?;
+    let thread_id = thread
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or(AdapterError::Protocol)?;
+    if thread_id != expected_thread_id {
+        return Err(AdapterError::Protocol);
+    }
+    let title = thread
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| thread.get("preview").and_then(Value::as_str))
+        .unwrap_or("Untitled thread");
+    let status = thread
+        .pointer("/status/type")
+        .and_then(Value::as_str)
+        .unwrap_or("notLoaded");
+    let write_state = if status == "active" {
+        "busy"
+    } else if status == "notLoaded" {
+        "writable_resumable"
+    } else if status == "idle" {
+        "writable_loaded"
+    } else {
+        "read_only"
+    };
+    let turns = thread
+        .get("turns")
+        .and_then(Value::as_array)
+        .ok_or(AdapterError::Protocol)?;
+    let mut found_after = after_item_id.is_none();
+    let mut after_items = Vec::with_capacity(limit);
+    let mut fallback = VecDeque::with_capacity(limit);
+    for turn in turns {
+        let Some(turn_id) = turn.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let completed_at_ms = turn
+            .get("completedAt")
+            .and_then(Value::as_i64)
+            .or_else(|| turn.get("startedAt").and_then(Value::as_i64))
+            .unwrap_or_default()
+            .saturating_mul(1000);
+        let Some(items) = turn.get("items").and_then(Value::as_array) else {
+            continue;
+        };
+        for raw_item in items {
+            let Some(item) = normalize_item(raw_item, completed_at_ms) else {
+                continue;
+            };
+            if fallback.len() == limit {
+                fallback.pop_front();
+            }
+            fallback.push_back(NormalizedHistoricalItem {
+                turn_id: turn_id.to_owned(),
+                item: item.clone(),
+            });
+            if !found_after {
+                if after_item_id == Some(item.item_id.as_str()) {
+                    found_after = true;
+                }
+                continue;
+            }
+            if after_items.len() < limit {
+                after_items.push(NormalizedHistoricalItem {
+                    turn_id: turn_id.to_owned(),
+                    item,
+                });
+            }
+        }
+    }
+    let items = if after_item_id.is_some() && !found_after {
+        fallback.into_iter().collect()
+    } else if after_item_id.is_none() {
+        fallback.into_iter().collect()
+    } else {
+        after_items
+    };
+    Ok(NormalizedThreadSnapshot {
+        thread_id: thread_id.to_owned(),
+        title: truncate_chars(title, 200),
+        status: status.to_owned(),
+        write_state: write_state.to_owned(),
+        items,
+    })
+}
+
 fn bounded_text(value: &str) -> Option<String> {
     let value = value.trim();
     if value.is_empty() {
@@ -682,6 +828,7 @@ mod tests {
     use super::non_interactive_server_response;
     use super::normalize_completed_item;
     use super::normalize_thread_page;
+    use super::normalize_thread_snapshot;
     use serde_json::json;
 
     #[test]
@@ -751,5 +898,60 @@ mod tests {
         assert_eq!(item.item_type, "agent_message");
         assert_eq!(item.role.as_deref(), Some("assistant"));
         assert_eq!(item.text.as_deref(), Some("Done"));
+    }
+
+    #[test]
+    fn thread_snapshot_keeps_recent_normalized_items_only() {
+        let snapshot = normalize_thread_snapshot(
+            &json!({
+                "thread": {
+                    "id": "thread_1",
+                    "name": "Fix login",
+                    "status": {"type": "notLoaded"},
+                    "turns": [{
+                        "id": "turn_1",
+                        "completedAt": 123,
+                        "items": [
+                            {"type": "userMessage", "id": "item_1", "content": [{"type": "text", "text": "one"}]},
+                            {"type": "agentMessage", "id": "item_2", "text": "two"},
+                            {"type": "agentMessage", "id": "item_3", "text": "three"}
+                        ]
+                    }]
+                }
+            }),
+            "thread_1",
+            None,
+            2,
+        )
+        .unwrap();
+        assert_eq!(snapshot.write_state, "writable_resumable");
+        assert_eq!(snapshot.items.len(), 2);
+        assert_eq!(snapshot.items[0].item.item_id, "item_2");
+        assert_eq!(snapshot.items[1].item.item_id, "item_3");
+    }
+
+    #[test]
+    fn thread_snapshot_after_item_returns_incremental_items() {
+        let snapshot = normalize_thread_snapshot(
+            &json!({
+                "thread": {
+                    "id": "thread_1",
+                    "status": {"type": "idle"},
+                    "turns": [{
+                        "id": "turn_1",
+                        "items": [
+                            {"type": "agentMessage", "id": "item_1", "text": "one"},
+                            {"type": "agentMessage", "id": "item_2", "text": "two"}
+                        ]
+                    }]
+                }
+            }),
+            "thread_1",
+            Some("item_1"),
+            10,
+        )
+        .unwrap();
+        assert_eq!(snapshot.items.len(), 1);
+        assert_eq!(snapshot.items[0].item.item_id, "item_2");
     }
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,11 +15,14 @@ import (
 	collaborationservice "github.com/Wei-Shaw/sub2api/internal/service/collaboration"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 type collaborationHandlerRepositoryStub struct {
 	listUserID int64
 	devices    []collaborationservice.Device
+	device     collaborationservice.Device
+	statuses   chan collaborationdomain.DeviceStatus
 }
 
 func (r *collaborationHandlerRepositoryStub) RegisterDevice(context.Context, int64, collaborationservice.RegisterDeviceInput) (collaborationservice.Device, error) {
@@ -39,10 +43,13 @@ func (r *collaborationHandlerRepositoryStub) RevokeDevice(context.Context, int64
 }
 
 func (r *collaborationHandlerRepositoryStub) GetDevice(context.Context, int64, uuid.UUID) (collaborationservice.Device, error) {
-	return collaborationservice.Device{}, nil
+	return r.device, nil
 }
 
-func (r *collaborationHandlerRepositoryStub) UpdateDevicePresence(context.Context, int64, uuid.UUID, collaborationdomain.DeviceStatus, time.Time) error {
+func (r *collaborationHandlerRepositoryStub) UpdateDevicePresence(_ context.Context, _ int64, _ uuid.UUID, status collaborationdomain.DeviceStatus, _ time.Time) error {
+	if r.statuses != nil {
+		r.statuses <- status
+	}
 	return nil
 }
 
@@ -79,7 +86,7 @@ func TestCollaborationListDevicesUsesJWTSubjectAndHidesInstallationHash(t *testi
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
-	handler := NewCollaborationHandler(service, cfg)
+	handler := NewCollaborationHandler(service, cfg, nil)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -102,5 +109,179 @@ func TestCollaborationListDevicesUsesJWTSubjectAndHidesInstallationHash(t *testi
 	}
 	if !strings.Contains(body, deviceID.String()) || !strings.Contains(body, "thread_write") {
 		t.Fatalf("response omitted public device fields: %s", body)
+	}
+}
+
+type collaborationHandlerPresenceStub struct {
+	touched chan collaborationservice.DevicePresence
+}
+
+func (s *collaborationHandlerPresenceStub) Touch(_ context.Context, presence collaborationservice.DevicePresence) error {
+	s.touched <- presence
+	return nil
+}
+
+func (s *collaborationHandlerPresenceStub) GetMany(context.Context, []uuid.UUID) (map[uuid.UUID]collaborationservice.DevicePresence, error) {
+	return nil, nil
+}
+
+func (s *collaborationHandlerPresenceStub) Remove(context.Context, uuid.UUID) error {
+	return nil
+}
+
+type collaborationHandlerSubscriptionStub struct {
+	events chan collaborationservice.EventEnvelope
+}
+
+func (s *collaborationHandlerSubscriptionStub) Events() <-chan collaborationservice.EventEnvelope {
+	return s.events
+}
+
+func (s *collaborationHandlerSubscriptionStub) Close() error {
+	return nil
+}
+
+type collaborationHandlerEventBusStub struct {
+	deviceEvents chan collaborationservice.EventEnvelope
+	userEvents   chan collaborationservice.EventEnvelope
+	sequence     atomic.Int64
+}
+
+func (b *collaborationHandlerEventBusStub) PublishUser(_ context.Context, _ int64, eventType string, requestID *string, payload map[string]any) (collaborationservice.EventEnvelope, error) {
+	event := b.event(eventType, requestID, payload)
+	b.userEvents <- event
+	return event, nil
+}
+
+func (b *collaborationHandlerEventBusStub) PublishDevice(_ context.Context, _ int64, _ uuid.UUID, eventType string, requestID *string, payload map[string]any) (collaborationservice.EventEnvelope, error) {
+	event := b.event(eventType, requestID, payload)
+	b.deviceEvents <- event
+	return event, nil
+}
+
+func (b *collaborationHandlerEventBusStub) SubscribeUser(context.Context, int64) (collaborationservice.EventSubscription, error) {
+	return &collaborationHandlerSubscriptionStub{events: b.userEvents}, nil
+}
+
+func (b *collaborationHandlerEventBusStub) SubscribeDevice(context.Context, uuid.UUID) (collaborationservice.EventSubscription, error) {
+	return &collaborationHandlerSubscriptionStub{events: b.deviceEvents}, nil
+}
+
+func (b *collaborationHandlerEventBusStub) event(eventType string, requestID *string, payload map[string]any) collaborationservice.EventEnvelope {
+	return collaborationservice.EventEnvelope{
+		Version:    1,
+		Type:       eventType,
+		EventID:    uuid.NewString(),
+		RequestID:  requestID,
+		Sequence:   b.sequence.Add(1),
+		OccurredAt: time.Now().UTC(),
+		Payload:    payload,
+	}
+}
+
+func TestCollaborationWebSocketHeartbeatRefreshesPresence(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	deviceID := uuid.New()
+	repository := &collaborationHandlerRepositoryStub{
+		device: collaborationservice.Device{
+			ID:              deviceID,
+			UserID:          42,
+			ProtocolVersion: 1,
+			Status:          collaborationdomain.DeviceStatusOffline,
+		},
+		statuses: make(chan collaborationdomain.DeviceStatus, 2),
+	}
+	presence := &collaborationHandlerPresenceStub{touched: make(chan collaborationservice.DevicePresence, 1)}
+	eventBus := &collaborationHandlerEventBusStub{
+		deviceEvents: make(chan collaborationservice.EventEnvelope, 4),
+		userEvents:   make(chan collaborationservice.EventEnvelope, 4),
+	}
+	cfg := &config.Config{Collaboration: config.CollaborationConfig{
+		ProtocolVersion:    1,
+		PresenceTTLSeconds: 45,
+		TaskFeeAmount:      "0.100000",
+		TaskFeeCurrency:    "USD",
+		CommandTTLSeconds:  300,
+		MaxPromptBytes:     32 * 1024,
+		MaxEventBytes:      1024 * 1024,
+	}}
+	service, err := collaborationservice.NewService(repository, cfg.Collaboration)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	service.SetPresenceStore(presence)
+	handler := NewCollaborationHandler(service, cfg, eventBus)
+	router := gin.New()
+	router.GET("/ws", func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 42})
+		c.Next()
+	}, handler.WebSocket)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	headers := http.Header{}
+	headers.Set("X-Sub2API-Client-Type", "pc")
+	headers.Set("X-Sub2API-Device-ID", deviceID.String())
+	headers.Set("X-Sub2API-Protocol-Version", "1")
+	connection, _, err := websocket.DefaultDialer.Dial(strings.Replace(server.URL, "http://", "ws://", 1)+"/ws", headers)
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	defer func() { _ = connection.Close() }()
+	requestID := uuid.NewString()
+	if err := connection.WriteJSON(collaborationservice.EventEnvelope{
+		Version:    1,
+		Type:       "heartbeat",
+		EventID:    uuid.NewString(),
+		RequestID:  &requestID,
+		Sequence:   0,
+		OccurredAt: time.Now().UTC(),
+		Payload: map[string]any{
+			"app_server_status":   "ready",
+			"active_thread_count": 2,
+		},
+	}); err != nil {
+		t.Fatalf("WriteJSON() error = %v", err)
+	}
+
+	_ = connection.SetReadDeadline(time.Now().Add(time.Second))
+	var acknowledgement collaborationservice.EventEnvelope
+	if err := connection.ReadJSON(&acknowledgement); err != nil {
+		t.Fatalf("ReadJSON() error = %v", err)
+	}
+	if acknowledgement.Type != "heartbeat.ack" || acknowledgement.RequestID == nil || *acknowledgement.RequestID != requestID {
+		t.Fatalf("acknowledgement = %#v", acknowledgement)
+	}
+	select {
+	case touched := <-presence.touched:
+		if touched.DeviceID != deviceID || touched.Status != collaborationdomain.DeviceStatusOnline || touched.ActiveThreadCount != 2 {
+			t.Fatalf("presence = %#v", touched)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("heartbeat did not refresh presence")
+	}
+	select {
+	case event := <-eventBus.userEvents:
+		if event.Type != "device.presence_changed" || event.Payload["status"] != collaborationdomain.DeviceStatusOnline {
+			t.Fatalf("user event = %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("heartbeat did not publish user presence event")
+	}
+}
+
+func TestCollaborationWebSocketOriginPolicy(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "https://panel.example/ws", nil)
+	request.Host = "panel.example"
+	if !collaborationWebSocketOriginAllowed(request) {
+		t.Fatal("native client without Origin was rejected")
+	}
+	request.Header.Set("Origin", "https://panel.example")
+	if !collaborationWebSocketOriginAllowed(request) {
+		t.Fatal("same-origin browser client was rejected")
+	}
+	request.Header.Set("Origin", "https://evil.example")
+	if collaborationWebSocketOriginAllowed(request) {
+		t.Fatal("cross-origin browser client was accepted")
 	}
 }

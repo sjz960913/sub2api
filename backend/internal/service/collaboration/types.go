@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	collabdomain "github.com/Wei-Shaw/sub2api/internal/domain/collaboration"
@@ -137,6 +138,54 @@ type PresenceStore interface {
 	Touch(context.Context, DevicePresence) error
 	GetMany(context.Context, []uuid.UUID) (map[uuid.UUID]DevicePresence, error)
 	Remove(context.Context, uuid.UUID) error
+}
+
+type EventEnvelope struct {
+	Version    int            `json:"v"`
+	Type       string         `json:"type"`
+	EventID    string         `json:"event_id"`
+	RequestID  *string        `json:"request_id,omitempty"`
+	Sequence   int64          `json:"sequence"`
+	OccurredAt time.Time      `json:"occurred_at"`
+	Payload    map[string]any `json:"payload"`
+}
+
+var collaborationEventTypes = []string{
+	"device.hello",
+	"heartbeat",
+	"heartbeat.ack",
+	"session_sync.requested",
+	"session_sync.completed",
+	"session_sync.failed",
+	"thread_sync.requested",
+	"thread_sync.completed",
+	"thread_sync.failed",
+	"command.dispatched",
+	"command.received",
+	"command.started",
+	"command.item",
+	"command.completed",
+	"command.failed",
+	"command.cancel_requested",
+	"device.presence_changed",
+	"announcement.invalidated",
+	"server.shutdown",
+}
+
+func ValidEventType(eventType string) bool {
+	return slices.Contains(collaborationEventTypes, eventType)
+}
+
+type EventSubscription interface {
+	Events() <-chan EventEnvelope
+	Close() error
+}
+
+type EventBus interface {
+	PublishUser(context.Context, int64, string, *string, map[string]any) (EventEnvelope, error)
+	PublishDevice(context.Context, int64, uuid.UUID, string, *string, map[string]any) (EventEnvelope, error)
+	SubscribeUser(context.Context, int64) (EventSubscription, error)
+	SubscribeDevice(context.Context, uuid.UUID) (EventSubscription, error)
 }
 
 // BalanceCacheInvalidator removes the cached balance snapshot after a committed

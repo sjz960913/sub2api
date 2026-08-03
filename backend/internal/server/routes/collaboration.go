@@ -39,8 +39,8 @@ func RegisterCollaborationRoutes(
 	if h == nil {
 		return
 	}
-	devices := collaboration.Group("/devices")
-	devices.Use(func(c *gin.Context) {
+	enabled := collaboration.Group("")
+	enabled.Use(func(c *gin.Context) {
 		if !cfg.Collaboration.Enabled {
 			response.ErrorWithDetails(
 				c,
@@ -54,6 +54,8 @@ func RegisterCollaborationRoutes(
 		}
 		c.Next()
 	})
+	enabled.GET("/ws", h.WebSocket)
+	devices := enabled.Group("/devices")
 	devices.POST("/register", h.RegisterDevice)
 	devices.GET("", h.ListDevices)
 	devices.PATCH("/:device_id", h.RenameDevice)

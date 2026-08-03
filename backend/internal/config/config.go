@@ -115,6 +115,7 @@ type CollaborationConfig struct {
 	CommandTTLSeconds        int    `mapstructure:"command_ttl_seconds"`
 	SyncTTLSeconds           int    `mapstructure:"sync_ttl_seconds"`
 	MaxPromptBytes           int    `mapstructure:"max_prompt_bytes"`
+	MaxEventBytes            int64  `mapstructure:"max_event_bytes"`
 	MaxCommandsPerUserMinute int    `mapstructure:"max_commands_per_user_per_minute"`
 	MaxConnectionsPerUser    int    `mapstructure:"max_connections_per_user"`
 	MaxConnectionsPerDevice  int    `mapstructure:"max_connections_per_device"`
@@ -1877,6 +1878,7 @@ func setDefaults() {
 	viper.SetDefault("collaboration.command_ttl_seconds", 300)
 	viper.SetDefault("collaboration.sync_ttl_seconds", 10)
 	viper.SetDefault("collaboration.max_prompt_bytes", 32*1024)
+	viper.SetDefault("collaboration.max_event_bytes", 1024*1024)
 	viper.SetDefault("collaboration.max_commands_per_user_per_minute", 20)
 	viper.SetDefault("collaboration.max_connections_per_user", 5)
 	viper.SetDefault("collaboration.max_connections_per_device", 1)

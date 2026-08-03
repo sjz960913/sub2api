@@ -105,6 +105,7 @@ var ProviderSet = wire.NewSet(
 	NewUserPlatformQuotaServiceAdapter, // T14: adapter → service.UserPlatformQuotaRepository
 	NewCollaborationRepository,
 	NewCollaborationPresenceStore,
+	NewCollaborationEventBus,
 
 	// Cache implementations
 	NewGatewayCache,

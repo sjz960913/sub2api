@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -11,24 +15,50 @@ import (
 	collaborationservice "github.com/Wei-Shaw/sub2api/internal/service/collaboration"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+)
+
+const (
+	collaborationCloseTryAgainLater    = 1013
+	collaborationWebSocketWriteTimeout = 10 * time.Second
 )
 
 type CollaborationHandler struct {
 	service                  *collaborationservice.Service
 	heartbeatIntervalSeconds int
 	eventProtocolVersion     int
+	presenceTTL              time.Duration
+	maxEventBytes            int64
+	eventBus                 collaborationservice.EventBus
 	now                      func() time.Time
+	upgrader                 websocket.Upgrader
 }
 
 func NewCollaborationHandler(
 	service *collaborationservice.Service,
 	cfg *config.Config,
+	eventBus collaborationservice.EventBus,
 ) *CollaborationHandler {
+	presenceTTL := 45 * time.Second
+	if cfg.Collaboration.PresenceTTLSeconds > 0 {
+		presenceTTL = time.Duration(cfg.Collaboration.PresenceTTLSeconds) * time.Second
+	}
+	maxEventBytes := cfg.Collaboration.MaxEventBytes
+	if maxEventBytes <= 0 {
+		maxEventBytes = 1024 * 1024
+	}
 	return &CollaborationHandler{
 		service:                  service,
 		heartbeatIntervalSeconds: cfg.Collaboration.HeartbeatIntervalSeconds,
 		eventProtocolVersion:     cfg.Collaboration.ProtocolVersion,
+		presenceTTL:              presenceTTL,
+		maxEventBytes:            maxEventBytes,
+		eventBus:                 eventBus,
 		now:                      time.Now,
+		upgrader: websocket.Upgrader{
+			HandshakeTimeout: collaborationWebSocketWriteTimeout,
+			CheckOrigin:      collaborationWebSocketOriginAllowed,
+		},
 	}
 }
 
@@ -185,5 +215,191 @@ func writeCollaborationError(c *gin.Context, err error) {
 		response.NotFound(c, "Collaboration resource not found")
 	default:
 		response.InternalError(c, "Collaboration request failed")
+	}
+}
+
+func (h *CollaborationHandler) WebSocket(c *gin.Context) {
+	subject, ok := servermiddleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	clientType := strings.ToLower(strings.TrimSpace(c.GetHeader("X-Sub2API-Client-Type")))
+	if clientType != "pc" && clientType != "mobile" {
+		response.BadRequest(c, "Invalid collaboration client type")
+		return
+	}
+	protocolVersion, err := strconv.Atoi(strings.TrimSpace(c.GetHeader("X-Sub2API-Protocol-Version")))
+	if err != nil || protocolVersion != h.eventProtocolVersion {
+		response.ErrorWithDetails(c, http.StatusUpgradeRequired, "Unsupported collaboration protocol", "PROTOCOL_MISMATCH", nil)
+		return
+	}
+	if h.eventBus == nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "Collaboration relay unavailable", "COLLAB_RELAY_UNAVAILABLE", nil)
+		return
+	}
+
+	requestContext, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	var (
+		deviceID     uuid.UUID
+		subscription collaborationservice.EventSubscription
+	)
+	if clientType == "pc" {
+		deviceID, err = uuid.Parse(strings.TrimSpace(c.GetHeader("X-Sub2API-Device-ID")))
+		if err != nil {
+			response.BadRequest(c, "Invalid collaboration device ID")
+			return
+		}
+		if _, err := h.service.AuthenticateDevice(requestContext, subject.UserID, deviceID); err != nil {
+			writeCollaborationError(c, err)
+			return
+		}
+		subscription, err = h.eventBus.SubscribeDevice(requestContext, deviceID)
+	} else {
+		if strings.TrimSpace(c.GetHeader("X-Sub2API-Device-ID")) != "" {
+			response.BadRequest(c, "Mobile collaboration connections cannot claim a device")
+			return
+		}
+		subscription, err = h.eventBus.SubscribeUser(requestContext, subject.UserID)
+	}
+	if err != nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "Collaboration relay unavailable", "COLLAB_RELAY_UNAVAILABLE", nil)
+		return
+	}
+	defer func() { _ = subscription.Close() }()
+
+	connection, err := h.upgrader.Upgrade(c.Writer, c.Request, servermiddleware.ServerTimingResponseHeader(c))
+	if err != nil {
+		return
+	}
+	defer func() { _ = connection.Close() }()
+	connection.SetReadLimit(h.maxEventBytes)
+	_ = connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
+	connection.SetPongHandler(func(string) error {
+		return connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
+	})
+
+	writerDone := make(chan struct{})
+	go h.writeCollaborationEvents(requestContext, connection, subscription.Events(), writerDone)
+	h.readCollaborationEvents(requestContext, connection, subject.UserID, clientType, deviceID)
+	cancel()
+	<-writerDone
+
+	if clientType == "pc" {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		h.service.RecordDisconnect(cleanupCtx, subject.UserID, deviceID)
+		_, _ = h.eventBus.PublishUser(cleanupCtx, subject.UserID, "device.presence_changed", nil, map[string]any{
+			"device_id": deviceID.String(),
+			"status":    "offline",
+		})
+		cleanupCancel()
+	}
+}
+
+func (h *CollaborationHandler) readCollaborationEvents(
+	ctx context.Context,
+	connection *websocket.Conn,
+	userID int64,
+	clientType string,
+	deviceID uuid.UUID,
+) {
+	for {
+		var event collaborationservice.EventEnvelope
+		if err := connection.ReadJSON(&event); err != nil {
+			return
+		}
+		if ctx.Err() != nil || event.Version != 1 || !collaborationservice.ValidEventType(event.Type) || len(event.EventID) < 8 || len(event.Payload) > 64 {
+			return
+		}
+		if clientType == "mobile" {
+			if event.Type != "heartbeat" {
+				return
+			}
+			_, _ = h.eventBus.PublishUser(ctx, userID, "heartbeat.ack", event.RequestID, map[string]any{
+				"server_time": h.now().UTC(),
+			})
+			continue
+		}
+		if event.Type == "device.hello" {
+			continue
+		}
+		if event.Type != "heartbeat" {
+			// Command and sync events are enabled only after their authoritative
+			// state transition handlers are attached. Unknown client writes fail
+			// closed instead of being blindly rebroadcast.
+			return
+		}
+		appServerStatus, ok := event.Payload["app_server_status"].(string)
+		if !ok {
+			return
+		}
+		activeThreadCount, ok := collaborationEventInteger(event.Payload["active_thread_count"])
+		if !ok {
+			return
+		}
+		presence, err := h.service.RecordHeartbeat(ctx, userID, deviceID, appServerStatus, activeThreadCount)
+		if err != nil {
+			return
+		}
+		_ = connection.SetReadDeadline(time.Now().Add(2 * h.presenceTTL))
+		_, _ = h.eventBus.PublishDevice(ctx, userID, deviceID, "heartbeat.ack", event.RequestID, map[string]any{
+			"server_time": h.now().UTC(),
+		})
+		_, _ = h.eventBus.PublishUser(ctx, userID, "device.presence_changed", event.RequestID, map[string]any{
+			"device_id":    deviceID.String(),
+			"status":       presence.Status,
+			"last_seen_at": presence.LastSeenAt,
+		})
+	}
+}
+
+func (h *CollaborationHandler) writeCollaborationEvents(
+	ctx context.Context,
+	connection *websocket.Conn,
+	events <-chan collaborationservice.EventEnvelope,
+	done chan<- struct{},
+) {
+	defer close(done)
+	defer func() { _ = connection.Close() }()
+	for {
+		select {
+		case <-ctx.Done():
+			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
+			_ = connection.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "closed"), time.Now().Add(collaborationWebSocketWriteTimeout))
+			return
+		case event, ok := <-events:
+			if !ok {
+				_ = connection.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(collaborationCloseTryAgainLater, "relay overflow"), time.Now().Add(collaborationWebSocketWriteTimeout))
+				return
+			}
+			_ = connection.SetWriteDeadline(time.Now().Add(collaborationWebSocketWriteTimeout))
+			if err := connection.WriteJSON(event); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func collaborationWebSocketOriginAllowed(request *http.Request) bool {
+	origin := strings.TrimSpace(request.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	return err == nil && strings.EqualFold(parsed.Host, request.Host) && (parsed.Scheme == "https" || parsed.Scheme == "http")
+}
+
+func collaborationEventInteger(value any) (int, bool) {
+	switch typed := value.(type) {
+	case float64:
+		converted := int(typed)
+		return converted, typed == float64(converted)
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	default:
+		return 0, false
 	}
 }

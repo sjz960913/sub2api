@@ -57,7 +57,7 @@ func TestCollaborationDeviceRoutesFailClosedWhenDisabled(t *testing.T) {
 	RegisterCollaborationRoutes(
 		router.Group("/api/v1"),
 		cfg,
-		handler.NewCollaborationHandler(nil, cfg),
+		handler.NewCollaborationHandler(nil, cfg, nil),
 		servermiddleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }),
 	)
 

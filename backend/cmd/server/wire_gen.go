@@ -305,11 +305,12 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	batchImageHandler := handler.ProvideBatchImageHandler(batchImagePublicService, batchImageDownloadService, batchImageCleanupService, openAIGatewayHandler)
 	collaborationRepository := repository.NewCollaborationRepository(db)
 	presenceStore := repository.NewCollaborationPresenceStore(redisClient, configConfig)
-	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator, presenceStore)
+	eventBus := repository.NewCollaborationEventBus(redisClient)
+	payloadStore := repository.NewCollaborationPayloadStore(redisClient, configConfig)
+	collaborationService, err := service.ProvideCollaborationService(collaborationRepository, configConfig, billingCacheService, apiKeyAuthCacheInvalidator, presenceStore, eventBus, payloadStore)
 	if err != nil {
 		return nil, err
 	}
-	eventBus := repository.NewCollaborationEventBus(redisClient)
 	connectionLeaseStore := repository.NewCollaborationConnectionLeaseStore(redisClient, configConfig)
 	collaborationHandler := handler.NewCollaborationHandler(collaborationService, configConfig, eventBus, connectionLeaseStore)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)

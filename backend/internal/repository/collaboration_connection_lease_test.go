@@ -27,8 +27,8 @@ func TestCollaborationConnectionLeaseEnforcesUserAndDeviceLimits(t *testing.T) {
 		MaxConnectionsPerUser:   2,
 		MaxConnectionsPerDevice: 1,
 	}}
-	store := NewCollaborationConnectionLeaseStore(client, cfg).(*collaborationConnectionLeaseStore)
-	otherStore := NewCollaborationConnectionLeaseStore(otherClient, cfg).(*collaborationConnectionLeaseStore)
+	store := concreteCollaborationConnectionLeaseStore(t, client, cfg)
+	otherStore := concreteCollaborationConnectionLeaseStore(t, otherClient, cfg)
 	ctx := context.Background()
 	deviceID := uuid.New()
 	first := collaborationservice.ConnectionLease{UserID: 42, DeviceID: deviceID, ConnectionID: uuid.New()}
@@ -52,11 +52,11 @@ func TestCollaborationConnectionLeaseExpiresAndRenews(t *testing.T) {
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
-	store := NewCollaborationConnectionLeaseStore(client, &config.Config{Collaboration: config.CollaborationConfig{
+	store := concreteCollaborationConnectionLeaseStore(t, client, &config.Config{Collaboration: config.CollaborationConfig{
 		PresenceTTLSeconds:      1,
 		MaxConnectionsPerUser:   1,
 		MaxConnectionsPerDevice: 1,
-	}}).(*collaborationConnectionLeaseStore)
+	}})
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	store.now = func(context.Context) (time.Time, error) { return now, nil }
 	ctx := context.Background()
@@ -70,6 +70,19 @@ func TestCollaborationConnectionLeaseExpiresAndRenews(t *testing.T) {
 	now = now.Add(1100 * time.Millisecond)
 	assertLeaseRenew(t, store, ctx, first, false)
 	assertLeaseAcquire(t, store, ctx, second, true)
+}
+
+func concreteCollaborationConnectionLeaseStore(
+	t *testing.T,
+	client *redis.Client,
+	cfg *config.Config,
+) *collaborationConnectionLeaseStore {
+	t.Helper()
+	store, ok := NewCollaborationConnectionLeaseStore(client, cfg).(*collaborationConnectionLeaseStore)
+	if !ok {
+		t.Fatal("NewCollaborationConnectionLeaseStore() returned unexpected implementation")
+	}
+	return store
 }
 
 func assertLeaseAcquire(

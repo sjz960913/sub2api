@@ -90,6 +90,11 @@ pub struct PanelAuthService {
     state: Mutex<AuthState>,
 }
 
+pub(crate) struct PanelConnectionContext {
+    pub site_url: String,
+    pub access_token: Zeroizing<String>,
+}
+
 #[derive(Default)]
 struct AuthState {
     pending_two_factor: Option<PendingTwoFactor>,
@@ -181,6 +186,18 @@ impl PanelAuthService {
 
     pub fn secure_store_supported(&self) -> bool {
         self.store.is_supported()
+    }
+
+    pub(crate) fn connection_context(&self) -> Result<PanelConnectionContext, PanelAuthError> {
+        let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let session = state
+            .session
+            .as_ref()
+            .ok_or(PanelAuthError::SessionNotFound)?;
+        Ok(PanelConnectionContext {
+            site_url: session.public.site_url.clone(),
+            access_token: Zeroizing::new(session.access_token.to_string()),
+        })
     }
 
     pub fn status(&self) -> PanelAuthStatus {
@@ -355,16 +372,6 @@ impl PanelAuthService {
         state.session = None;
         state.pending_two_factor = None;
         Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub fn access_token(&self) -> Result<Zeroizing<String>, PanelAuthError> {
-        let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        let session = state
-            .session
-            .as_ref()
-            .ok_or(PanelAuthError::SessionNotFound)?;
-        Ok(Zeroizing::new(session.access_token.to_string()))
     }
 
     fn finish_login(

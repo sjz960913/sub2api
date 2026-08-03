@@ -10,8 +10,8 @@
 |---|---|---|
 | M0 协议与三端骨架 | 已完成 | CI 已通过协议、Go、Flutter、PC Web 与 Tauri Rust 原生壳检查 |
 | M1 后端设备与账务 | 已完成 | CI run `30792876681` 的 unit、真实 PostgreSQL integration、lint 与生成检查全部通过 |
-| M2 实时中继 | 进行中 | presence、跨实例事件总线、JWT WebSocket、连接租约、短期 payload、sync REST/回传和 command dispatch/状态回传均已通过 CI；限流、撤销断线与 fake PC 端到端仍待完成 |
-| M3 PC Codex Adapter | 未开始 | 只有 Tauri/React 壳、SecretStore 边界和脱敏函数 |
+| M2 实时中继 | 已完成 | presence、跨实例事件总线、JWT WebSocket、连接租约、短期 payload、sync/command 中继、限流、撤销断线、token 到期和 fake PC 跨实例流程均已通过 CI，并有进程内运行指标 |
+| M3 PC Codex Adapter | 进行中 | app-server stdio adapter、原生安全凭据库、Panel 登录/2FA/刷新恢复和真实会话查询已实现；后端 WebSocket relay 与完整 item 规范化仍待接入 |
 | M4 Flutter 认证与目录 | 部分提前实现 | 四项导航、共享 Key/分组选择、个人中心交互、admin 深链守卫和固定充值外链已写；真实 API/安全存储尚未接入 |
 | M5 聊天与图片 | 部分提前实现 | 聊天详情、共享当前 Key、消息输入和生图参数页已写；网关、流式响应与本地持久化尚未接入 |
 | M6 移动端协同 | 部分提前实现 | 极简查询、会话列表/详情、手动同步和任务输入已写；当前仍为界面数据，尚未接实时 API |
@@ -52,7 +52,10 @@ node protocol/scripts/mock-smoke.mjs
 - PC 心跳刷新 Redis TTL 与数据库投影，并向同用户手机广播在线状态；Redis Lua 连接租约原子限制单用户和单设备连接数。
 - session/thread sync REST 会在设备在线且 capability 匹配时创建带请求哈希的幂等记录，通过 Redis 中继到 PC，并把规范化结果短期保存到用户隔离的 Redis payload key；数据库只保存状态和计数。
 - command REST 在后端完成原子直接扣费后保存短期 prompt、派发到目标 PC，并接收 `received/started/item/completed/failed`；状态更新使用 user/device scope 与旧状态条件，冲突重放不会覆盖终态。
+- command cancel 会向目标 PC 发送 `command.cancel_requested`；终态重复取消保持幂等，不新增扣费、不修改账务记录。
 - 移动端 command DTO 不返回 fee、currency、charge 或余额字段；同步/流式 payload 会拒绝 token、API Key、账务字段、原始路径和未规范化 item。
+- Redis sliding-window limiter 已接入 command 提交；设备撤销会跨实例发布 `server.shutdown(device_revoked)` 并以 4403 断开 PC，Access Token 到期会以 4401 主动关闭。
+- fake PC 集成测试覆盖跨后端实例注册、上线、session sync、command 派发与状态回传；进程内指标覆盖 WS、presence、sync、command、charge、限流和 relay failure。
 
 ### Flutter Android
 
@@ -71,8 +74,13 @@ node protocol/scripts/mock-smoke.mjs
 
 - 新增 Tauri 2 + React 工程与“概览、会话、实时任务、设置”四项桌面导航。
 - 界面没有费用、退款、审批队列或电脑确认。
-- Rust 端预留 SecretStore facade、字段级脱敏和最小 Tauri command。
-- React/TypeScript 生产构建已通过：`vite v8.2.0`，16 modules transformed。
+- 新增 Codex app-server stdio adapter，完成 `initialize/initialized`、CLI thread 列表、thread read/resume、turn start/interrupt；未知 server request 返回 method-not-found，审批和 elicitation 请求直接拒绝，不提供 PC 审批流程。
+- app-server stderr 仅排空不记录；会话路径只保留末级标签，事件缓冲固定 256，溢出时丢弃 delta 并等待后续同步恢复。
+- 使用系统原生安全凭据库保存 Refresh Token：Windows Credential Manager、macOS Keychain、Linux Secret Service；账号标签使用站点+邮箱 SHA-256，不暴露原始身份，密码不持久化。
+- 新增原生 Panel 登录、TOTP 2FA、Refresh Token 轮换、进程内 Access Token、启动恢复和注销；远程站点强制 HTTPS，仅允许 loopback 使用 HTTP，HTTP redirect 被禁用，响应体上限为 1 MiB。
+- React 登录页和设置页已连接原生命令；登录成功后自动启动 app-server，会话“查询”读取真实 CLI thread，不再展示静态会话。
+- 面向前端的 session/status DTO 不包含 access/refresh token、密码或账务字段，原生错误只返回稳定错误码。
+- React/TypeScript 生产构建已通过：`vite v8.2.0`，18 modules transformed。
 - 使用内置 imagegen 生成 PC Companion 图标，转换为 Tauri 所需 RGBA PNG 后，Linux 原生 `cargo check` 已通过。
 - `npm audit`：0 vulnerabilities。
 
@@ -84,12 +92,15 @@ node protocol/scripts/mock-smoke.mjs
 - CI run `30793535264` 已通过 presence、Wire 可复现检查和全部三端任务，并产出已提交的 Cargo/Flutter lockfile。
 - CI run `30795527650` 已通过重设计后的 Flutter 四栏界面、交互 Widget tests 和全部三端任务。
 - CI run `30798309619` 已通过最新 protocol、Go unit、真实 PostgreSQL integration、golangci-lint、Flutter、PC Web 与 Tauri Rust；覆盖 sync 幂等/CAS/租户隔离、command 状态回传和移动端账务字段隔离。Wire 生成 run `30798165025` 也已通过并提交产物。
+- CI run `30799267889` 已通过 Redis command sliding-window limiter；run `30800107425` 已通过设备撤销跨实例主动断线；run `30800794592` 已通过 fake PC 跨实例完整协同流程；run `30801045629` 已通过 JWT 到期主动断线。
+- CI run `30802124650` 已通过协同运行指标，run `30802152905` 已通过 Codex app-server adapter 和 Rust 单测；run `30802317722` 已通过有界事件缓冲，run `30802567107` 已通过 command cancel 中继。
+- CI run `30802921268` 已通过原生 keyring 三平台依赖的 Linux Rust 构建与单测；run `30803405542` 已完整通过 Panel 登录、2FA、refresh/恢复与安全 DTO 实现。
 - 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
 任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 完成 M2：命令速率限制、设备撤销主动断线、token 过期重连和跨实例 fake PC 端到端测试/metrics。
-2. 实现 M3 Codex app-server adapter 和系统 keyring。
-3. 把 Flutter 静态数据替换为真实站点认证、Key/分组、公告、兑换、聊天、图片与协同接口。
+1. 完成 M3：PC 注册设备并连接 collaboration WebSocket，把 session/thread sync、command、cancel 与 app-server 双向映射。
+2. 把 Flutter 静态数据替换为真实站点认证、Key/分组、公告、兑换、聊天、图片与协同接口。
+3. 增加 PC 安装级身份、断线重连、token 到期刷新和 relay 恢复测试，再进入 Android 端到端联调。

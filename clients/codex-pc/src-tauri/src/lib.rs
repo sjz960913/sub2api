@@ -1,4 +1,5 @@
 mod codex_adapter;
+mod device_registration;
 mod panel_auth;
 mod redaction;
 mod secret_store;
@@ -7,6 +8,9 @@ mod protocol;
 use codex_adapter::AppServerClient;
 use codex_adapter::StartedTask;
 use codex_adapter::ThreadPage;
+use device_registration::DeviceRegistrar;
+use device_registration::DeviceRegistrationError;
+use device_registration::RegisteredDevice;
 use panel_auth::LoginResult;
 use panel_auth::PanelAuthService;
 use panel_auth::PanelAuthStatus;
@@ -36,6 +40,8 @@ struct CodexAdapterStatus {
 
 struct PanelAuthState {
     service: Arc<PanelAuthService>,
+    registrar: Arc<DeviceRegistrar>,
+    registered_device: Mutex<Option<RegisteredDevice>>,
 }
 
 impl Default for PanelAuthState {
@@ -43,8 +49,13 @@ impl Default for PanelAuthState {
         let store = Arc::new(NativeSecretStore::default());
         Self {
             service: Arc::new(
-                PanelAuthService::new(store).expect("failed to initialize panel HTTP client"),
+                PanelAuthService::new(store.clone())
+                    .expect("failed to initialize panel HTTP client"),
             ),
+            registrar: Arc::new(
+                DeviceRegistrar::new(store).expect("failed to initialize device registrar"),
+            ),
+            registered_device: Mutex::new(None),
         }
     }
 }
@@ -126,6 +137,41 @@ async fn panel_logout(state: State<'_, PanelAuthState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn collaboration_register_device(
+    state: State<'_, PanelAuthState>,
+) -> Result<RegisteredDevice, String> {
+    let auth = Arc::clone(&state.service);
+    let registrar = Arc::clone(&state.registrar);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut context = auth
+            .connection_context()
+            .map_err(|error| error.public_code().to_owned())?;
+        match registrar.register(&context) {
+            Ok(device) => Ok(device),
+            Err(DeviceRegistrationError::Unauthorized) => {
+                auth.refresh()
+                    .map_err(|error| error.public_code().to_owned())?;
+                context = auth
+                    .connection_context()
+                    .map_err(|error| error.public_code().to_owned())?;
+                registrar
+                    .register(&context)
+                    .map_err(|error| error.public_code().to_owned())
+            }
+            Err(error) => Err(error.public_code().to_owned()),
+        }
+    })
+    .await
+    .map_err(|_| "COLLAB_TASK_ERROR".to_owned())??;
+    let mut registered = state
+        .registered_device
+        .lock()
+        .map_err(|_| "COLLAB_STATE_ERROR".to_owned())?;
+    *registered = Some(result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
 fn codex_start(state: State<'_, CodexAdapterState>) -> Result<CodexAdapterStatus, String> {
     let mut client = state.client.lock().map_err(|_| "CODEX_STATE_ERROR")?;
     if client.is_none() {
@@ -194,6 +240,7 @@ pub fn run() {
             panel_restore_session,
             panel_refresh_session,
             panel_logout,
+            collaboration_register_device,
             codex_start,
             codex_stop,
             codex_list_threads,

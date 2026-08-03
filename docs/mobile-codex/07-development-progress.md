@@ -10,7 +10,7 @@
 |---|---|---|
 | M0 协议与三端骨架 | 已完成 | CI 已通过协议、Go、Flutter、PC Web 与 Tauri Rust 原生壳检查 |
 | M1 后端设备与账务 | 已完成 | CI run `30792876681` 的 unit、真实 PostgreSQL integration、lint 与生成检查全部通过 |
-| M2 实时中继 | 进行中 | Redis presence、跨实例事件总线、JWT WebSocket 和心跳已落盘；连接租约、sync payload 与 command dispatch 尚未完成 |
+| M2 实时中继 | 进行中 | presence、跨实例事件总线、JWT WebSocket、连接租约、短期 payload、sync REST/回传和 command dispatch/状态回传均已通过 CI；限流、撤销断线与 fake PC 端到端仍待完成 |
 | M3 PC Codex Adapter | 未开始 | 只有 Tauri/React 壳、SecretStore 边界和脱敏函数 |
 | M4 Flutter 认证与目录 | 部分提前实现 | 四项导航、共享 Key/分组选择、个人中心交互、admin 深链守卫和固定充值外链已写；真实 API/安全存储尚未接入 |
 | M5 聊天与图片 | 部分提前实现 | 聊天详情、共享当前 Key、消息输入和生图参数页已写；网关、流式响应与本地持久化尚未接入 |
@@ -49,7 +49,10 @@ node protocol/scripts/mock-smoke.mjs
 - 提交成功后失效余额与 API Key 鉴权快照；后台 sweeper 只把超时任务/同步改为 `expired`，不会退款。
 - Wire 生成图已纳入可复现 workflow，生产路由、服务、仓储、清理器和关闭流程均已接线。
 - 新增 Redis Pub/Sub 跨实例事件总线和按用户递增序列；WebSocket 使用现有 Panel JWT、协议/客户端/设备头校验、单 writer、事件大小限制、慢消费者关闭和安全 Origin 策略。
-- PC 心跳刷新 Redis TTL 与数据库投影，并向同用户手机广播在线状态；command/sync 客户端事件在权威状态迁移接入前保持 fail-closed。
+- PC 心跳刷新 Redis TTL 与数据库投影，并向同用户手机广播在线状态；Redis Lua 连接租约原子限制单用户和单设备连接数。
+- session/thread sync REST 会在设备在线且 capability 匹配时创建带请求哈希的幂等记录，通过 Redis 中继到 PC，并把规范化结果短期保存到用户隔离的 Redis payload key；数据库只保存状态和计数。
+- command REST 在后端完成原子直接扣费后保存短期 prompt、派发到目标 PC，并接收 `received/started/item/completed/failed`；状态更新使用 user/device scope 与旧状态条件，冲突重放不会覆盖终态。
+- 移动端 command DTO 不返回 fee、currency、charge 或余额字段；同步/流式 payload 会拒绝 token、API Key、账务字段、原始路径和未规范化 item。
 
 ### Flutter Android
 
@@ -62,7 +65,7 @@ node protocol/scripts/mock-smoke.mjs
 - “我的”包含兑换 Dialog、公告 Bottom Sheet、固定外部充值地址与管理员占位入口。
 - 公告列表支持全部/未读筛选；“我的”按参考图改为资料卡和分组菜单，充值仍只调用固定外部 HTTPS 地址。
 - 默认角色为普通用户，`/admin` 深链会重定向到“我的”；普通用户不渲染管理员入口。
-- 已写 Widget tests，尚未在本机运行 Flutter analyze/test。
+- Widget tests 已覆盖四项底栏、无费用/退款/审批文案、Key/分组联动、个人中心入口与固定充值外链；Flutter analyze/test 已在 CI 通过。
 
 ### PC Companion
 
@@ -79,13 +82,14 @@ node protocol/scripts/mock-smoke.mjs
 
 - CI run `30792876681` 已通过 protocol、Go unit/integration/lint、Flutter analyze/test、PC Web 和 Tauri Rust。真实 PostgreSQL 场景覆盖 50 并发幂等、余额不足回滚、跨用户隔离、撤销设备、过期收敛且不退款。
 - CI run `30793535264` 已通过 presence、Wire 可复现检查和全部三端任务，并产出已提交的 Cargo/Flutter lockfile。
-- M2 WebSocket/event bus 与本轮 Flutter 交互改动正在后续 run 验证，未完成前不计为对应里程碑已交付。
+- CI run `30795527650` 已通过重设计后的 Flutter 四栏界面、交互 Widget tests 和全部三端任务。
+- CI run `30798309619` 已通过最新 protocol、Go unit、真实 PostgreSQL integration、golangci-lint、Flutter、PC Web 与 Tauri Rust；覆盖 sync 幂等/CAS/租户隔离、command 状态回传和移动端账务字段隔离。Wire 生成 run `30798165025` 也已通过并提交产物。
 - 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
 任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 完成 M2：JWT WebSocket、跨实例事件总线、sync payload TTL、命令 dispatch、背压与重连测试。
+1. 完成 M2：命令速率限制、设备撤销主动断线、token 过期重连和跨实例 fake PC 端到端测试/metrics。
 2. 实现 M3 Codex app-server adapter 和系统 keyring。
 3. 把 Flutter 静态数据替换为真实站点认证、Key/分组、公告、兑换、聊天、图片与协同接口。

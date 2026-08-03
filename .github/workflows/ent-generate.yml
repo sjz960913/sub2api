@@ -1,0 +1,31 @@
+name: Generate Ent
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Generate Ent client
+        working-directory: backend
+        run: go generate ./ent
+      - name: Summarize generated changes
+        run: git status --short -- backend/ent
+      - name: Upload generated Ent tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: ent-generated
+          path: backend/ent
+          if-no-files-found: error
+          retention-days: 1

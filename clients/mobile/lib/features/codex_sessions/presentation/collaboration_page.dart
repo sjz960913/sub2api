@@ -20,6 +20,7 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(collaborationOverviewProvider);
+    final device = state.selectedDevice;
     final filteredSessions = state.sessions
         .where((session) => '${session.title}${session.preview}'.toLowerCase().contains(query))
         .toList();
@@ -36,27 +37,47 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                 children: [
                   const AppIconTile(Icons.desktop_windows_rounded),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Workstation',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                          state.isLoadingDevices
+                              ? '正在查询电脑…'
+                              : device?.name ?? '没有已登录的电脑',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
                         ),
-                        SizedBox(height: 5),
+                        const SizedBox(height: 5),
                         Row(
                           children: [
-                            Icon(Icons.circle, color: AppColors.success, size: 10),
-                            SizedBox(width: 6),
-                            Text('Linux · 在线', style: TextStyle(color: AppColors.muted)),
+                            Icon(
+                              Icons.circle,
+                              color: device?.isOnline == true ? AppColors.success : AppColors.muted,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              device == null
+                                  ? '请先在电脑端登录同一站点'
+                                  : '${device.platform} · ${device.isOnline ? '在线' : '离线'}',
+                              style: const TextStyle(color: AppColors.muted),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
                   TextButton(
-                    onPressed: () => _showDevice(context),
+                    onPressed: state.devices.isEmpty
+                        ? null
+                        : () async {
+                            final selected = await _showDevice(context, state.devices);
+                            if (selected != null) {
+                              ref
+                                  .read(collaborationOverviewProvider.notifier)
+                                  .selectDevice(selected);
+                            }
+                          },
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [Text('查看设备'), Icon(Icons.chevron_right_rounded, size: 18)],
@@ -68,14 +89,25 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
           ),
           const SizedBox(height: 18),
           FilledButton.icon(
-            onPressed: () {
-              ref.read(collaborationOverviewProvider.notifier).revealSessions();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已获取电脑会话')),
-              );
-            },
-            icon: const Icon(Icons.sync_rounded),
-            label: const Text('查询电脑会话'),
+            onPressed: device?.isOnline == true && !state.isQuerying
+                ? () async {
+                    final loaded = await ref
+                        .read(collaborationOverviewProvider.notifier)
+                        .querySessions();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(loaded ? '已获取电脑会话' : '查询失败，请稍后重试')),
+                      );
+                    }
+                  }
+                : null,
+            icon: state.isQuerying
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync_rounded),
+            label: Text(state.isQuerying ? '正在查询…' : '查询电脑会话'),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -161,18 +193,32 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
-Future<void> _showDevice(BuildContext context) {
-  return showModalBottomSheet<void>(
+Future<String?> _showDevice(
+  BuildContext context,
+  List<CollaborationDeviceSummary> devices,
+) {
+  return showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
-    builder: (context) => const Padding(
-      padding: EdgeInsets.fromLTRB(20, 4, 20, 28),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: AppIconTile(Icons.desktop_windows_rounded),
-        title: Text('Workstation', style: TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('Linux · Codex 已就绪'),
-        trailing: Icon(Icons.circle, color: AppColors.success, size: 12),
+    builder: (context) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final device in devices)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const AppIconTile(Icons.desktop_windows_rounded),
+              title: Text(device.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${device.platform} · ${device.isOnline ? '在线' : '离线'}'),
+              trailing: Icon(
+                Icons.circle,
+                color: device.isOnline ? AppColors.success : AppColors.muted,
+                size: 12,
+              ),
+              onTap: () => Navigator.pop(context, device.id),
+            ),
+        ],
       ),
     ),
   );

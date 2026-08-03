@@ -203,6 +203,7 @@ class PanelApiClient {
     String path, {
     Object? data,
     Map<String, dynamic>? query,
+    Map<String, String>? headers,
     bool authenticated = true,
     bool retryAfterRefresh = true,
   }) async {
@@ -228,6 +229,7 @@ class PanelApiClient {
             'Accept-Language': 'zh-CN',
             'X-Sub2API-Client-Type': 'mobile',
             if (authenticated) 'Authorization': 'Bearer $_accessToken',
+            ...?headers,
           },
         ),
       );
@@ -241,6 +243,7 @@ class PanelApiClient {
         path,
         data: data,
         query: query,
+        headers: headers,
         authenticated: authenticated,
         retryAfterRefresh: false,
       );

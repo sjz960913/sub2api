@@ -110,7 +110,7 @@ void main() {
     expect(find.textContaining('sk-test'), findsNothing);
   });
 
-  testWidgets('collaboration stays minimal and reveals sessions on query', (tester) async {
+  testWidgets('collaboration stays minimal and contains no fake sessions', (tester) async {
     final container = ProviderContainer(
       overrides: [
         initialSessionStateProvider.overrideWithValue(_authenticatedSession),
@@ -128,10 +128,6 @@ void main() {
 
     expect(find.text('查询电脑会话'), findsOneWidget);
     expect(find.text('修复支付回调'), findsNothing);
-    await tester.tap(find.text('查询电脑会话'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('修复支付回调'), findsOneWidget);
     expect(find.textContaining('审批'), findsNothing);
     expect(find.textContaining('退款'), findsNothing);
   });

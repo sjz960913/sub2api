@@ -134,7 +134,7 @@ class ChatRepository {
     }
     if (content is List) {
       final parts = content
-          .whereType<Map>()
+          .whereType<Map<dynamic, dynamic>>()
           .map((item) => item['text'])
           .whereType<String>()
           .toList(growable: false);

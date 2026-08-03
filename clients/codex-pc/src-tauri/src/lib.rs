@@ -1,4 +1,5 @@
 mod codex_adapter;
+mod panel_auth;
 mod redaction;
 mod secret_store;
 mod protocol;
@@ -6,9 +7,12 @@ mod protocol;
 use codex_adapter::AppServerClient;
 use codex_adapter::StartedTask;
 use codex_adapter::ThreadPage;
+use panel_auth::LoginResult;
+use panel_auth::PanelAuthService;
+use panel_auth::PanelAuthStatus;
+use panel_auth::PublicSession;
 use serde::Serialize;
 use secret_store::NativeSecretStore;
-use secret_store::SecretStore;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tauri::State;
@@ -30,25 +34,95 @@ struct CodexAdapterStatus {
     running: bool,
 }
 
-struct SecretStoreState {
-    store: Arc<dyn SecretStore>,
+struct PanelAuthState {
+    service: Arc<PanelAuthService>,
 }
 
-impl Default for SecretStoreState {
+impl Default for PanelAuthState {
     fn default() -> Self {
+        let store = Arc::new(NativeSecretStore::default());
         Self {
-            store: Arc::new(NativeSecretStore::default()),
+            service: Arc::new(
+                PanelAuthService::new(store).expect("failed to initialize panel HTTP client"),
+            ),
         }
     }
 }
 
 #[tauri::command]
-fn companion_status(state: State<'_, SecretStoreState>) -> CompanionStatus {
+fn companion_status(state: State<'_, PanelAuthState>) -> CompanionStatus {
     CompanionStatus {
         protocol_version: 1,
-        keyring_available: state.store.is_supported(),
+        keyring_available: state.service.secure_store_supported(),
         approval_ui: false,
     }
+}
+
+#[tauri::command]
+fn panel_auth_status(state: State<'_, PanelAuthState>) -> PanelAuthStatus {
+    state.service.status()
+}
+
+#[tauri::command]
+async fn panel_login(
+    state: State<'_, PanelAuthState>,
+    site_url: String,
+    email: String,
+    password: String,
+    turnstile_token: Option<String>,
+) -> Result<LoginResult, String> {
+    let service = Arc::clone(&state.service);
+    tauri::async_runtime::spawn_blocking(move || {
+        service.login(site_url, email, password, turnstile_token)
+    })
+    .await
+    .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
+    .map_err(|error| error.public_code().to_owned())
+}
+
+#[tauri::command]
+async fn panel_complete_two_factor(
+    state: State<'_, PanelAuthState>,
+    code: String,
+) -> Result<PublicSession, String> {
+    let service = Arc::clone(&state.service);
+    tauri::async_runtime::spawn_blocking(move || service.complete_two_factor(code))
+        .await
+        .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
+        .map_err(|error| error.public_code().to_owned())
+}
+
+#[tauri::command]
+async fn panel_restore_session(
+    state: State<'_, PanelAuthState>,
+    site_url: String,
+    email: String,
+) -> Result<PublicSession, String> {
+    let service = Arc::clone(&state.service);
+    tauri::async_runtime::spawn_blocking(move || service.restore(site_url, email))
+        .await
+        .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
+        .map_err(|error| error.public_code().to_owned())
+}
+
+#[tauri::command]
+async fn panel_refresh_session(
+    state: State<'_, PanelAuthState>,
+) -> Result<PublicSession, String> {
+    let service = Arc::clone(&state.service);
+    tauri::async_runtime::spawn_blocking(move || service.refresh())
+        .await
+        .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
+        .map_err(|error| error.public_code().to_owned())
+}
+
+#[tauri::command]
+async fn panel_logout(state: State<'_, PanelAuthState>) -> Result<(), String> {
+    let service = Arc::clone(&state.service);
+    tauri::async_runtime::spawn_blocking(move || service.logout())
+        .await
+        .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
+        .map_err(|error| error.public_code().to_owned())
 }
 
 #[tauri::command]
@@ -111,9 +185,15 @@ fn codex_interrupt(
 pub fn run() {
     tauri::Builder::default()
         .manage(CodexAdapterState::default())
-        .manage(SecretStoreState::default())
+        .manage(PanelAuthState::default())
         .invoke_handler(tauri::generate_handler![
             companion_status,
+            panel_auth_status,
+            panel_login,
+            panel_complete_two_factor,
+            panel_restore_session,
+            panel_refresh_session,
+            panel_logout,
             codex_start,
             codex_stop,
             codex_list_threads,

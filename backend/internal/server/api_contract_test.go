@@ -537,6 +537,8 @@ func TestAPIContracts(t *testing.T) {
 					"total_tokens": 53,
 					"total_cost": 0.75,
 					"total_actual_cost": 0.75,
+					"total_profit": 0,
+					"total_gross_margin": 0,
 					"average_duration_ms": 200
 				}
 			}`,

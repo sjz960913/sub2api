@@ -36,11 +36,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         case SessionPhase.requiresTwoFactor:
           return location == '/auth/login' ? null : '/auth/login';
         case SessionPhase.authenticated:
-          if (location == '/launch' || location == '/site/setup' || location == '/auth/login') {
+          if (location == '/launch' ||
+              location == '/site/setup' ||
+              location == '/auth/login') {
             return '/app/chat';
           }
       }
-      if (state.matchedLocation.startsWith('/admin') && role != UserRole.admin) {
+      if (state.matchedLocation.startsWith('/admin') &&
+          role != UserRole.admin) {
         return '/app/profile';
       }
       return null;
@@ -60,7 +63,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'new',
-                    builder: (_, _) => const ChatThreadPage(conversationId: 'new'),
+                    builder: (_, _) =>
+                        const ChatThreadPage(conversationId: 'new'),
                   ),
                   GoRoute(
                     path: ':conversation_id',
@@ -89,10 +93,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/keys', builder: (_, _) => const ApiKeysPage())],
+            routes: [
+              GoRoute(
+                path: '/app/keys',
+                builder: (_, _) => const ApiKeysPage(),
+              ),
+            ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/app/profile', builder: (_, _) => const ProfilePage())],
+            routes: [
+              GoRoute(
+                path: '/app/profile',
+                builder: (_, _) => const ProfilePage(),
+              ),
+            ],
           ),
         ],
       ),

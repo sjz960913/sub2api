@@ -50,7 +50,9 @@ const _previewKeys = [
 ];
 
 void main() {
-  testWidgets('main shell exposes exactly the four product tabs', (tester) async {
+  testWidgets('main shell exposes exactly the four product tabs', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -72,7 +74,9 @@ void main() {
     expect(find.textContaining('0.10'), findsNothing);
   });
 
-  testWidgets('ordinary user cannot deep-link into admin routes', (tester) async {
+  testWidgets('ordinary user cannot deep-link into admin routes', (
+    tester,
+  ) async {
     final container = ProviderContainer(
       overrides: [
         initialSessionStateProvider.overrideWithValue(_authenticatedSession),
@@ -80,7 +84,12 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const Sub2ApiApp()));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     container.read(appRouterProvider).go('/admin/coming-soon');
@@ -99,7 +108,10 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -112,7 +124,9 @@ void main() {
     expect(find.textContaining('sk-test'), findsNothing);
   });
 
-  testWidgets('collaboration stays minimal and contains no fake sessions', (tester) async {
+  testWidgets('collaboration stays minimal and contains no fake sessions', (
+    tester,
+  ) async {
     final container = ProviderContainer(
       overrides: [
         initialSessionStateProvider.overrideWithValue(_authenticatedSession),
@@ -121,7 +135,10 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -134,7 +151,9 @@ void main() {
     expect(find.textContaining('退款'), findsNothing);
   });
 
-  testWidgets('profile exposes redeem recharge and announcement entries', (tester) async {
+  testWidgets('profile exposes redeem recharge and announcement entries', (
+    tester,
+  ) async {
     final container = ProviderContainer(
       overrides: [
         initialSessionStateProvider.overrideWithValue(_authenticatedSession),
@@ -143,7 +162,10 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -157,7 +179,9 @@ void main() {
     expect(find.textContaining('0.10'), findsNothing);
   });
 
-  testWidgets('unread popup announcement is shown once and can be dismissed', (tester) async {
+  testWidgets('unread popup announcement is shown once and can be dismissed', (
+    tester,
+  ) async {
     final container = ProviderContainer(
       overrides: [
         initialSessionStateProvider.overrideWithValue(_authenticatedSession),
@@ -180,7 +204,10 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const Sub2ApiApp()),
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
     );
     await tester.pumpAndSettle();
 

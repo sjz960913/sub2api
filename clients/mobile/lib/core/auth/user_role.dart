@@ -6,6 +6,8 @@ import '../../features/auth/domain/panel_session.dart';
 enum UserRole { user, admin }
 
 final currentUserRoleProvider = Provider<UserRole>((ref) {
-  final role = ref.watch(sessionControllerProvider.select((state) => state.user?.role));
+  final role = ref.watch(
+    sessionControllerProvider.select((state) => state.user?.role),
+  );
   return role == PanelRole.admin ? UserRole.admin : UserRole.user;
 });

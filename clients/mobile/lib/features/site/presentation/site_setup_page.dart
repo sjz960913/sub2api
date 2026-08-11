@@ -30,7 +30,10 @@ class _SiteSetupPageState extends ConsumerState<SiteSetupPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              Text('连接 Sub2API', style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                '连接 Sub2API',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 32),
               TextField(
                 controller: siteController,
@@ -76,7 +79,9 @@ class _SiteSetupPageState extends ConsumerState<SiteSetupPage> {
 
   Future<void> _connect() async {
     FocusScope.of(context).unfocus();
-    await ref.read(sessionControllerProvider.notifier).configureSite(siteController.text);
+    await ref
+        .read(sessionControllerProvider.notifier)
+        .configureSite(siteController.text);
   }
 }
 

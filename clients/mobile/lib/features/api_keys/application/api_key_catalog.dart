@@ -29,11 +29,12 @@ class ApiKeyCatalogState {
   }
 }
 
-final apiKeyCatalogSeedProvider = Provider<List<ApiKeySummary>>((_) => const []);
-
-final apiKeyCatalogProvider = NotifierProvider<ApiKeyCatalog, ApiKeyCatalogState>(
-  ApiKeyCatalog.new,
+final apiKeyCatalogSeedProvider = Provider<List<ApiKeySummary>>(
+  (_) => const [],
 );
+
+final apiKeyCatalogProvider =
+    NotifierProvider<ApiKeyCatalog, ApiKeyCatalogState>(ApiKeyCatalog.new);
 
 final selectedChatKeyProvider = Provider<ApiKeySummary?>((ref) {
   final catalog = ref.watch(apiKeyCatalogProvider).keys;
@@ -66,14 +67,20 @@ class ApiKeyCatalog extends Notifier<ApiKeyCatalogState> {
       return;
     }
     state = state.copyWith(isLoading: true, clearError: true);
-    final selectedId = state.keys.where((key) => key.isSelected).firstOrNull?.id;
+    final selectedId = state.keys
+        .where((key) => key.isSelected)
+        .firstOrNull
+        ?.id;
     try {
       final keys = await ref.read(apiKeyRepositoryProvider).listOpenAIKeys();
-      final preferredId = selectedId ?? keys.where((key) => key.group != null).firstOrNull?.id;
+      final preferredId =
+          selectedId ?? keys.where((key) => key.group != null).firstOrNull?.id;
       state = ApiKeyCatalogState(
         keys: [
           for (final key in keys)
-            key.copyWith(isSelected: key.group != null && key.id == preferredId),
+            key.copyWith(
+              isSelected: key.group != null && key.id == preferredId,
+            ),
         ],
       );
     } on ApiKeyRepositoryException catch (error) {
@@ -86,7 +93,9 @@ class ApiKeyCatalog extends Notifier<ApiKeyCatalogState> {
       return;
     }
     state = state.copyWith(
-      keys: [for (final key in state.keys) key.copyWith(isSelected: key.id == id)],
+      keys: [
+        for (final key in state.keys) key.copyWith(isSelected: key.id == id),
+      ],
     );
   }
 

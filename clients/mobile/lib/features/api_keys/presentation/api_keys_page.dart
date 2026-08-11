@@ -30,7 +30,9 @@ class ApiKeysPage extends ConsumerWidget {
                   const Text('无法加载秘钥，请检查网络后重试'),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () => ref.read(apiKeyCatalogProvider.notifier).load(force: true),
+                    onPressed: () => ref
+                        .read(apiKeyCatalogProvider.notifier)
+                        .load(force: true),
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('重试'),
                   ),
@@ -51,13 +53,15 @@ class ApiKeysPage extends ConsumerWidget {
                     .read(apiKeyCatalogProvider.notifier)
                     .updateGroup(keys[index].id, group);
                 if (!changed && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('分组切换失败，请稍后重试')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('分组切换失败，请稍后重试')));
                 }
               },
               onSelect: () {
-                ref.read(apiKeyCatalogProvider.notifier).selectForChat(keys[index].id);
+                ref
+                    .read(apiKeyCatalogProvider.notifier)
+                    .selectForChat(keys[index].id);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('已切换至 ${keys[index].name}')),
                 );
@@ -108,7 +112,9 @@ class _ApiKeyCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
-                    apiKey.kind == ApiKeyKind.image ? Icons.image_outlined : Icons.key_rounded,
+                    apiKey.kind == ApiKeyKind.image
+                        ? Icons.image_outlined
+                        : Icons.key_rounded,
                     color: AppColors.primary,
                   ),
                 ),
@@ -119,10 +125,16 @@ class _ApiKeyCard extends StatelessWidget {
                     children: [
                       Text(
                         apiKey.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Text(apiKey.maskedKey, style: const TextStyle(color: AppColors.muted)),
+                      Text(
+                        apiKey.maskedKey,
+                        style: const TextStyle(color: AppColors.muted),
+                      ),
                     ],
                   ),
                 ),
@@ -130,19 +142,26 @@ class _ApiKeyCard extends StatelessWidget {
                   apiKey.isSelected
                       ? Icons.radio_button_checked_rounded
                       : Icons.radio_button_off_rounded,
-                  color: apiKey.isSelected ? AppColors.primary : AppColors.muted,
+                  color: apiKey.isSelected
+                      ? AppColors.primary
+                      : AppColors.muted,
                 ),
               ],
             ),
             const SizedBox(height: 18),
-            const Text('分组', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            const Text(
+              '分组',
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               key: ValueKey('${apiKey.id}:${apiKey.group}'),
               initialValue: apiKey.group,
               hint: const Text('请选择 OpenAI 分组'),
               items: apiKey.availableGroups
-                  .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                  .map(
+                    (item) => DropdownMenuItem(value: item, child: Text(item)),
+                  )
                   .toList(),
               onChanged: (value) {
                 if (value != null) {
@@ -155,7 +174,10 @@ class _ApiKeyCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('用量', style: TextStyle(color: AppColors.muted)),
-                Text(apiKey.monthlyUsage, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  apiKey.monthlyUsage,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ],
             ),
             const SizedBox(height: 16),

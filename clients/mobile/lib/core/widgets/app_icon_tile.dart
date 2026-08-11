@@ -13,7 +13,10 @@ class AppIconTile extends StatelessWidget {
     return Container(
       width: 46,
       height: 46,
-      decoration: BoxDecoration(color: AppColors.iconTile, borderRadius: BorderRadius.circular(13)),
+      decoration: BoxDecoration(
+        color: AppColors.iconTile,
+        borderRadius: BorderRadius.circular(13),
+      ),
       alignment: Alignment.center,
       child: Icon(icon, color: color),
     );

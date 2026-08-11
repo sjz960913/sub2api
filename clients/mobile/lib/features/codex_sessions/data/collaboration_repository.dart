@@ -21,7 +21,9 @@ class CollaborationRepository {
 
   Future<List<Device>> listDevices() async {
     try {
-      final data = _asMap(await _client.request('GET', 'collaboration/devices'));
+      final data = _asMap(
+        await _client.request('GET', 'collaboration/devices'),
+      );
       final items = data['items'];
       if (items is! List) {
         throw const CollaborationRepositoryException('COLLAB_INVALID_RESPONSE');
@@ -47,7 +49,9 @@ class CollaborationRepository {
             'collaboration/devices/${Uri.encodeComponent(deviceId)}/session-syncs',
             headers: {'Idempotency-Key': newIdempotencyKey()},
             data: SessionSyncRequest(
-              searchTerm: searchTerm?.trim().isEmpty == true ? null : searchTerm?.trim(),
+              searchTerm: searchTerm?.trim().isEmpty == true
+                  ? null
+                  : searchTerm?.trim(),
               archived: false,
               limit: 100,
             ).toJson(),
@@ -109,7 +113,10 @@ class CollaborationRepository {
               deviceId: deviceId,
               threadId: threadId,
               input: [CommandInput(type: 'text', text: prompt)],
-              clientContext: const ClientContext(locale: 'zh-CN', source: 'android'),
+              clientContext: const ClientContext(
+                locale: 'zh-CN',
+                source: 'android',
+              ),
             ).toJson(),
           );
           break;
@@ -121,9 +128,7 @@ class CollaborationRepository {
           rethrow;
         }
       }
-      final command = Command.fromJson(
-        _asMap(response),
-      );
+      final command = Command.fromJson(_asMap(response));
       return _pollCommand(command);
     } on PanelApiException catch (error) {
       throw CollaborationRepositoryException(error.publicCode);

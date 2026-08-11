@@ -1,0 +1,24 @@
+FROM cirrusci/flutter:stable
+
+USER root
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        openjdk-17-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN yes | sdkmanager --licenses >/dev/null \
+    && sdkmanager \
+        "platform-tools" \
+        "platforms;android-35" \
+        "platforms;android-36" \
+        "build-tools;35.0.0" \
+        "build-tools;36.0.0" \
+        "cmake;3.22.1"
+
+RUN sdkmanager "ndk;28.2.13676358"
+
+WORKDIR /workspace

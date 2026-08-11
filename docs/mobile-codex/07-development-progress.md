@@ -1,6 +1,6 @@
 # 开发进度
 
-最后更新：2026-08-03
+最后更新：2026-08-11
 
 本文只记录已经落到工作树的实现和可复现证据。设计文档中的计划不等于已完成。
 
@@ -13,7 +13,7 @@
 | M2 实时中继 | 已完成 | presence、跨实例事件总线、JWT WebSocket、连接租约、短期 payload、sync/command 中继、限流、撤销断线、token 到期和 fake PC 跨实例流程均已通过 CI，并有进程内运行指标 |
 | M3 PC Codex Adapter | 已完成 | app-server adapter、安全登录/设备注册、WebSocket relay、session/thread sync、command/cancel 和规范化 item 均已接入，Rust 检查与 20 项测试通过 |
 | M4 Flutter 认证与目录 | 已完成 | 真实站点登录/2FA/JWT 续期、安全存储、Key/OpenAI 分组、公告、兑换与个人资料均已接入 |
-| M5 聊天与图片 | 进行中 | 真实模型列表、SSE chat completions、停止生成与 images generations 已接入；本地历史持久化待完成 |
+| M5 聊天与图片 | 已完成 | 真实模型列表、SSE chat completions、停止生成、images generations，以及不含 API Key 的本地历史持久化/列表/删除均已接入并通过 Flutter 测试 |
 | M6 移动端协同 | 进行中 | 真实设备/会话/消息同步、任务下发与手动同步已通；移动端 WebSocket 实时更新和恢复测试待完成 |
 | M7 管理员 | 按需预留 | 已有角色守卫、管理员专属入口与占位页，业务界面待后续需求 |
 | M8 打包发布 | 基础产物已完成 | Android debug APK、Linux Debian 和 Windows NSIS 安装包已实际产出；正式签名/macOS 公证待发布环境 |
@@ -68,6 +68,8 @@ node protocol/scripts/mock-smoke.mjs
 - 秘钥卡片读取真实 `/keys` 和 `/groups/available`，仅呈现可用 OpenAI 分组；展示名称、脱敏 Key、用量、分组下拉和“当前聊天使用”单选。
 - 秘钥目录和聊天页读取同一 Riverpod 状态；切换 Key 或分组会同步更新聊天入口，Key 明文不进入 Widget State 或持久化存储。
 - 聊天已接入选中 Key 对应的 `/v1/models`、`/v1/chat/completions` 和 `/v1/images/generations`；chat completions 使用 SSE 逐段渲染并可停止，只有允许图片的分组才开启生图入口。
+- 聊天历史保存在 App 私有 SQLite，按 Panel origin + user ID 隔离；历史表不含 API Key、Key ID 或 Key 名称字段，重新打开会话后仍只使用当前内存中选中的 Key 发起下一次请求。
+- 历史写入前会脱敏 `sk-*`、JWT、Authorization/API Key 形态文本，并移除远程图片 URL 的 query/fragment；列表支持标题、预览、更新时间、消息数、打开和本地删除，最多保留每账号最近 100 个会话。
 - 协同页已接入真实 PC 设备、session sync、thread sync 和 command 下发/状态查询；界面不展示费用、退款或 PC 审批。
 - command 首次请求遇到网络错误时只用同一幂等键自动重试，避免响应丢失导致重复任务或重复扣费。
 - “我的”已接入真实用户资料、兑换和公告；未读 `popup` 公告会弹窗并在关闭后标记已读，充值只打开固定地址 `https://pay.ldxp.cn/shop/codecodeai`。
@@ -110,12 +112,13 @@ node protocol/scripts/mock-smoke.mjs
 - CI run `30807617598` 已通过移动端 SSE 流式聊天、停止生成与跨分片 SSE 解码测试；run `30808145172` 已通过 command 幂等网络重试测试。
 - CI run `30808447083` 已生成 `sub2api-codex-pc-deb` 产物（约 6.2 MB）；run `30808907588` 已生成 `sub2api-mobile-debug-apk` 产物（约 81.7 MB）并通过 Flutter analyze/test。
 - CI run `30809289492` 已再次通过 Android/Linux 打包，并首次生成 `sub2api-codex-pc-windows` NSIS 产物（约 3.6 MB）。
+- CI run `31467467284` 已通过新增本地历史后的 Flutter 依赖解析、l10n、analyze、全部测试和 Android debug APK 构建；同一 run 的 Tauri Rust 测试、Ubuntu Debian 包与 Windows NSIS 安装包也全部成功。三类产物已下载到指定构建服务器并通过 ZIP/DEB/PE 格式检查与 SHA-256 记录。
+- 指定服务器已使用 Flutter 3.44.9 / Dart 3.12.2、Java 17 和 Android SDK 35/36 独立完成格式检查、analyze、15 项测试及 debug APK 构建；服务器 APK 已通过 ZIP 完整性检查并记录 SHA-256。
 - 本机仍只执行轻量 Node 协议验证和 PC Web 构建；Go/Flutter/Rust 的权威结果以 GitHub Actions 为准。
 
 任何 run 尚未结束时，本文件只记为“等待 CI”，不把“已配置 workflow”当作测试通过。
 
 ## 下一步
 
-1. 为移动端聊天增加不含 API Key 的本地历史持久化、历史列表与清理策略。
-2. 为移动端协同增加 WebSocket 实时 item/终态更新、断线恢复和幂等端到端测试。
-3. 在安全的发布环境配置 Android/Windows 正式签名与 macOS 公证，完成真实设备联调。
+1. 为移动端协同增加 WebSocket 实时 item/终态更新、断线恢复和幂等端到端测试。
+2. 在安全的发布环境配置 Android/Windows 正式签名与 macOS 公证，完成真实设备联调。

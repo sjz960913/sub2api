@@ -35,7 +35,9 @@ class ChatRepository {
           .where((id) => id.isNotEmpty && id.length <= 200)
           .toSet()
           .toList(growable: false);
-      final imageModels = ids.where((id) => id.startsWith('gpt-image-')).toList(growable: false);
+      final imageModels = ids
+          .where((id) => id.startsWith('gpt-image-'))
+          .toList(growable: false);
       final chatModels = ids
           .where((id) => !id.startsWith('gpt-image-'))
           .where((id) => !id.contains('embedding'))
@@ -149,7 +151,8 @@ class ChatRepository {
 }
 
 Stream<String> decodeChatCompletionSse(Stream<List<int>> bytes) async* {
-  await for (final line in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
+  await for (final line
+      in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
     if (!line.startsWith('data:')) {
       continue;
     }

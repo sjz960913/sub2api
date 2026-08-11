@@ -18,9 +18,14 @@ class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   Future<void> _openRecharge(BuildContext context) async {
-    final opened = await launchUrl(Uri.parse(rechargeUri), mode: LaunchMode.externalApplication);
+    final opened = await launchUrl(
+      Uri.parse(rechargeUri),
+      mode: LaunchMode.externalApplication,
+    );
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无法打开充值页面')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无法打开充值页面')));
     }
   }
 
@@ -31,7 +36,9 @@ class ProfilePage extends ConsumerWidget {
     final profile = ref.watch(profileControllerProvider);
     final user = session.user;
     final displayName = user?.email ?? '未登录';
-    final avatarSource = user?.username.isNotEmpty == true ? user!.username : displayName;
+    final avatarSource = user?.username.isNotEmpty == true
+        ? user!.username
+        : displayName;
     final avatarText = avatarSource.substring(0, 1).toUpperCase();
     return PageFrame(
       title: '我的',
@@ -48,17 +55,26 @@ class ProfilePage extends ConsumerWidget {
                       backgroundColor: AppColors.iconTile,
                       child: Text(
                         avatarText,
-                        style: const TextStyle(fontSize: 30, color: AppColors.primary),
+                        style: const TextStyle(
+                          fontSize: 30,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.iconTile,
                         borderRadius: BorderRadius.circular(8),
@@ -89,7 +105,9 @@ class ProfilePage extends ConsumerWidget {
               _ProfileRow(
                 icon: Icons.notifications_none_rounded,
                 label: '公告',
-                badge: profile.unreadCount > 0 ? profile.unreadCount.toString() : null,
+                badge: profile.unreadCount > 0
+                    ? profile.unreadCount.toString()
+                    : null,
                 onTap: () => _showAnnouncements(context),
               ),
             ],
@@ -127,7 +145,9 @@ class ProfilePage extends ConsumerWidget {
               _ProfileRow(
                 icon: Icons.logout_rounded,
                 label: '退出登录',
-                onTap: session.isBusy ? () {} : () => _confirmLogout(context, ref),
+                onTap: session.isBusy
+                    ? () {}
+                    : () => _confirmLogout(context, ref),
               ),
             ],
           ),
@@ -166,17 +186,26 @@ Future<void> _showSettings(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('设置', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          Text(
+            '设置',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          ),
           SizedBox(height: 10),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: AppIconTile(Icons.language_rounded, color: AppColors.muted),
+            leading: AppIconTile(
+              Icons.language_rounded,
+              color: AppColors.muted,
+            ),
             title: Text('语言'),
             trailing: Text('简体中文'),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: AppIconTile(Icons.palette_outlined, color: AppColors.muted),
+            leading: AppIconTile(
+              Icons.palette_outlined,
+              color: AppColors.muted,
+            ),
             title: Text('外观'),
             trailing: Text('跟随系统'),
           ),
@@ -193,8 +222,14 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
       title: const Text('退出登录'),
       content: const Text('确认退出当前账号？'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('退出')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('退出'),
+        ),
       ],
     ),
   );
@@ -233,7 +268,10 @@ class _RedeemDialogState extends ConsumerState<_RedeemDialog> {
         decoration: InputDecoration(hintText: '请输入兑换码', errorText: error),
       ),
       actions: [
-        TextButton(onPressed: isBusy ? null : () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+          onPressed: isBusy ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
         FilledButton(
           onPressed: controller.text.trim().isEmpty || isBusy ? null : _redeem,
           child: isBusy
@@ -253,11 +291,15 @@ class _RedeemDialogState extends ConsumerState<_RedeemDialog> {
       error = null;
     });
     try {
-      final result = await ref.read(profileControllerProvider.notifier).redeem(controller.text);
+      final result = await ref
+          .read(profileControllerProvider.notifier)
+          .redeem(controller.text);
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
       Navigator.pop(context);
     } on ProfileRepositoryException {
       if (mounted) {
@@ -284,14 +326,19 @@ class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
     final visible = filter == 'unread'
-        ? state.announcements.where((announcement) => announcement.isUnread).toList()
+        ? state.announcements
+              .where((announcement) => announcement.isUnread)
+              .toList()
         : state.announcements;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('公告', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const Text(
+            '公告',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 16),
           SegmentedButton<String>(
             segments: const [
@@ -316,7 +363,12 @@ class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
                     ),
                   )
                 : visible.isEmpty
-                ? const Center(child: Text('暂无公告', style: TextStyle(color: AppColors.muted)))
+                ? const Center(
+                    child: Text(
+                      '暂无公告',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: visible.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -338,7 +390,11 @@ class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
                           ),
                           isThreeLine: true,
                           trailing: announcement.isUnread
-                              ? const Icon(Icons.circle, size: 8, color: AppColors.primary)
+                              ? const Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: AppColors.primary,
+                                )
                               : null,
                           onTap: () => _openAnnouncement(announcement),
                         ),
@@ -352,7 +408,9 @@ class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
   }
 
   Future<void> _openAnnouncement(UserAnnouncement announcement) async {
-    await ref.read(profileControllerProvider.notifier).markRead(announcement.id);
+    await ref
+        .read(profileControllerProvider.notifier)
+        .markRead(announcement.id);
     if (!mounted) {
       return;
     }
@@ -360,9 +418,14 @@ class _AnnouncementSheetState extends ConsumerState<_AnnouncementSheet> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(announcement.title),
-        content: SingleChildScrollView(child: SelectableText(announcement.content)),
+        content: SingleChildScrollView(
+          child: SelectableText(announcement.content),
+        ),
         actions: [
-          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('知道了'),
+          ),
         ],
       ),
     );
@@ -400,7 +463,12 @@ class _ProfileSection extends StatelessWidget {
 }
 
 class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.icon, required this.label, required this.onTap, this.badge});
+  const _ProfileRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+  });
 
   final IconData icon;
   final String label;
@@ -412,7 +480,10 @@ class _ProfileRow extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       leading: AppIconTile(icon, color: AppColors.muted),
-      title: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -420,7 +491,10 @@ class _ProfileRow extends StatelessWidget {
             Container(
               constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
               alignment: Alignment.center,
-              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
               child: Text(
                 badge!,
                 style: const TextStyle(color: Colors.white, fontSize: 11),

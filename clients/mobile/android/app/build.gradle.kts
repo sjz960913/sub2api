@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "cn.ldxp.sub2api.mobile"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

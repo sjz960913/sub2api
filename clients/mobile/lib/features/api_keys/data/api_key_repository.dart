@@ -26,7 +26,10 @@ class ApiKeyRepository {
       ]);
       final groups = _asList(responses[1])
           .map(_asMap)
-          .where((group) => group['platform'] == 'openai' && group['status'] == 'active')
+          .where(
+            (group) =>
+                group['platform'] == 'openai' && group['status'] == 'active',
+          )
           .toList(growable: false);
       final names = <String>[];
       final idsByName = <String, String>{};

@@ -22,7 +22,11 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
     final state = ref.watch(collaborationOverviewProvider);
     final device = state.selectedDevice;
     final filteredSessions = state.sessions
-        .where((session) => '${session.title}${session.preview}'.toLowerCase().contains(query))
+        .where(
+          (session) => '${session.title}${session.preview}'
+              .toLowerCase()
+              .contains(query),
+        )
         .toList();
 
     return PageFrame(
@@ -45,14 +49,19 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                           state.isLoadingDevices
                               ? '正在查询电脑…'
                               : device?.name ?? '没有已登录的电脑',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                          ),
                         ),
                         const SizedBox(height: 5),
                         Row(
                           children: [
                             Icon(
                               Icons.circle,
-                              color: device?.isOnline == true ? AppColors.success : AppColors.muted,
+                              color: device?.isOnline == true
+                                  ? AppColors.success
+                                  : AppColors.muted,
                               size: 10,
                             ),
                             const SizedBox(width: 6),
@@ -71,7 +80,10 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                     onPressed: state.devices.isEmpty
                         ? null
                         : () async {
-                            final selected = await _showDevice(context, state.devices);
+                            final selected = await _showDevice(
+                              context,
+                              state.devices,
+                            );
                             if (selected != null) {
                               ref
                                   .read(collaborationOverviewProvider.notifier)
@@ -80,7 +92,10 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                           },
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: [Text('查看设备'), Icon(Icons.chevron_right_rounded, size: 18)],
+                      children: [
+                        Text('查看设备'),
+                        Icon(Icons.chevron_right_rounded, size: 18),
+                      ],
                     ),
                   ),
                 ],
@@ -96,7 +111,9 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                         .querySessions();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(loaded ? '已获取电脑会话' : '查询失败，请稍后重试')),
+                        SnackBar(
+                          content: Text(loaded ? '已获取电脑会话' : '查询失败，请稍后重试'),
+                        ),
                       );
                     }
                   }
@@ -112,7 +129,8 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
           const SizedBox(height: 14),
           TextField(
             enabled: state.hasQueried,
-            onChanged: (value) => setState(() => query = value.trim().toLowerCase()),
+            onChanged: (value) =>
+                setState(() => query = value.trim().toLowerCase()),
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search_rounded),
               hintText: '搜索会话',
@@ -127,13 +145,17 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 28),
               child: Center(
-                child: Text('没有匹配的会话', style: TextStyle(color: AppColors.muted)),
+                child: Text(
+                  '没有匹配的会话',
+                  style: TextStyle(color: AppColors.muted),
+                ),
               ),
             )
           else
             for (var index = 0; index < filteredSessions.length; index++) ...[
               _SessionCard(session: filteredSessions[index]),
-              if (index != filteredSessions.length - 1) const SizedBox(height: 10),
+              if (index != filteredSessions.length - 1)
+                const SizedBox(height: 10),
             ],
         ],
       ),
@@ -151,11 +173,21 @@ class _CollaborationEmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
         child: Column(
           children: [
-            const Icon(Icons.desktop_windows_outlined, color: AppColors.primary, size: 38),
+            const Icon(
+              Icons.desktop_windows_outlined,
+              color: AppColors.primary,
+              size: 38,
+            ),
             const SizedBox(height: 12),
-            Text('点击查询获取电脑上的 Codex 会话', style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              '点击查询获取电脑上的 Codex 会话',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
             const SizedBox(height: 6),
-            const Text('电脑工具需登录同一个站点并保持在线', style: TextStyle(color: AppColors.muted)),
+            const Text(
+              '电脑工具需登录同一个站点并保持在线',
+              style: TextStyle(color: AppColors.muted),
+            ),
           ],
         ),
       ),
@@ -174,13 +206,20 @@ class _SessionCard extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.all(14),
         leading: const AppIconTile(Icons.article_outlined),
-        title: Text(session.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          session.title,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(session.preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                session.preview,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: 6),
               Text(session.updatedAt, style: const TextStyle(fontSize: 12)),
             ],
@@ -209,8 +248,13 @@ Future<String?> _showDevice(
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const AppIconTile(Icons.desktop_windows_rounded),
-              title: Text(device.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${device.platform} · ${device.isOnline ? '在线' : '离线'}'),
+              title: Text(
+                device.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                '${device.platform} · ${device.isOnline ? '在线' : '离线'}',
+              ),
               trailing: Icon(
                 Icons.circle,
                 color: device.isOnline ? AppColors.success : AppColors.muted,

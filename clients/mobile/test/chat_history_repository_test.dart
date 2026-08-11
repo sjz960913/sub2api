@@ -13,7 +13,9 @@ void main() {
   late SqliteChatHistoryRepository repository;
 
   setUp(() async {
-    temporaryDirectory = await Directory.systemTemp.createTemp('sub2api-chat-history-');
+    temporaryDirectory = await Directory.systemTemp.createTemp(
+      'sub2api-chat-history-',
+    );
     databasePath = '${temporaryDirectory.path}/history.db';
     repository = SqliteChatHistoryRepository(
       factory: databaseFactoryFfi,
@@ -86,14 +88,21 @@ void main() {
     );
 
     expect(
-      (await repository.list('https://panel-a.example.com|user:1')).single.title,
+      (await repository.list(
+        'https://panel-a.example.com|user:1',
+      )).single.title,
       '账号 A',
     );
     expect(
-      (await repository.list('https://panel-a.example.com|user:2')).single.title,
+      (await repository.list(
+        'https://panel-a.example.com|user:2',
+      )).single.title,
       '账号 B',
     );
-    expect(await repository.list('https://panel-b.example.com|user:1'), isEmpty);
+    expect(
+      await repository.list('https://panel-b.example.com|user:1'),
+      isEmpty,
+    );
   });
 
   test('database schema has no API key or secret columns', () async {
@@ -109,7 +118,8 @@ void main() {
         messages: const [
           ChatMessage.text(
             fromUser: true,
-            text: '不要保存 sk-super-secret-1234567890 或 api_key=another-secret-value',
+            text:
+                '不要保存 sk-super-secret-1234567890 或 api_key=another-secret-value',
           ),
         ],
       ),

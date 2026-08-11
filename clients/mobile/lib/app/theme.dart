@@ -81,7 +81,9 @@ ThemeData buildSub2ApiTheme() {
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         return IconThemeData(
-          color: states.contains(WidgetState.selected) ? AppColors.primary : AppColors.muted,
+          color: states.contains(WidgetState.selected)
+              ? AppColors.primary
+              : AppColors.muted,
           size: 25,
         );
       }),

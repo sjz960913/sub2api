@@ -50,10 +50,16 @@ class ProfileRepository {
       throw const ProfileRepositoryException('REDEEM_INVALID_CODE');
     }
     try {
-      final data = await _client.request('POST', 'redeem', data: {'code': normalized});
+      final data = await _client.request(
+        'POST',
+        'redeem',
+        data: {'code': normalized},
+      );
       final map = _asMap(data);
       final message = map['message'];
-      return RedeemResult(message: message is String && message.isNotEmpty ? message : '兑换成功');
+      return RedeemResult(
+        message: message is String && message.isNotEmpty ? message : '兑换成功',
+      );
     } on PanelApiException catch (error) {
       throw ProfileRepositoryException(error.publicCode);
     }
@@ -71,7 +77,9 @@ class ProfileRepository {
       id: id.toInt(),
       title: title,
       content: content,
-      notifyMode: map['notify_mode'] is String ? map['notify_mode'] as String : 'silent',
+      notifyMode: map['notify_mode'] is String
+          ? map['notify_mode'] as String
+          : 'silent',
       createdAt: _parseDate(map['created_at']),
       readAt: _parseDate(map['read_at']),
     );

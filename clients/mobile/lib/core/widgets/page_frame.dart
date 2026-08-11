@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 class PageFrame extends StatelessWidget {
-  const PageFrame({required this.title, required this.child, this.actions = const [], super.key});
+  const PageFrame({
+    required this.title,
+    required this.child,
+    this.actions = const [],
+    super.key,
+  });
 
   final String title;
   final Widget child;
@@ -18,7 +23,12 @@ class PageFrame extends StatelessWidget {
             sliver: SliverToBoxAdapter(
               child: Row(
                 children: [
-                  Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineMedium)),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
                   ...actions,
                 ],
               ),

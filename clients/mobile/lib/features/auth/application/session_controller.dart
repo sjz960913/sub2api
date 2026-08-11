@@ -3,7 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/panel_api_client.dart';
 import '../domain/panel_session.dart';
 
-enum SessionPhase { booting, needsSite, signedOut, requiresTwoFactor, authenticated }
+enum SessionPhase {
+  booting,
+  needsSite,
+  signedOut,
+  requiresTwoFactor,
+  authenticated,
+}
 
 class SessionState {
   const SessionState({
@@ -24,9 +30,14 @@ class SessionState {
   final bool isBusy;
   final String? errorCode;
 
-  bool get isAuthenticated => phase == SessionPhase.authenticated && user != null;
+  bool get isAuthenticated =>
+      phase == SessionPhase.authenticated && user != null;
 
-  SessionState copyWith({bool? isBusy, String? errorCode, bool clearError = false}) {
+  SessionState copyWith({
+    bool? isBusy,
+    String? errorCode,
+    bool clearError = false,
+  }) {
     return SessionState(
       phase: phase,
       siteUrl: siteUrl,
@@ -42,9 +53,8 @@ final initialSessionStateProvider = Provider<SessionState>(
   (_) => const SessionState.booting(),
 );
 
-final sessionControllerProvider = NotifierProvider<SessionController, SessionState>(
-  SessionController.new,
-);
+final sessionControllerProvider =
+    NotifierProvider<SessionController, SessionState>(SessionController.new);
 
 class SessionController extends Notifier<SessionState> {
   PanelApiClient get _client => ref.read(panelApiClientProvider);
@@ -67,7 +77,10 @@ class SessionController extends Notifier<SessionState> {
         user: restored.user,
       );
     } else if (restored.siteUrl != null) {
-      state = SessionState(phase: SessionPhase.signedOut, siteUrl: restored.siteUrl);
+      state = SessionState(
+        phase: SessionPhase.signedOut,
+        siteUrl: restored.siteUrl,
+      );
     } else {
       state = const SessionState(phase: SessionPhase.needsSite);
     }
@@ -77,7 +90,10 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(isBusy: true, clearError: true);
     try {
       await _client.configureSite(siteUrl);
-      state = SessionState(phase: SessionPhase.signedOut, siteUrl: _client.siteUrl);
+      state = SessionState(
+        phase: SessionPhase.signedOut,
+        siteUrl: _client.siteUrl,
+      );
       return true;
     } on PanelApiException catch (error) {
       state = state.copyWith(isBusy: false, errorCode: error.publicCode);
@@ -128,7 +144,10 @@ class SessionController extends Notifier<SessionState> {
   Future<void> logout() async {
     state = state.copyWith(isBusy: true, clearError: true);
     await _client.logout();
-    state = SessionState(phase: SessionPhase.signedOut, siteUrl: _client.siteUrl);
+    state = SessionState(
+      phase: SessionPhase.signedOut,
+      siteUrl: _client.siteUrl,
+    );
   }
 
   Future<void> changeSite() async {

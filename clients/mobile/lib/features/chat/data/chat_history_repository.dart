@@ -28,18 +28,20 @@ final chatHistoryScopeProvider = Provider<String?>((ref) {
   if (site == null || !site.hasScheme || site.host.isEmpty) {
     return null;
   }
-  final origin = '${site.scheme.toLowerCase()}://${site.host.toLowerCase()}'
+  final origin =
+      '${site.scheme.toLowerCase()}://${site.host.toLowerCase()}'
       '${site.hasPort ? ':${site.port}' : ''}';
   return '$origin|user:${user.id}';
 });
 
-final chatHistoryListProvider = FutureProvider.autoDispose<List<ChatConversationSummary>>((ref) {
-  final scope = ref.watch(chatHistoryScopeProvider);
-  if (scope == null) {
-    return const <ChatConversationSummary>[];
-  }
-  return ref.watch(chatHistoryRepositoryProvider).list(scope);
-});
+final chatHistoryListProvider =
+    FutureProvider.autoDispose<List<ChatConversationSummary>>((ref) {
+      final scope = ref.watch(chatHistoryScopeProvider);
+      if (scope == null) {
+        return const <ChatConversationSummary>[];
+      }
+      return ref.watch(chatHistoryRepositoryProvider).list(scope);
+    });
 
 abstract interface class ChatHistoryRepository {
   Future<List<ChatConversationSummary>> list(String scope);
@@ -82,7 +84,8 @@ class SqliteChatHistoryRepository implements ChatHistoryRepository {
   }
 
   Future<Database> _openDatabase() async {
-    final resolvedPath = _databasePath ?? path.join(await getDatabasesPath(), _databaseFileName);
+    final resolvedPath =
+        _databasePath ?? path.join(await getDatabasesPath(), _databaseFileName);
     return _databaseFactory.openDatabase(
       resolvedPath,
       options: OpenDatabaseOptions(
@@ -174,11 +177,18 @@ CREATE TABLE chat_messages (
       id: row['id']! as String,
       title: row['title']! as String,
       model: row['model'] as String?,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']! as int, isUtc: true),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at']! as int, isUtc: true),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        row['created_at']! as int,
+        isUtc: true,
+      ),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(
+        row['updated_at']! as int,
+        isUtc: true,
+      ),
       messages: messageRows
           .map(
-            (message) => message['image_base64'] != null || message['image_url'] != null
+            (message) =>
+                message['image_base64'] != null || message['image_url'] != null
                 ? ChatMessage.image(
                     imageBase64: message['image_base64'] as String?,
                     imageUrl: message['image_url'] as String?,
@@ -204,23 +214,24 @@ CREATE TABLE chat_messages (
     final previewMessage = persistedMessages.last;
     final preview = previewMessage.hasImage
         ? '[图片]'
-        : _truncate(previewMessage.text.replaceAll(RegExp(r'\s+'), ' ').trim(), 80);
+        : _truncate(
+            previewMessage.text.replaceAll(RegExp(r'\s+'), ' ').trim(),
+            80,
+          );
     final database = await _db;
     await database.transaction((transaction) async {
-      await transaction.insert(
-        'chat_conversations',
-        {
-          'scope': scope,
-          'id': conversation.id,
-          'title': _truncate(_redactSecrets(conversation.title.trim()), 80),
-          'model': conversation.model == null ? null : _redactSecrets(conversation.model!),
-          'preview': preview,
-          'message_count': persistedMessages.length,
-          'created_at': conversation.createdAt.millisecondsSinceEpoch,
-          'updated_at': conversation.updatedAt.millisecondsSinceEpoch,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await transaction.insert('chat_conversations', {
+        'scope': scope,
+        'id': conversation.id,
+        'title': _truncate(_redactSecrets(conversation.title.trim()), 80),
+        'model': conversation.model == null
+            ? null
+            : _redactSecrets(conversation.model!),
+        'preview': preview,
+        'message_count': persistedMessages.length,
+        'created_at': conversation.createdAt.millisecondsSinceEpoch,
+        'updated_at': conversation.updatedAt.millisecondsSinceEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
       await transaction.delete(
         'chat_messages',
         where: 'scope = ? AND conversation_id = ?',
@@ -294,10 +305,7 @@ String? _sanitizeImageUrl(String? value) {
 }
 
 String _redactSecrets(String value) {
-  var redacted = value.replaceAll(
-    RegExp(r'\bsk-[A-Za-z0-9_-]{8,}\b'),
-    '[已脱敏]',
-  );
+  var redacted = value.replaceAll(RegExp(r'\bsk-[A-Za-z0-9_-]{8,}\b'), '[已脱敏]');
   redacted = redacted.replaceAll(
     RegExp(r'\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b'),
     '[已脱敏]',

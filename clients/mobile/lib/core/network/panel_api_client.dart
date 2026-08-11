@@ -41,7 +41,8 @@ class PanelApiClient {
               followRedirects: false,
               maxRedirects: 0,
               headers: const {'Content-Type': 'application/json'},
-              validateStatus: (status) => status != null && status >= 200 && status < 500,
+              validateStatus: (status) =>
+                  status != null && status >= 200 && status < 500,
             ),
           );
 
@@ -65,7 +66,8 @@ class PanelApiClient {
         uri.hasQuery) {
       throw const PanelApiException('PANEL_INVALID_SITE');
     }
-    final loopback = uri.host.toLowerCase() == 'localhost' ||
+    final loopback =
+        uri.host.toLowerCase() == 'localhost' ||
         uri.host == '127.0.0.1' ||
         uri.host == '::1';
     if (uri.scheme != 'https' && !(uri.scheme == 'http' && loopback)) {
@@ -143,7 +145,9 @@ class PanelApiClient {
         throw const PanelApiException('PANEL_INVALID_RESPONSE');
       }
       _pendingTwoFactorToken = token;
-      return PanelLoginResult.requiresTwoFactor(map['user_email_masked'] as String?);
+      return PanelLoginResult.requiresTwoFactor(
+        map['user_email_masked'] as String?,
+      );
     }
     return PanelLoginResult.authenticated(await _establishSession(map));
   }
@@ -214,7 +218,9 @@ class PanelApiClient {
     if (authenticated && _accessToken == null) {
       throw const PanelApiException('PANEL_SESSION_NOT_FOUND');
     }
-    var endpoint = Uri.parse(site).resolve('api/v1/${path.replaceFirst(RegExp(r'^/+'), '')}');
+    var endpoint = Uri.parse(
+      site,
+    ).resolve('api/v1/${path.replaceFirst(RegExp(r'^/+'), '')}');
     if (query != null && query.isNotEmpty) {
       endpoint = endpoint.replace(queryParameters: query);
     }
@@ -463,7 +469,9 @@ class PanelApiClient {
   }
 
   static bool _validToken(String value) {
-    return value.isNotEmpty && value.length <= _maxTokenLength && !value.contains(RegExp(r'[\x00-\x1F\x7F]'));
+    return value.isNotEmpty &&
+        value.length <= _maxTokenLength &&
+        !value.contains(RegExp(r'[\x00-\x1F\x7F]'));
   }
 
   Future<String?> _readSecure(String key) async {

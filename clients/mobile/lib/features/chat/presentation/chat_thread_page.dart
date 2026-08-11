@@ -94,12 +94,18 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                             : '${currentKey.name} · ${currentKey.maskedKey}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                TextButton(onPressed: () => context.go('/app/keys'), child: const Text('切换')),
+                TextButton(
+                  onPressed: () => context.go('/app/keys'),
+                  child: const Text('切换'),
+                ),
               ],
             ),
           ),
@@ -108,14 +114,19 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
             child: DropdownButtonFormField<String>(
               initialValue: selectedModel,
-              key: ValueKey('${loadedKeyId ?? 'none'}:${selectedModel ?? 'none'}'),
+              key: ValueKey(
+                '${loadedKeyId ?? 'none'}:${selectedModel ?? 'none'}',
+              ),
               decoration: const InputDecoration(
                 labelText: '模型',
                 prefixIcon: Icon(Icons.auto_awesome_outlined),
               ),
               hint: Text(isLoadingModels ? '正在读取可用模型…' : '请选择模型'),
               items: models
-                  .map((model) => DropdownMenuItem(value: model, child: Text(model)))
+                  .map(
+                    (model) =>
+                        DropdownMenuItem(value: model, child: Text(model)),
+                  )
                   .toList(growable: false),
               onChanged: isLoadingModels || isSending
                   ? null
@@ -134,10 +145,15 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
               child: Row(
                 children: [
                   const Expanded(
-                    child: Text('无法读取模型列表', style: TextStyle(color: AppColors.muted)),
+                    child: Text(
+                      '无法读取模型列表',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
                   ),
                   TextButton(
-                    onPressed: currentKey == null ? null : () => _loadModels(currentKey),
+                    onPressed: currentKey == null
+                        ? null
+                        : () => _loadModels(currentKey),
                     child: const Text('重试'),
                   ),
                 ],
@@ -152,13 +168,17 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                     itemCount: messages.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 18),
-                    itemBuilder: (context, index) => _MessageBubble(message: messages[index]),
+                    itemBuilder: (context, index) =>
+                        _MessageBubble(message: messages[index]),
                   ),
           ),
           if (isSending)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('正在生成…', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              child: Text(
+                '正在生成…',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -166,7 +186,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 IconButton.filledTonal(
-                  onPressed: currentKey != null &&
+                  onPressed:
+                      currentKey != null &&
                           currentKey.kind == ApiKeyKind.image &&
                           !isSending
                       ? () => _generateImage(currentKey)
@@ -194,7 +215,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                   )
                 else
                   IconButton.filled(
-                    onPressed: currentKey != null &&
+                    onPressed:
+                        currentKey != null &&
                             selectedModel != null &&
                             composer.text.trim().isNotEmpty
                         ? () => _submitDraft(currentKey)
@@ -233,9 +255,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       }
       if (conversation == null) {
         setState(() => isLoadingHistory = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('本地历史不存在或已被删除')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('本地历史不存在或已被删除')));
         return;
       }
       setState(() {
@@ -253,9 +275,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     } catch (_) {
       if (mounted) {
         setState(() => isLoadingHistory = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法读取本地历史')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法读取本地历史')));
       }
     }
   }
@@ -272,14 +294,18 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       selectedModel = null;
     });
     try {
-      final catalog = await ref.read(chatRepositoryProvider).listModels(key.secretKey);
+      final catalog = await ref
+          .read(chatRepositoryProvider)
+          .listModels(key.secretKey);
       if (!mounted || loadedKeyId != key.id) {
         return;
       }
       setState(() {
         models = catalog.chatModels;
         imageModels = catalog.imageModels;
-        selectedModel = persistedModel != null && catalog.chatModels.contains(persistedModel)
+        selectedModel =
+            persistedModel != null &&
+                catalog.chatModels.contains(persistedModel)
             ? persistedModel
             : catalog.chatModels.first;
         isLoadingModels = false;
@@ -333,7 +359,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
               );
             });
           },
-          onError: (Object _) => _finishCompletion(subscription, assistantIndex, failed: true),
+          onError: (Object _) =>
+              _finishCompletion(subscription, assistantIndex, failed: true),
           onDone: () => _finishCompletion(subscription, assistantIndex),
           cancelOnError: true,
         );
@@ -352,7 +379,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     }
     setState(() {
       isSending = false;
-      if (messages.isNotEmpty && !messages.last.fromUser && messages.last.text.isEmpty) {
+      if (messages.isNotEmpty &&
+          !messages.last.fromUser &&
+          messages.last.text.isEmpty) {
         messages.removeLast();
       }
     });
@@ -368,7 +397,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       return;
     }
     activeCompletion = null;
-    final empty = assistantIndex >= messages.length || messages[assistantIndex].text.isEmpty;
+    final empty =
+        assistantIndex >= messages.length ||
+        messages[assistantIndex].text.isEmpty;
     setState(() {
       isSending = false;
       if (empty && assistantIndex < messages.length) {
@@ -377,9 +408,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     });
     _queueHistoryWrite();
     if (failed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('消息发送失败，请稍后重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('消息发送失败，请稍后重试')));
     }
   }
 
@@ -388,7 +419,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     if (draft == null || !mounted) {
       return;
     }
-    final imageModel = imageModels.isNotEmpty ? imageModels.first : 'gpt-image-1';
+    final imageModel = imageModels.isNotEmpty
+        ? imageModels.first
+        : 'gpt-image-1';
     setState(() {
       if (messages.isEmpty) {
         conversationTitle = _conversationTitleFrom(draft.prompt);
@@ -399,12 +432,14 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     });
     _queueHistoryWrite();
     try {
-      final image = await ref.read(chatRepositoryProvider).generateImage(
-        apiKey: key.secretKey,
-        model: imageModel,
-        prompt: draft.prompt,
-        size: draft.size,
-      );
+      final image = await ref
+          .read(chatRepositoryProvider)
+          .generateImage(
+            apiKey: key.secretKey,
+            model: imageModel,
+            prompt: draft.prompt,
+            size: draft.size,
+          );
       if (mounted) {
         setState(
           () => messages.add(
@@ -415,9 +450,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       }
     } on ChatRepositoryException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('图片生成失败，请稍后重试')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('图片生成失败，请稍后重试')));
       }
     } finally {
       if (mounted) {
@@ -430,7 +465,10 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     final scope = ref.read(chatHistoryScopeProvider);
     final model = persistedModel ?? selectedModel;
     final snapshot = List<ChatMessage>.unmodifiable(messages);
-    if (scope == null || snapshot.every((message) => !message.hasImage && message.text.isEmpty)) {
+    if (scope == null ||
+        snapshot.every(
+          (message) => !message.hasImage && message.text.isEmpty,
+        )) {
       return;
     }
     final conversation = ChatConversation(
@@ -500,13 +538,19 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageBytes = _decodeBase64(message.imageBase64);
     return Align(
-      alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: message.fromUser
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: message.fromUser ? AppColors.primary : AppColors.surface,
-            border: message.fromUser ? null : Border.all(color: AppColors.border),
+            border: message.fromUser
+                ? null
+                : Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(18).copyWith(
               bottomRight: message.fromUser ? const Radius.circular(5) : null,
               bottomLeft: message.fromUser ? null : const Radius.circular(5),
@@ -523,7 +567,8 @@ class _MessageBubble extends StatelessWidget {
                         ? Image.network(
                             message.imageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined),
+                            errorBuilder: (_, _, _) =>
+                                const Icon(Icons.broken_image_outlined),
                           )
                         : const Icon(Icons.broken_image_outlined),
                   )
@@ -598,7 +643,10 @@ class _ImageComposerSheetState extends State<_ImageComposerSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('生成图片', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const Text(
+            '生成图片',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: prompt,
@@ -612,9 +660,18 @@ class _ImageComposerSheetState extends State<_ImageComposerSheet> {
             initialValue: size,
             decoration: const InputDecoration(labelText: '尺寸'),
             items: const [
-              DropdownMenuItem(value: '1024x1024', child: Text('正方形 · 1024×1024')),
-              DropdownMenuItem(value: '1024x1536', child: Text('竖版 · 1024×1536')),
-              DropdownMenuItem(value: '1536x1024', child: Text('横版 · 1536×1024')),
+              DropdownMenuItem(
+                value: '1024x1024',
+                child: Text('正方形 · 1024×1024'),
+              ),
+              DropdownMenuItem(
+                value: '1024x1536',
+                child: Text('竖版 · 1024×1536'),
+              ),
+              DropdownMenuItem(
+                value: '1536x1024',
+                child: Text('横版 · 1536×1024'),
+              ),
             ],
             onChanged: (value) {
               if (value != null) {
@@ -628,7 +685,10 @@ class _ImageComposerSheetState extends State<_ImageComposerSheet> {
                 ? null
                 : () => Navigator.pop(
                     context,
-                    _ImageGenerationDraft(prompt: prompt.text.trim(), size: size),
+                    _ImageGenerationDraft(
+                      prompt: prompt.text.trim(),
+                      size: size,
+                    ),
                   ),
             icon: const Icon(Icons.auto_awesome_outlined),
             label: const Text('开始生成'),

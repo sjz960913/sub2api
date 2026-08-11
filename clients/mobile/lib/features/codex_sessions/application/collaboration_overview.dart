@@ -86,7 +86,9 @@ class CollaborationOverviewState {
   }
 }
 
-final collaborationOverviewSeedProvider = Provider<CollaborationOverviewState?>((_) => null);
+final collaborationOverviewSeedProvider = Provider<CollaborationOverviewState?>(
+  (_) => null,
+);
 
 final collaborationOverviewProvider =
     NotifierProvider<CollaborationOverview, CollaborationOverviewState>(
@@ -113,16 +115,22 @@ class CollaborationOverview extends Notifier<CollaborationOverviewState> {
   Future<void> loadDevices() async {
     state = state.copyWith(isLoadingDevices: true, clearError: true);
     try {
-      final devices = await ref.read(collaborationRepositoryProvider).listDevices();
+      final devices = await ref
+          .read(collaborationRepositoryProvider)
+          .listDevices();
       final summaries = devices.map(_deviceSummary).toList(growable: false);
-      final selected = summaries.where((device) => device.isOnline).firstOrNull ??
+      final selected =
+          summaries.where((device) => device.isOnline).firstOrNull ??
           summaries.firstOrNull;
       state = CollaborationOverviewState(
         devices: summaries,
         selectedDeviceId: selected?.id,
       );
     } on CollaborationRepositoryException catch (error) {
-      state = state.copyWith(isLoadingDevices: false, errorCode: error.publicCode);
+      state = state.copyWith(
+        isLoadingDevices: false,
+        errorCode: error.publicCode,
+      );
     }
   }
 
@@ -143,10 +151,9 @@ class CollaborationOverview extends Notifier<CollaborationOverviewState> {
     }
     state = state.copyWith(isQuerying: true, clearError: true);
     try {
-      final sync = await ref.read(collaborationRepositoryProvider).syncSessions(
-        deviceId: device.id,
-        searchTerm: searchTerm,
-      );
+      final sync = await ref
+          .read(collaborationRepositoryProvider)
+          .syncSessions(deviceId: device.id, searchTerm: searchTerm);
       state = state.copyWith(
         hasQueried: true,
         sessions: sync.items.map(_sessionSummary).toList(growable: false),

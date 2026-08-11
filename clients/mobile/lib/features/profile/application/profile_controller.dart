@@ -33,9 +33,8 @@ class ProfileState {
 
 final profileStateSeedProvider = Provider<ProfileState?>((_) => null);
 
-final profileControllerProvider = NotifierProvider<ProfileController, ProfileState>(
-  ProfileController.new,
-);
+final profileControllerProvider =
+    NotifierProvider<ProfileController, ProfileState>(ProfileController.new);
 
 class ProfileController extends Notifier<ProfileState> {
   @override
@@ -59,7 +58,9 @@ class ProfileController extends Notifier<ProfileState> {
     }
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final announcements = await ref.read(profileRepositoryProvider).listAnnouncements();
+      final announcements = await ref
+          .read(profileRepositoryProvider)
+          .listAnnouncements();
       state = ProfileState(announcements: announcements);
     } on ProfileRepositoryException catch (error) {
       state = state.copyWith(isLoading: false, errorCode: error.publicCode);

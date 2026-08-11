@@ -19,7 +19,9 @@ void main() {
       throwsA(isA<PanelApiException>()),
     );
     expect(
-      () => PanelApiClient.normalizeSiteUrl('https://user:pass@panel.example.com'),
+      () => PanelApiClient.normalizeSiteUrl(
+        'https://user:pass@panel.example.com',
+      ),
       throwsA(isA<PanelApiException>()),
     );
   });

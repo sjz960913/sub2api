@@ -34,7 +34,10 @@ class ChatPage extends ConsumerWidget {
                       children: [
                         const Text(
                           '当前秘钥',
-                          style: TextStyle(color: AppColors.muted, fontSize: 12),
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -49,7 +52,10 @@ class ChatPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  TextButton(onPressed: () => context.go('/app/keys'), child: const Text('切换')),
+                  TextButton(
+                    onPressed: () => context.go('/app/keys'),
+                    child: const Text('切换'),
+                  ),
                 ],
               ),
             ),
@@ -57,9 +63,16 @@ class ChatPage extends ConsumerWidget {
           const SizedBox(height: 26),
           Row(
             children: [
-              Expanded(child: Text('历史记录', style: Theme.of(context).textTheme.titleLarge)),
+              Expanded(
+                child: Text(
+                  '历史记录',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
               TextButton.icon(
-                onPressed: currentKey == null ? null : () => context.push('/app/chat/new'),
+                onPressed: currentKey == null
+                    ? null
+                    : () => context.push('/app/chat/new'),
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('新对话'),
               ),
@@ -93,7 +106,8 @@ class ChatPage extends ConsumerWidget {
                           child: _HistoryCard(
                             item: item,
                             onOpen: () => context.push('/app/chat/${item.id}'),
-                            onDelete: () => _deleteConversation(context, ref, item),
+                            onDelete: () =>
+                                _deleteConversation(context, ref, item),
                           ),
                         ),
                     ],
@@ -114,7 +128,10 @@ class _EmptyHistory extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         leading: const AppIconTile(Icons.chat_bubble_outline_rounded),
         title: Text(
           currentKeyAvailable ? '暂无本地历史' : '请先选择秘钥',
@@ -124,14 +141,19 @@ class _EmptyHistory extends StatelessWidget {
           currentKeyAvailable ? '新对话会安全地保存在当前设备' : '前往秘钥页设置当前聊天使用的 Key',
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => context.go(currentKeyAvailable ? '/app/chat/new' : '/app/keys'),
+        onTap: () =>
+            context.go(currentKeyAvailable ? '/app/chat/new' : '/app/keys'),
       ),
     );
   }
 }
 
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.item, required this.onOpen, required this.onDelete});
+  const _HistoryCard({
+    required this.item,
+    required this.onOpen,
+    required this.onDelete,
+  });
 
   final ChatConversationSummary item;
   final VoidCallback onOpen;
@@ -189,8 +211,14 @@ Future<void> _deleteConversation(
       title: const Text('删除本地记录？'),
       content: Text('“${item.title}”仅会从当前设备删除。'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('删除'),
+        ),
       ],
     ),
   );
@@ -206,9 +234,9 @@ Future<void> _deleteConversation(
     ref.invalidate(chatHistoryListProvider);
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('删除失败，请稍后重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     }
   }
 }
@@ -217,7 +245,9 @@ String _formatLocalTime(DateTime value) {
   final local = value.toLocal();
   final now = DateTime.now();
   String twoDigits(int number) => number.toString().padLeft(2, '0');
-  if (local.year == now.year && local.month == now.month && local.day == now.day) {
+  if (local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day) {
     return '今天 ${twoDigits(local.hour)}:${twoDigits(local.minute)}';
   }
   return '${local.month}月${local.day}日 ${twoDigits(local.hour)}:${twoDigits(local.minute)}';

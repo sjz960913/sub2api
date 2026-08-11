@@ -38,12 +38,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               Row(
                 children: [
                   Expanded(
-                    child: Text('登录', style: Theme.of(context).textTheme.headlineMedium),
+                    child: Text(
+                      '登录',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                   ),
                   TextButton(
                     onPressed: session.isBusy
                         ? null
-                        : () => ref.read(sessionControllerProvider.notifier).changeSite(),
+                        : () => ref
+                              .read(sessionControllerProvider.notifier)
+                              .changeSite(),
                     child: const Text('更换站点'),
                   ),
                 ],
@@ -64,8 +69,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   keyboardType: TextInputType.number,
                   maxLength: 6,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(labelText: '两步验证码', counterText: ''),
-                  onSubmitted: session.isBusy ? null : (_) => _submitTwoFactor(),
+                  decoration: const InputDecoration(
+                    labelText: '两步验证码',
+                    counterText: '',
+                  ),
+                  onSubmitted: session.isBusy
+                      ? null
+                      : (_) => _submitTwoFactor(),
                 ),
               ] else ...[
                 TextField(

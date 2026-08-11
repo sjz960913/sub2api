@@ -13,10 +13,12 @@ class CollaborationThreadPage extends ConsumerStatefulWidget {
   final String sessionId;
 
   @override
-  ConsumerState<CollaborationThreadPage> createState() => _CollaborationThreadPageState();
+  ConsumerState<CollaborationThreadPage> createState() =>
+      _CollaborationThreadPageState();
 }
 
-class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPage> {
+class _CollaborationThreadPageState
+    extends ConsumerState<CollaborationThreadPage> {
   final composer = TextEditingController();
   List<ThreadItem> items = const [];
   List<String> pendingTasks = const [];
@@ -40,7 +42,9 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
   @override
   Widget build(BuildContext context) {
     final overview = ref.watch(collaborationOverviewProvider);
-    final session = overview.sessions.where((item) => item.id == widget.sessionId).firstOrNull;
+    final session = overview.sessions
+        .where((item) => item.id == widget.sessionId)
+        .firstOrNull;
     final device = overview.selectedDevice;
     final title = thread?.title ?? session?.title ?? 'Codex 会话';
     final writeState = thread?.writeState ?? session?.writeState;
@@ -73,7 +77,9 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
                           Icon(
                             Icons.circle,
                             size: 9,
-                            color: device?.isOnline == true ? AppColors.success : AppColors.muted,
+                            color: device?.isOnline == true
+                                ? AppColors.success
+                                : AppColors.muted,
                           ),
                           const SizedBox(width: 5),
                           Text(
@@ -87,7 +93,9 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
                   ),
                 ),
                 IconButton(
-                  onPressed: isSyncing || device?.isOnline != true ? null : _sync,
+                  onPressed: isSyncing || device?.isOnline != true
+                      ? null
+                      : _sync,
                   tooltip: '同步最新消息',
                   icon: isSyncing
                       ? const SizedBox.square(
@@ -110,7 +118,10 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
                 ? const Center(child: CircularProgressIndicator())
                 : items.isEmpty && pendingTasks.isEmpty
                 ? const Center(
-                    child: Text('暂无可显示消息', style: TextStyle(color: AppColors.muted)),
+                    child: Text(
+                      '暂无可显示消息',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
                   )
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -129,7 +140,10 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
           if (isSending)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('Codex 正在执行任务…', style: TextStyle(color: AppColors.muted)),
+              child: Text(
+                'Codex 正在执行任务…',
+                style: TextStyle(color: AppColors.muted),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -150,7 +164,8 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  onPressed: writable &&
+                  onPressed:
+                      writable &&
                           device?.isOnline == true &&
                           !isSending &&
                           composer.text.trim().isNotEmpty
@@ -177,10 +192,9 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
       errorCode = null;
     });
     try {
-      final result = await ref.read(collaborationRepositoryProvider).syncThread(
-        deviceId: device.id,
-        threadId: widget.sessionId,
-      );
+      final result = await ref
+          .read(collaborationRepositoryProvider)
+          .syncThread(deviceId: device.id, threadId: widget.sessionId);
       if (mounted) {
         setState(() {
           thread = result.thread;
@@ -212,11 +226,13 @@ class _CollaborationThreadPageState extends ConsumerState<CollaborationThreadPag
       errorCode = null;
     });
     try {
-      await ref.read(collaborationRepositoryProvider).submitCommand(
-        deviceId: device.id,
-        threadId: widget.sessionId,
-        text: text,
-      );
+      await ref
+          .read(collaborationRepositoryProvider)
+          .submitCommand(
+            deviceId: device.id,
+            threadId: widget.sessionId,
+            text: text,
+          );
       if (mounted) {
         setState(() => isSending = false);
         await _sync();
@@ -242,13 +258,20 @@ class _PendingTaskBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.8),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
           color: AppColors.primary,
-          borderRadius: BorderRadius.circular(18).copyWith(bottomRight: const Radius.circular(5)),
+          borderRadius: BorderRadius.circular(
+            18,
+          ).copyWith(bottomRight: const Radius.circular(5)),
         ),
-        child: Text(text, style: const TextStyle(color: Colors.white, height: 1.5)),
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.white, height: 1.5),
+        ),
       ),
     );
   }
@@ -261,7 +284,10 @@ class _ThreadItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = item.content?.map((part) => part.text).where((part) => part.isNotEmpty).join('\n');
+    final text = item.content
+        ?.map((part) => part.text)
+        .where((part) => part.isNotEmpty)
+        .join('\n');
     if (item.role == 'user' && text != null && text.isNotEmpty) {
       return _PendingTaskBubble(text: text);
     }
@@ -274,7 +300,9 @@ class _ThreadItemCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.role == 'assistant' ? 'Codex' : item.title ?? _itemTypeLabel(item.type),
+                item.role == 'assistant'
+                    ? 'Codex'
+                    : item.title ?? _itemTypeLabel(item.type),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               if (text != null && text.isNotEmpty) ...[
@@ -283,7 +311,10 @@ class _ThreadItemCard extends StatelessWidget {
               ],
               if (item.summary != null && item.summary!.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(item.summary!, style: const TextStyle(color: AppColors.muted)),
+                Text(
+                  item.summary!,
+                  style: const TextStyle(color: AppColors.muted),
+                ),
               ],
             ],
           ),

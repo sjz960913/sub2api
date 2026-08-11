@@ -25,7 +25,8 @@ class ApiKeySummary {
   final String monthlyUsage;
   final bool isSelected;
 
-  ApiKeyKind get kind => imageGroups.contains(group) ? ApiKeyKind.image : ApiKeyKind.text;
+  ApiKeyKind get kind =>
+      imageGroups.contains(group) ? ApiKeyKind.image : ApiKeyKind.text;
 
   ApiKeySummary copyWith({String? group, bool? isSelected}) {
     return ApiKeySummary(

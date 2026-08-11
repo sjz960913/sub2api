@@ -24,6 +24,11 @@ flutter build apk --debug
 
 CI runs the same checks and publishes `sub2api-mobile-debug-apk` as a seven-day workflow artifact.
 
+For a reproducible Linux-hosted Android build, build `Dockerfile.android-builder`, mount an official
+Flutter SDK at `/opt/flutter-current`, and prepend that SDK to `PATH`. The image provides Java 17,
+Android SDK/Build Tools 35–36, NDK 28.2 and CMake 3.22.1; keep the Flutter SDK and Pub/Gradle caches
+outside disposable containers.
+
 ## Release signing
 
 Release builds never fall back to the Android debug key. Supply all four variables from a protected
@@ -39,6 +44,6 @@ flutter build appbundle --release
 
 Do not commit the keystore or any signing value.
 
-Android `minSdk` is 23 because the selected secure-storage implementation uses
-the modern Android cryptography path. Never place Panel refresh tokens or full
-API keys in SQLite, logs or crash reports.
+Android `minSdk` follows the current stable Flutter toolchain default because the selected
+secure-storage implementation uses the modern Android cryptography path. Never place Panel refresh
+tokens or full API keys in SQLite, logs or crash reports.

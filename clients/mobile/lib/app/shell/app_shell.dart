@@ -31,7 +31,11 @@ class _AppShellState extends ConsumerState<AppShell> {
             border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(26),
             boxShadow: const [
-              BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6)),
+              BoxShadow(
+                color: Color(0x10000000),
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
             ],
           ),
           child: ClipRRect(
@@ -92,7 +96,10 @@ class _AppShellState extends ConsumerState<AppShell> {
           title: Text(popup.title),
           content: SingleChildScrollView(child: SelectableText(popup.content)),
           actions: [
-            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('知道了'),
+            ),
           ],
         ),
       );

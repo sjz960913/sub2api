@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme.dart';
 import '../../api_keys/application/api_key_catalog.dart';
 import '../../api_keys/domain/api_key_summary.dart';
+import '../data/chat_history_repository.dart';
 import '../data/chat_repository.dart';
 import '../domain/chat_models.dart';
 
@@ -24,14 +26,30 @@ class ChatThreadPage extends ConsumerStatefulWidget {
 class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   final composer = TextEditingController();
   final messages = <ChatMessage>[];
+  late final String conversationId;
+  late DateTime conversationCreatedAt;
   List<String> models = const [];
   List<String> imageModels = const [];
   String? selectedModel;
+  String? persistedModel;
   String? loadedKeyId;
+  String conversationTitle = '新对话';
+  bool isLoadingHistory = true;
   bool isLoadingModels = false;
   bool isSending = false;
   String? modelError;
   StreamSubscription<String>? activeCompletion;
+  Future<void> pendingHistoryWrite = Future<void>.value();
+
+  @override
+  void initState() {
+    super.initState();
+    conversationId = widget.conversationId == 'new'
+        ? _newConversationId()
+        : widget.conversationId;
+    conversationCreatedAt = DateTime.now().toUtc();
+    Future<void>.microtask(_loadLocalConversation);
+  }
 
   @override
   void dispose() {
@@ -44,9 +62,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   Widget build(BuildContext context) {
     final currentKey = ref.watch(selectedChatKeyProvider);
     if (currentKey != null && loadedKeyId != currentKey.id) {
-      final shouldClear = loadedKeyId != null;
       loadedKeyId = currentKey.id;
-      Future<void>.microtask(() => _loadModels(currentKey, clearConversation: shouldClear));
+      Future<void>.microtask(() => _loadModels(currentKey));
     }
     return SafeArea(
       bottom: false,
@@ -64,7 +81,12 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('新对话', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        conversationTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         currentKey == null
@@ -97,7 +119,13 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                   .toList(growable: false),
               onChanged: isLoadingModels || isSending
                   ? null
-                  : (value) => setState(() => selectedModel = value),
+                  : (value) {
+                      setState(() {
+                        selectedModel = value;
+                        persistedModel = value;
+                      });
+                      _queueHistoryWrite();
+                    },
             ),
           ),
           if (modelError != null)
@@ -116,7 +144,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
               ),
             ),
           Expanded(
-            child: messages.isEmpty
+            child: isLoadingHistory
+                ? const Center(child: CircularProgressIndicator())
+                : messages.isEmpty
                 ? const _EmptyConversation()
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
@@ -180,7 +210,57 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     );
   }
 
-  Future<void> _loadModels(ApiKeySummary key, {bool clearConversation = false}) async {
+  Future<void> _loadLocalConversation() async {
+    if (widget.conversationId == 'new') {
+      if (mounted) {
+        setState(() => isLoadingHistory = false);
+      }
+      return;
+    }
+    final scope = ref.read(chatHistoryScopeProvider);
+    if (scope == null) {
+      if (mounted) {
+        setState(() => isLoadingHistory = false);
+      }
+      return;
+    }
+    try {
+      final conversation = await ref
+          .read(chatHistoryRepositoryProvider)
+          .get(scope, conversationId);
+      if (!mounted) {
+        return;
+      }
+      if (conversation == null) {
+        setState(() => isLoadingHistory = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('本地历史不存在或已被删除')),
+        );
+        return;
+      }
+      setState(() {
+        conversationTitle = conversation.title;
+        conversationCreatedAt = conversation.createdAt;
+        persistedModel = conversation.model;
+        if (conversation.model != null && models.contains(conversation.model)) {
+          selectedModel = conversation.model;
+        }
+        messages
+          ..clear()
+          ..addAll(conversation.messages);
+        isLoadingHistory = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => isLoadingHistory = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法读取本地历史')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadModels(ApiKeySummary key) async {
     if (!mounted) {
       return;
     }
@@ -190,9 +270,6 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       models = const [];
       imageModels = const [];
       selectedModel = null;
-      if (clearConversation) {
-        messages.clear();
-      }
     });
     try {
       final catalog = await ref.read(chatRepositoryProvider).listModels(key.secretKey);
@@ -202,7 +279,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       setState(() {
         models = catalog.chatModels;
         imageModels = catalog.imageModels;
-        selectedModel = catalog.chatModels.first;
+        selectedModel = persistedModel != null && catalog.chatModels.contains(persistedModel)
+            ? persistedModel
+            : catalog.chatModels.first;
         isLoadingModels = false;
       });
     } on ChatRepositoryException catch (error) {
@@ -222,11 +301,16 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       return;
     }
     setState(() {
+      if (messages.isEmpty) {
+        conversationTitle = _conversationTitleFrom(text);
+      }
+      persistedModel = model;
       messages.add(ChatMessage.text(fromUser: true, text: text));
       messages.add(const ChatMessage.text(fromUser: false, text: ''));
       composer.clear();
       isSending = true;
     });
+    _queueHistoryWrite();
     final assistantIndex = messages.length - 1;
     late StreamSubscription<String> subscription;
     subscription = ref
@@ -272,6 +356,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
         messages.removeLast();
       }
     });
+    _queueHistoryWrite();
   }
 
   void _finishCompletion(
@@ -290,6 +375,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
         messages.removeAt(assistantIndex);
       }
     });
+    _queueHistoryWrite();
     if (failed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('消息发送失败，请稍后重试')),
@@ -304,9 +390,14 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     }
     final imageModel = imageModels.isNotEmpty ? imageModels.first : 'gpt-image-1';
     setState(() {
+      if (messages.isEmpty) {
+        conversationTitle = _conversationTitleFrom(draft.prompt);
+      }
+      persistedModel = imageModel;
       messages.add(ChatMessage.text(fromUser: true, text: draft.prompt));
       isSending = true;
     });
+    _queueHistoryWrite();
     try {
       final image = await ref.read(chatRepositoryProvider).generateImage(
         apiKey: key.secretKey,
@@ -320,6 +411,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
             ChatMessage.image(imageBase64: image.base64, imageUrl: image.url),
           ),
         );
+        _queueHistoryWrite();
       }
     } on ChatRepositoryException {
       if (mounted) {
@@ -333,6 +425,52 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
       }
     }
   }
+
+  void _queueHistoryWrite() {
+    final scope = ref.read(chatHistoryScopeProvider);
+    final model = persistedModel ?? selectedModel;
+    final snapshot = List<ChatMessage>.unmodifiable(messages);
+    if (scope == null || snapshot.every((message) => !message.hasImage && message.text.isEmpty)) {
+      return;
+    }
+    final conversation = ChatConversation(
+      id: conversationId,
+      title: conversationTitle,
+      model: model,
+      createdAt: conversationCreatedAt,
+      updatedAt: DateTime.now().toUtc(),
+      messages: snapshot,
+    );
+    final repository = ref.read(chatHistoryRepositoryProvider);
+    pendingHistoryWrite = pendingHistoryWrite
+        .then((_) => repository.save(scope, conversation))
+        .then((_) {
+          if (mounted) {
+            ref.invalidate(chatHistoryListProvider);
+          }
+        })
+        .catchError((Object _) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('聊天已保留在当前页面，但本地历史保存失败')),
+            );
+          }
+        });
+  }
+}
+
+String _newConversationId() {
+  final timestamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  final random = Random.secure().nextInt(0x7fffffff).toRadixString(36);
+  return '$timestamp-$random';
+}
+
+String _conversationTitleFrom(String text) {
+  final compact = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.length <= 24) {
+    return compact;
+  }
+  return '${compact.substring(0, 23)}…';
 }
 
 class _EmptyConversation extends StatelessWidget {

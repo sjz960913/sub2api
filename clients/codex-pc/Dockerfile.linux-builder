@@ -1,0 +1,35 @@
+FROM ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG NODE_VERSION=20.19.5
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    file \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    libssl-dev \
+    libwebkit2gtk-4.1-dev \
+    libxdo-dev \
+    patchelf \
+    pkg-config \
+    xz-utils \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl --fail --location --silent --show-error \
+      "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    | tar -xJ --directory /usr/local --strip-components=1
+
+ENV RUSTUP_HOME=/opt/rustup \
+    CARGO_HOME=/opt/cargo \
+    PATH=/opt/cargo/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+      https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --default-toolchain stable
+
+WORKDIR /workspace
+
+CMD ["bash"]

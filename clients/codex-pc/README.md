@@ -13,6 +13,21 @@ npm run build
 npm run tauri build
 ```
 
+For a reproducible Ubuntu 22.04+ Debian package without installing Node/Rust on the host:
+
+```bash
+docker build -f Dockerfile.linux-builder -t sub2api-codex-pc-builder .
+docker run --rm --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp/build-home \
+  -v "$PWD:/workspace" -w /workspace \
+  sub2api-codex-pc-builder \
+  bash -lc 'npm ci && npm run tauri -- build --bundles deb'
+```
+
+The package is written to `src-tauri/target/release/bundle/deb/`. Windows NSIS installers must be
+built on a native Windows runner using the repository workflow; a Linux cross-build is not treated
+as a verified Windows deliverable.
+
 CI builds Linux Debian and Windows NSIS installers, publishing `sub2api-codex-pc-deb` and
 `sub2api-codex-pc-windows` as seven-day workflow artifacts. macOS bundles can use the generated
 `.icns` asset in `src-tauri/icons` when a signing/notarization environment is available.

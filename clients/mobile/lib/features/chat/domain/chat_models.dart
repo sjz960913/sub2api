@@ -28,3 +28,37 @@ class GeneratedImage {
   final String? base64;
   final String? url;
 }
+
+class ChatConversation {
+  const ChatConversation({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.messages,
+    this.model,
+  });
+
+  final String id;
+  final String title;
+  final String? model;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<ChatMessage> messages;
+}
+
+class ChatConversationSummary {
+  const ChatConversationSummary({
+    required this.id,
+    required this.title,
+    required this.preview,
+    required this.updatedAt,
+    required this.messageCount,
+  });
+
+  final String id;
+  final String title;
+  final String preview;
+  final DateTime updatedAt;
+  final int messageCount;
+}

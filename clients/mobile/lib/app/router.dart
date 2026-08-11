@@ -12,7 +12,6 @@ import '../features/chat/presentation/chat_thread_page.dart';
 import '../features/codex_sessions/presentation/collaboration_page.dart';
 import '../features/codex_sessions/presentation/collaboration_thread_page.dart';
 import '../features/profile/presentation/profile_page.dart';
-import '../features/site/presentation/site_setup_page.dart';
 import 'shell/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -30,15 +29,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       switch (sessionPhase) {
         case SessionPhase.booting:
           return location == '/launch' ? null : '/launch';
-        case SessionPhase.needsSite:
-          return location == '/site/setup' ? null : '/site/setup';
         case SessionPhase.signedOut:
         case SessionPhase.requiresTwoFactor:
           return location == '/auth/login' ? null : '/auth/login';
         case SessionPhase.authenticated:
-          if (location == '/launch' ||
-              location == '/site/setup' ||
-              location == '/auth/login') {
+          if (location == '/launch' || location == '/auth/login') {
             return '/app/chat';
           }
       }
@@ -50,7 +45,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/launch', builder: (_, _) => const _LaunchPage()),
-      GoRoute(path: '/site/setup', builder: (_, _) => const SiteSetupPage()),
       GoRoute(path: '/auth/login', builder: (_, _) => const LoginPage()),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(navigationShell: shell),

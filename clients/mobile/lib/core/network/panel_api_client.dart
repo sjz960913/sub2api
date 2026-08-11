@@ -9,6 +9,7 @@ import '../storage/secure_value_store.dart';
 const _siteStorageKey = 'sub2api.mobile.site';
 const _refreshTokenStorageKey = 'sub2api.mobile.refresh_token';
 const _maxTokenLength = 8192;
+const fixedPanelSiteUrl = 'https://codecodelove.top/';
 
 final secureValueStoreProvider = Provider<SecureValueStore>(
   (_) => const PlatformSecureValueStore(),
@@ -48,7 +49,7 @@ class PanelApiClient {
 
   final SecureValueStore _store;
   final Dio _dio;
-  String? _siteUrl;
+  String? _siteUrl = fixedPanelSiteUrl;
   String? _accessToken;
   String? _pendingTwoFactorToken;
   Future<void>? _refreshOperation;
@@ -77,27 +78,10 @@ class PanelApiClient {
     return uri.replace(path: normalizedPath).toString();
   }
 
-  Future<void> configureSite(String raw) async {
-    final previous = _siteUrl;
-    final normalized = normalizeSiteUrl(raw);
-    _siteUrl = normalized;
-    try {
-      await request('GET', 'settings/public', authenticated: false);
-      await _writeSecure(_siteStorageKey, normalized);
-    } catch (_) {
-      _siteUrl = previous;
-      rethrow;
-    }
-  }
-
   Future<PanelRestoreResult> restore() async {
-    String? storedSite;
+    _siteUrl = fixedPanelSiteUrl;
+    await _deleteSecureSafely(_siteStorageKey);
     try {
-      storedSite = await _readSecure(_siteStorageKey);
-      if (storedSite == null || storedSite.isEmpty) {
-        return const PanelRestoreResult(siteUrl: null);
-      }
-      _siteUrl = normalizeSiteUrl(storedSite);
       final refreshToken = await _readSecure(_refreshTokenStorageKey);
       if (refreshToken == null || refreshToken.isEmpty) {
         return PanelRestoreResult(siteUrl: _siteUrl);
@@ -109,10 +93,6 @@ class PanelApiClient {
       _accessToken = null;
       _pendingTwoFactorToken = null;
       await _deleteSecureSafely(_refreshTokenStorageKey);
-      if (storedSite == null) {
-        await _deleteSecureSafely(_siteStorageKey);
-        _siteUrl = null;
-      }
       return PanelRestoreResult(siteUrl: _siteUrl);
     }
   }
@@ -194,12 +174,6 @@ class PanelApiClient {
     _accessToken = null;
     _pendingTwoFactorToken = null;
     await _deleteSecureSafely(_refreshTokenStorageKey);
-  }
-
-  Future<void> forgetSite() async {
-    await logout();
-    _siteUrl = null;
-    await _deleteSecureSafely(_siteStorageKey);
   }
 
   Future<dynamic> request(
@@ -447,6 +421,7 @@ class PanelApiClient {
     final email = map['email'];
     final username = map['username'];
     final role = map['role'];
+    final balance = _asDouble(map['balance']);
     if (id is! num || email is! String || role is! String) {
       throw const PanelApiException('PANEL_INVALID_RESPONSE');
     }
@@ -455,7 +430,18 @@ class PanelApiClient {
       email: email,
       username: username is String ? username : email.split('@').first,
       role: role == 'admin' ? PanelRole.admin : PanelRole.user,
+      balance: balance,
     );
+  }
+
+  static double _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0;
+    }
+    return 0;
   }
 
   static Map<String, dynamic> _asMap(dynamic value) {

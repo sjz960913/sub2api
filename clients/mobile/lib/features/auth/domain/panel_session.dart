@@ -6,12 +6,14 @@ class PanelUser {
     required this.email,
     required this.username,
     required this.role,
+    required this.balance,
   });
 
   final int id;
   final String email;
   final String username;
   final PanelRole role;
+  final double balance;
 }
 
 class PanelLoginResult {

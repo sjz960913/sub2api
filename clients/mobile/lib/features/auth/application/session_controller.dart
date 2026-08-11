@@ -3,13 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/panel_api_client.dart';
 import '../domain/panel_session.dart';
 
-enum SessionPhase {
-  booting,
-  needsSite,
-  signedOut,
-  requiresTwoFactor,
-  authenticated,
-}
+enum SessionPhase { booting, signedOut, requiresTwoFactor, authenticated }
 
 class SessionState {
   const SessionState({
@@ -76,28 +70,11 @@ class SessionController extends Notifier<SessionState> {
         siteUrl: restored.siteUrl,
         user: restored.user,
       );
-    } else if (restored.siteUrl != null) {
+    } else {
       state = SessionState(
         phase: SessionPhase.signedOut,
         siteUrl: restored.siteUrl,
       );
-    } else {
-      state = const SessionState(phase: SessionPhase.needsSite);
-    }
-  }
-
-  Future<bool> configureSite(String siteUrl) async {
-    state = state.copyWith(isBusy: true, clearError: true);
-    try {
-      await _client.configureSite(siteUrl);
-      state = SessionState(
-        phase: SessionPhase.signedOut,
-        siteUrl: _client.siteUrl,
-      );
-      return true;
-    } on PanelApiException catch (error) {
-      state = state.copyWith(isBusy: false, errorCode: error.publicCode);
-      return false;
     }
   }
 
@@ -148,11 +125,5 @@ class SessionController extends Notifier<SessionState> {
       phase: SessionPhase.signedOut,
       siteUrl: _client.siteUrl,
     );
-  }
-
-  Future<void> changeSite() async {
-    state = state.copyWith(isBusy: true, clearError: true);
-    await _client.forgetSite();
-    state = const SessionState(phase: SessionPhase.needsSite);
   }
 }

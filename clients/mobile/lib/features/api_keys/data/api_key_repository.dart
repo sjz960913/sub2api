@@ -20,11 +20,26 @@ class ApiKeyRepository {
 
   Future<List<ApiKeySummary>> listOpenAIKeys() async {
     try {
-      final responses = await Future.wait<dynamic>([
-        _client.request('GET', 'keys', query: {'page': 1, 'page_size': 100}),
-        _client.request('GET', 'groups/available'),
-      ]);
-      final groups = _asList(responses[1])
+      final keyResponse = await _client.request(
+        'GET',
+        'keys',
+        query: {'page': 1, 'page_size': 100},
+      );
+      final page = _asMap(keyResponse);
+      final rawKeys = _asList(
+        page['items'],
+      ).map(_asMap).toList(growable: false);
+
+      List<Map<String, dynamic>> groups;
+      try {
+        final groupResponse = await _client.request('GET', 'groups/available');
+        groups = _asList(groupResponse).map(_asMap).toList(growable: false);
+      } catch (_) {
+        // A temporary failure of the group metadata endpoint must not hide keys
+        // that were already returned successfully.
+        groups = _groupsFromKeys(rawKeys);
+      }
+      groups = groups
           .map(_asMap)
           .where(
             (group) =>
@@ -46,9 +61,7 @@ class ApiKeyRepository {
           imageGroups.add(name);
         }
       }
-      final page = _asMap(responses[0]);
-      return _asList(page['items'])
-          .map(_asMap)
+      return rawKeys
           .where((key) => key['status'] == 'active')
           .map(
             (key) => _parseKey(
@@ -68,6 +81,25 @@ class ApiKeyRepository {
     } catch (_) {
       throw const ApiKeyRepositoryException('API_KEY_INVALID_RESPONSE');
     }
+  }
+
+  static List<Map<String, dynamic>> _groupsFromKeys(
+    List<Map<String, dynamic>> keys,
+  ) {
+    final groups = <String, Map<String, dynamic>>{};
+    for (final key in keys) {
+      final rawGroup = key['group'];
+      if (rawGroup is! Map) {
+        continue;
+      }
+      final group = _asMap(rawGroup);
+      final id = group['id'];
+      final name = group['name'];
+      if (id is num && name is String && name.isNotEmpty) {
+        groups[id.toInt().toString()] = group;
+      }
+    }
+    return groups.values.toList(growable: false);
   }
 
   Future<void> updateGroup(String keyId, String groupId) async {

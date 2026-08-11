@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sub2api_mobile/app/app.dart';
 import 'package:sub2api_mobile/app/router.dart';
+import 'package:sub2api_mobile/core/network/panel_api_client.dart';
 import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dart';
 import 'package:sub2api_mobile/features/api_keys/domain/api_key_summary.dart';
 import 'package:sub2api_mobile/features/auth/application/session_controller.dart';
@@ -13,12 +14,13 @@ import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
 
 const _authenticatedSession = SessionState(
   phase: SessionPhase.authenticated,
-  siteUrl: 'https://panel.example.com/',
+  siteUrl: fixedPanelSiteUrl,
   user: PanelUser(
     id: 1,
     email: 'user@example.com',
     username: 'user',
     role: PanelRole.user,
+    balance: 12.34,
   ),
 );
 
@@ -176,6 +178,7 @@ void main() {
     expect(find.text('兑换'), findsOneWidget);
     expect(find.text('充值'), findsOneWidget);
     expect(find.text('公告'), findsOneWidget);
+    expect(find.text('账户余额  \$12.34'), findsOneWidget);
     expect(find.textContaining('0.10'), findsNothing);
   });
 

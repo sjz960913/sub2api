@@ -84,6 +84,14 @@ class ProfilePage extends ConsumerWidget {
                         style: const TextStyle(color: AppColors.primary),
                       ),
                     ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '账户余额  \$${(user?.balance ?? 0).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),

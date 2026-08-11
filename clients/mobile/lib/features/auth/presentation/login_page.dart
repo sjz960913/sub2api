@@ -35,26 +35,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '登录',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: session.isBusy
-                        ? null
-                        : () => ref
-                              .read(sessionControllerProvider.notifier)
-                              .changeSite(),
-                    child: const Text('更换站点'),
-                  ),
-                ],
-              ),
+              Text('登录', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),
-              Text(session.siteUrl ?? '登录凭证仅发送到当前站点。'),
+              const Text('CodeCodeLove'),
               const SizedBox(height: 28),
               if (requiresTwoFactor) ...[
                 Text(

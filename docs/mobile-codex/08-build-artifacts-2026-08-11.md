@@ -39,11 +39,15 @@ Android 构建使用校验过的官方 Flutter 3.44.9 / Dart 3.12.2 SDK，以及
 ```text
 flutter pub get
 flutter gen-l10n
-dart format --output=none --set-exit-if-changed lib test
+find lib test -name '*.dart' ! -path 'lib/core/protocol/*' -print0 \
+  | xargs -0 dart format --output=none --set-exit-if-changed
 flutter analyze
 flutter test
 flutter build apk --debug
 ```
+
+`lib/core/protocol` 是生成目录，不交给 Dart formatter 改写；它由
+`node protocol/scripts/generate.mjs` 和 CI 的生成差异检查单独验证。
 
 服务器复现构建结果：格式检查 42 个文件无变化、Flutter analyze 无问题、15 项测试全部
 通过，`assembleDebug` 成功。最终产物为：

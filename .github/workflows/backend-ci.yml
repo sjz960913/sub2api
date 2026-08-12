@@ -91,7 +91,8 @@ jobs:
       - run: npm run build
 
   codex-pc-rust:
-    runs-on: ubuntu-latest
+    # Keep the Debian binary compatible with Ubuntu 22.04 (glibc 2.35).
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -124,6 +125,13 @@ jobs:
       - name: Build Tauri Debian package
         working-directory: clients/codex-pc
         run: npm run tauri -- build --bundles deb
+      - name: Verify Ubuntu 22.04 glibc compatibility
+        run: |
+          if objdump -T clients/codex-pc/src-tauri/target/release/sub2api-codex-pc \
+            | grep -Eq 'GLIBC_2\.(3[6-9]|[4-9][0-9])'; then
+            echo 'Desktop binary requires a glibc newer than Ubuntu 22.04' >&2
+            exit 1
+          fi
       - name: Preserve Codex PC Debian package
         uses: actions/upload-artifact@v4
         with:

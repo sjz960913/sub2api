@@ -21,6 +21,7 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(collaborationOverviewProvider);
     final device = state.selectedDevice;
+    final deviceError = _collaborationErrorMessage(state.errorCode);
     final filteredSessions = state.sessions
         .where(
           (session) => '${session.title}${session.preview}'
@@ -48,7 +49,8 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                         Text(
                           state.isLoadingDevices
                               ? '正在查询电脑…'
-                              : device?.name ?? '没有已登录的电脑',
+                              : device?.name ??
+                                    (deviceError?.title ?? '没有已登录的电脑'),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 17,
@@ -67,7 +69,8 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                             const SizedBox(width: 6),
                             Text(
                               device == null
-                                  ? '请先在电脑端登录同一站点'
+                                  ? deviceError?.description ??
+                                        '请先在电脑端登录同一账号'
                                   : '${device.platform} · ${device.isOnline ? '在线' : '离线'}',
                               style: const TextStyle(color: AppColors.muted),
                             ),
@@ -78,7 +81,13 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                   ),
                   TextButton(
                     onPressed: state.devices.isEmpty
-                        ? null
+                        ? state.isLoadingDevices
+                              ? null
+                              : () => ref
+                                    .read(
+                                      collaborationOverviewProvider.notifier,
+                                    )
+                                    .loadDevices()
                         : () async {
                             final selected = await _showDevice(
                               context,
@@ -90,11 +99,11 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
                                   .selectDevice(selected);
                             }
                           },
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('查看设备'),
-                        Icon(Icons.chevron_right_rounded, size: 18),
+                        Text(state.devices.isEmpty ? '重试' : '查看设备'),
+                        const Icon(Icons.chevron_right_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -161,6 +170,30 @@ class _CollaborationPageState extends ConsumerState<CollaborationPage> {
       ),
     );
   }
+}
+
+class _CollaborationErrorMessage {
+  const _CollaborationErrorMessage(this.title, this.description);
+
+  final String title;
+  final String description;
+}
+
+_CollaborationErrorMessage? _collaborationErrorMessage(String? code) {
+  return switch (code) {
+    'COLLABORATION_DISABLED' => const _CollaborationErrorMessage(
+      '协同服务尚未启用',
+      '请在服务端开启协同功能后重试',
+    ),
+    'PANEL_NETWORK_ERROR' => const _CollaborationErrorMessage(
+      '无法连接协同服务',
+      '请检查网络后重试',
+    ),
+    'PANEL_SESSION_NOT_FOUND' || 'PANEL_UNAUTHORIZED' =>
+      const _CollaborationErrorMessage('登录状态已失效', '请重新登录后重试'),
+    null => null,
+    _ => const _CollaborationErrorMessage('无法获取电脑', '请稍后重试'),
+  };
 }
 
 class _CollaborationEmptyState extends StatelessWidget {

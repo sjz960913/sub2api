@@ -31,4 +31,13 @@ assert_line deploy/Dockerfile 'COPY --from=backend-builder --chown=sub2api:sub2a
 assert_count .goreleaser.yaml '      - backend/resources' 4
 assert_count .goreleaser.simple.yaml '      - backend/resources' 1
 
+for compose_file in \
+  deploy/docker-compose.yml \
+  deploy/docker-compose.local.yml \
+  deploy/docker-compose.standalone.yml \
+  deploy/docker-compose.dev.yml
+do
+  assert_line "$compose_file" '      - COLLABORATION_ENABLED=${COLLABORATION_ENABLED:-false}'
+done
+
 printf 'docker runtime resources test passed\n'

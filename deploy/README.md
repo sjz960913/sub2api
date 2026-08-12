@@ -509,6 +509,25 @@ The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
 
 ## Troubleshooting
 
+### Mobile/PC Codex collaboration is disabled
+
+Collaboration is intentionally disabled by default. To let the mobile app
+discover logged-in PC companions, set the following value in `deploy/.env`:
+
+```bash
+COLLABORATION_ENABLED=true
+```
+
+Then recreate the application container so the environment change takes
+effect (PostgreSQL and Redis data are preserved):
+
+```bash
+docker compose up -d --force-recreate sub2api
+```
+
+The authenticated `GET /api/v1/collaboration/health` response must then report
+`"enabled": true`.
+
 ### Docker
 
 For **local directory version**:

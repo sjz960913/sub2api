@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sub2api_mobile/core/network/panel_api_client.dart';
 import 'package:sub2api_mobile/core/storage/secure_value_store.dart';
@@ -53,6 +57,63 @@ void main() {
 
     expect(result.user?.balance, 18.75);
   });
+
+  test('preserves a safe server reason for collaboration failures', () async {
+    final dio = Dio(
+      BaseOptions(
+        responseType: ResponseType.json,
+        validateStatus: (status) => status != null && status < 600,
+      ),
+    )..httpClientAdapter = _StaticResponseAdapter(
+      statusCode: 503,
+      body: {
+        'code': 503,
+        'message': 'Collaboration is disabled',
+        'reason': 'COLLABORATION_DISABLED',
+      },
+    );
+    final client = PanelApiClient(store: _MemoryStore(), dio: dio);
+
+    await expectLater(
+      client.request(
+        'GET',
+        'collaboration/devices',
+        authenticated: false,
+      ),
+      throwsA(
+        isA<PanelApiException>().having(
+          (error) => error.publicCode,
+          'publicCode',
+          'COLLABORATION_DISABLED',
+        ),
+      ),
+    );
+  });
+}
+
+class _StaticResponseAdapter implements HttpClientAdapter {
+  _StaticResponseAdapter({required this.statusCode, required this.body});
+
+  final int statusCode;
+  final Map<String, dynamic> body;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      jsonEncode(body),
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _LoginPanelClient extends PanelApiClient {

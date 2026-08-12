@@ -28,6 +28,7 @@ pub struct RegisteredDevice {
 pub enum DeviceRegistrationError {
     Unauthorized,
     Forbidden,
+    Disabled,
     Network,
     InvalidResponse,
     ResponseTooLarge,
@@ -40,6 +41,7 @@ impl DeviceRegistrationError {
         match self {
             Self::Unauthorized => "COLLAB_UNAUTHORIZED",
             Self::Forbidden => "COLLAB_FORBIDDEN",
+            Self::Disabled => "COLLABORATION_DISABLED",
             Self::Network => "COLLAB_NETWORK_ERROR",
             Self::InvalidResponse => "COLLAB_INVALID_RESPONSE",
             Self::ResponseTooLarge => "COLLAB_RESPONSE_TOO_LARGE",
@@ -106,6 +108,7 @@ impl DeviceRegistrar {
             return Err(match response.status().as_u16() {
                 401 => DeviceRegistrationError::Unauthorized,
                 403 => DeviceRegistrationError::Forbidden,
+                503 => DeviceRegistrationError::Disabled,
                 _ => DeviceRegistrationError::InvalidResponse,
             });
         }

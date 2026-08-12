@@ -43,7 +43,7 @@ class PanelApiClient {
               maxRedirects: 0,
               headers: const {'Content-Type': 'application/json'},
               validateStatus: (status) =>
-                  status != null && status >= 200 && status < 500,
+                  status != null && status >= 200 && status < 600,
             ),
           );
 
@@ -246,13 +246,26 @@ class PanelApiClient {
       throw const PanelApiException('PANEL_RATE_LIMITED');
     }
     if ((response.statusCode ?? 500) >= 400) {
-      throw const PanelApiException('PANEL_REQUEST_FAILED');
+      throw PanelApiException(_responseReason(response.data));
     }
     final envelope = _asMap(response.data);
     if (envelope['code'] != 0 || !envelope.containsKey('data')) {
       throw const PanelApiException('PANEL_REQUEST_FAILED');
     }
     return envelope['data'];
+  }
+
+  static String _responseReason(dynamic data) {
+    if (data is Map) {
+      final reason = data['reason'];
+      if (reason is String &&
+          reason.isNotEmpty &&
+          reason.length <= 96 &&
+          RegExp(r'^[A-Z][A-Z0-9_]*$').hasMatch(reason)) {
+        return reason;
+      }
+    }
+    return 'PANEL_REQUEST_FAILED';
   }
 
   Future<dynamic> gatewayRequest(

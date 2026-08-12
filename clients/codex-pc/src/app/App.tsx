@@ -72,9 +72,14 @@ export function App() {
     void invoke('codex_start')
       .then(async () => {
         setCodexReady(true);
-        const status = await invoke<RelayStatus>('collaboration_connect');
-        setDeviceRegistered(Boolean(status.device_id));
-        setRelayState(status.state);
+        try {
+          const status = await invoke<RelayStatus>('collaboration_connect');
+          setDeviceRegistered(Boolean(status.device_id));
+          setRelayState(status.state);
+        } catch (error) {
+          setRelayState('error');
+          setCodexError(errorMessage(error));
+        }
       })
       .catch((error) => setCodexError(errorMessage(error)));
   }, [session]);
@@ -84,7 +89,11 @@ export function App() {
     const timer = window.setInterval(() => {
       void invoke<RelayStatus>('collaboration_status').then((status) => {
         setDeviceRegistered(Boolean(status.device_id));
-        setRelayState(status.state);
+        setRelayState((current) =>
+          current === 'error' && status.state === 'disconnected'
+            ? current
+            : status.state,
+        );
         if (status.last_error && status.state !== 'connected') {
           setCodexError(errorMessage(status.last_error));
         }
@@ -136,7 +145,7 @@ export function App() {
         </div>
         <div className="sidebar-status">
           <span className={relayState === 'connected' ? 'status-dot' : 'status-dot muted'} />
-          {relayState === 'connected' ? '协同已连接' : codexReady ? '协同连接中' : '正在连接 Codex'}
+          {relayStatusLabel(relayState, codexReady)}
         </div>
       </aside>
       <main className="content">
@@ -381,6 +390,13 @@ function siteHost(siteUrl: string) {
   }
 }
 
+function relayStatusLabel(relayState: string, codexReady: boolean) {
+  if (relayState === 'connected') return '协同已连接';
+  if (relayState === 'error' || relayState === 'revoked') return '协同连接失败';
+  if (relayState === 'reconnecting' || relayState === 'refreshing') return '协同重连中';
+  return codexReady ? '协同连接中' : '正在连接 Codex';
+}
+
 function errorMessage(reason: unknown) {
   const code = typeof reason === 'string' ? reason : String(reason);
   const messages: Record<string, string> = {
@@ -399,6 +415,7 @@ function errorMessage(reason: unknown) {
     SECURE_STORE_UNAVAILABLE: '系统安全凭据库不可用。',
     COLLAB_UNAUTHORIZED: '登录已过期，请重新登录。',
     COLLAB_FORBIDDEN: '当前账号无法注册协同设备。',
+    COLLABORATION_DISABLED: '服务端尚未启用 Codex 协同，请开启 COLLABORATION_ENABLED 后重启服务。',
     COLLAB_NETWORK_ERROR: '无法连接协同服务，请检查网络。',
     COLLAB_CONNECT_FAILED: '协同连接失败，正在自动重试。',
     COLLAB_DISCONNECTED: '协同连接已断开，正在自动重试。',

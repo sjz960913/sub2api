@@ -8,6 +8,7 @@ import 'package:sub2api_mobile/features/api_keys/application/api_key_catalog.dar
 import 'package:sub2api_mobile/features/api_keys/domain/api_key_summary.dart';
 import 'package:sub2api_mobile/features/auth/application/session_controller.dart';
 import 'package:sub2api_mobile/features/auth/domain/panel_session.dart';
+import 'package:sub2api_mobile/features/codex_sessions/application/collaboration_overview.dart';
 import 'package:sub2api_mobile/features/profile/application/profile_controller.dart';
 import 'package:sub2api_mobile/features/profile/domain/user_announcement.dart';
 import 'package:sub2api_mobile/features/profile/presentation/profile_page.dart';
@@ -151,6 +152,38 @@ void main() {
     expect(find.text('修复支付回调'), findsNothing);
     expect(find.textContaining('审批'), findsNothing);
     expect(find.textContaining('退款'), findsNothing);
+  });
+
+  testWidgets('collaboration reports a disabled backend instead of no PC', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        initialSessionStateProvider.overrideWithValue(_authenticatedSession),
+        apiKeyCatalogSeedProvider.overrideWithValue(_previewKeys),
+        collaborationOverviewSeedProvider.overrideWithValue(
+          const CollaborationOverviewState(
+            errorCode: 'COLLABORATION_DISABLED',
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const Sub2ApiApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    container.read(appRouterProvider).go('/app/collab');
+    await tester.pumpAndSettle();
+
+    expect(find.text('协同服务尚未启用'), findsOneWidget);
+    expect(find.text('请在服务端开启协同功能后重试'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('没有已登录的电脑'), findsNothing);
   });
 
   testWidgets('profile exposes redeem recharge and announcement entries', (

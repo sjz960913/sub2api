@@ -2,9 +2,9 @@ mod codex_adapter;
 mod collaboration_relay;
 mod device_registration;
 mod panel_auth;
+mod protocol;
 mod redaction;
 mod secret_store;
-mod protocol;
 
 use codex_adapter::AppServerClient;
 use codex_adapter::StartedTask;
@@ -19,11 +19,13 @@ use panel_auth::LoginResult;
 use panel_auth::PanelAuthService;
 use panel_auth::PanelAuthStatus;
 use panel_auth::PublicSession;
-use serde::Serialize;
 use secret_store::NativeSecretStore;
+use serde::Serialize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tauri::State;
+
+const PANEL_SITE_URL: &str = "https://codecodelove.top/";
 
 #[derive(Serialize)]
 struct CompanionStatus {
@@ -83,14 +85,13 @@ fn panel_auth_status(state: State<'_, PanelAuthState>) -> PanelAuthStatus {
 #[tauri::command]
 async fn panel_login(
     state: State<'_, PanelAuthState>,
-    site_url: String,
     email: String,
     password: String,
     turnstile_token: Option<String>,
 ) -> Result<LoginResult, String> {
     let service = Arc::clone(&state.service);
     tauri::async_runtime::spawn_blocking(move || {
-        service.login(site_url, email, password, turnstile_token)
+        service.login(PANEL_SITE_URL.to_owned(), email, password, turnstile_token)
     })
     .await
     .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
@@ -112,20 +113,17 @@ async fn panel_complete_two_factor(
 #[tauri::command]
 async fn panel_restore_session(
     state: State<'_, PanelAuthState>,
-    site_url: String,
     email: String,
 ) -> Result<PublicSession, String> {
     let service = Arc::clone(&state.service);
-    tauri::async_runtime::spawn_blocking(move || service.restore(site_url, email))
+    tauri::async_runtime::spawn_blocking(move || service.restore(PANEL_SITE_URL.to_owned(), email))
         .await
         .map_err(|_| "PANEL_TASK_ERROR".to_owned())?
         .map_err(|error| error.public_code().to_owned())
 }
 
 #[tauri::command]
-async fn panel_refresh_session(
-    state: State<'_, PanelAuthState>,
-) -> Result<PublicSession, String> {
+async fn panel_refresh_session(state: State<'_, PanelAuthState>) -> Result<PublicSession, String> {
     let service = Arc::clone(&state.service);
     tauri::async_runtime::spawn_blocking(move || service.refresh())
         .await

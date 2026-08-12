@@ -7,11 +7,16 @@ use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::env;
 use std::fmt;
+use std::fs;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Child;
 use std::process::ChildStdin;
 use std::process::Command;
@@ -148,11 +153,23 @@ pub struct NormalizedThreadSnapshot {
 
 impl AppServerClient {
     pub fn start_default() -> Result<Self, AdapterError> {
-        Self::spawn("codex", DEFAULT_REQUEST_TIMEOUT)
+        for executable in codex_executable_candidates() {
+            if !executable.is_file() {
+                continue;
+            }
+            match Self::spawn(&executable, DEFAULT_REQUEST_TIMEOUT) {
+                Ok(client) => return Ok(client),
+                Err(AdapterError::Spawn) => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Err(AdapterError::Spawn)
     }
 
-    fn spawn(executable: &str, request_timeout: Duration) -> Result<Self, AdapterError> {
-        let mut child = Command::new(executable)
+    fn spawn(executable: &Path, request_timeout: Duration) -> Result<Self, AdapterError> {
+        let mut command = Command::new(executable);
+        prepend_executable_directory_to_path(&mut command, executable);
+        let mut child = command
             .arg("app-server")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -426,6 +443,92 @@ impl AppServerClient {
             let _ = child.kill();
             let _ = child.wait();
         }
+    }
+}
+
+fn codex_executable_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(explicit) = env::var_os("CODEX_PATH") {
+        candidates.push(PathBuf::from(explicit));
+    }
+    if let Some(path) = env::var_os("PATH") {
+        candidates.extend(env::split_paths(&path).map(|directory| directory.join("codex")));
+    }
+    candidates.extend([
+        PathBuf::from("/usr/local/bin/codex"),
+        PathBuf::from("/usr/bin/codex"),
+        PathBuf::from("/snap/bin/codex"),
+    ]);
+
+    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+        candidates.extend([
+            home.join(".local/bin/codex"),
+            home.join(".npm-global/bin/codex"),
+            home.join(".local/share/pnpm/codex"),
+            home.join(".bun/bin/codex"),
+        ]);
+        append_versioned_codex(
+            &mut candidates,
+            &home.join(".nvm/versions/node"),
+            "bin/codex",
+        );
+        for extension_root in [
+            ".codebuddycn/extensions",
+            ".vscode/extensions",
+            ".vscode-server/extensions",
+            ".cursor/extensions",
+            ".cursor-server/extensions",
+        ] {
+            append_openai_extension_codex(&mut candidates, &home.join(extension_root));
+        }
+    }
+
+    let mut seen = HashSet::new();
+    candidates.retain(|candidate| seen.insert(candidate.clone()));
+    candidates
+}
+
+fn append_versioned_codex(candidates: &mut Vec<PathBuf>, root: &Path, suffix: &str) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    let mut versions = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    versions.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    candidates.extend(versions.into_iter().map(|version| version.join(suffix)));
+}
+
+fn append_openai_extension_codex(candidates: &mut Vec<PathBuf>, root: &Path) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    let mut extensions = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("openai.chatgpt-"))
+        })
+        .collect::<Vec<_>>();
+    extensions.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    candidates.extend(
+        extensions
+            .into_iter()
+            .map(|extension| extension.join("bin/linux-x86_64/codex")),
+    );
+}
+
+fn prepend_executable_directory_to_path(command: &mut Command, executable: &Path) {
+    let Some(parent) = executable.parent() else {
+        return;
+    };
+    let current = env::var_os("PATH").unwrap_or_default();
+    let paths = std::iter::once(parent.to_path_buf()).chain(env::split_paths(&current));
+    if let Ok(path) = env::join_paths(paths) {
+        command.env("PATH", path);
     }
 }
 
@@ -825,11 +928,52 @@ fn remove_pending(inner: &AppServerInner, id: u64) {
 
 #[cfg(test)]
 mod tests {
+    use super::append_openai_extension_codex;
+    use super::append_versioned_codex;
     use super::non_interactive_server_response;
     use super::normalize_completed_item;
     use super::normalize_thread_page;
     use super::normalize_thread_snapshot;
     use serde_json::json;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::SystemTime;
+
+    fn temporary_directory(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("sub2api-{label}-{}-{nonce}", std::process::id()))
+    }
+
+    #[test]
+    fn discovers_codex_installed_by_nvm() {
+        let root = temporary_directory("nvm");
+        let executable = root.join("v20.20.0/bin/codex");
+        fs::create_dir_all(executable.parent().unwrap()).unwrap();
+        fs::write(&executable, b"#!/bin/sh\n").unwrap();
+
+        let mut candidates = Vec::new();
+        append_versioned_codex(&mut candidates, &root, "bin/codex");
+
+        assert_eq!(candidates, vec![executable]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn discovers_codex_bundled_with_openai_editor_extension() {
+        let root = temporary_directory("extension");
+        let executable = root.join("openai.chatgpt-1.2.3/bin/linux-x86_64/codex");
+        fs::create_dir_all(executable.parent().unwrap()).unwrap();
+        fs::write(&executable, b"binary").unwrap();
+
+        let mut candidates = Vec::new();
+        append_openai_extension_codex(&mut candidates, &root);
+
+        assert_eq!(candidates, vec![executable]);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn rejects_approval_requests_without_a_pc_confirmation_flow() {

@@ -41,7 +41,6 @@ type RelayStatus = {
   last_error: string | null;
 };
 
-const SITE_KEY = 'codexPc.siteUrl';
 const EMAIL_KEY = 'codexPc.email';
 
 const sections: Array<{id: Section; label: string; icon: string}> = [
@@ -161,10 +160,9 @@ async function bootstrapSession(): Promise<PublicSession | null> {
   try {
     const status = await invoke<AuthStatus>('panel_auth_status');
     if (status.authenticated && status.session) return status.session;
-    const siteUrl = localStorage.getItem(SITE_KEY);
     const email = localStorage.getItem(EMAIL_KEY);
-    if (!siteUrl || !email) return null;
-    return await invoke<PublicSession>('panel_restore_session', {siteUrl, email});
+    if (!email) return null;
+    return await invoke<PublicSession>('panel_restore_session', {email});
   } catch {
     return null;
   }
@@ -194,7 +192,6 @@ function renderSection(props: {
 }
 
 function LoginScreen({onAuthenticated}: {onAuthenticated: (session: PublicSession) => void}) {
-  const [siteUrl, setSiteUrl] = useState(localStorage.getItem(SITE_KEY) ?? '');
   const [email, setEmail] = useState(localStorage.getItem(EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -210,7 +207,6 @@ function LoginScreen({onAuthenticated}: {onAuthenticated: (session: PublicSessio
     try {
       if (step === 'login') {
         const result = await invoke<LoginResult>('panel_login', {
-          siteUrl,
           email,
           password,
           turnstileToken: null,
@@ -245,8 +241,7 @@ function LoginScreen({onAuthenticated}: {onAuthenticated: (session: PublicSessio
         <form onSubmit={submit}>
           {step === 'login' ? (
             <>
-              <label>站点地址<input value={siteUrl} onChange={(event) => setSiteUrl(event.target.value)} placeholder="https://your-sub2api.example" required autoFocus /></label>
-              <label>邮箱<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="username" required /></label>
+              <label>邮箱<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="username" required autoFocus /></label>
               <label>密码<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" required /></label>
             </>
           ) : (
@@ -322,7 +317,6 @@ function Settings({session, codexReady, deviceRegistered, relayState, onLogout}:
     setError('');
     try {
       await invoke('panel_logout');
-      localStorage.removeItem(SITE_KEY);
       localStorage.removeItem(EMAIL_KEY);
       onLogout();
     } catch (reason) {
@@ -370,7 +364,6 @@ function Empty({title, description}: {title: string; description: string}) {
 }
 
 function rememberIdentity(session: PublicSession) {
-  localStorage.setItem(SITE_KEY, session.site_url);
   localStorage.setItem(EMAIL_KEY, session.email);
 }
 

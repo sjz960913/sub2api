@@ -1,6 +1,6 @@
 [package]
 name = "sub2api-codex-pc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Sub2API Codex PC companion"
 authors = ["Sub2API"]
 edition = "2021"

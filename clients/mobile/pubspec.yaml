@@ -1,7 +1,7 @@
 name: sub2api_mobile
 description: Android-first Sub2API client with Codex PC collaboration.
 publish_to: none
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ">=3.8.0 <4.0.0"

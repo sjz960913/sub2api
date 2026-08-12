@@ -34,6 +34,17 @@ void main() {
     );
   });
 
+  test('stringifies numeric query parameters before URI encoding', () {
+    expect(
+      PanelApiClient.stringifyQueryParameters({
+        'page': 1,
+        'page_size': 100,
+        'status': 'active',
+      }),
+      {'page': '1', 'page_size': '100', 'status': 'active'},
+    );
+  });
+
   test('reads the account balance from the login user payload', () async {
     final result = await _LoginPanelClient().login(
       email: 'user@example.com',

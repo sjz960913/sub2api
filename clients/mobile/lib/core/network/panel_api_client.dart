@@ -78,6 +78,12 @@ class PanelApiClient {
     return uri.replace(path: normalizedPath).toString();
   }
 
+  static Map<String, String> stringifyQueryParameters(
+    Map<String, dynamic> query,
+  ) {
+    return query.map((key, value) => MapEntry(key, value.toString()));
+  }
+
   Future<PanelRestoreResult> restore() async {
     _siteUrl = fixedPanelSiteUrl;
     await _deleteSecureSafely(_siteStorageKey);
@@ -196,7 +202,9 @@ class PanelApiClient {
       site,
     ).resolve('api/v1/${path.replaceFirst(RegExp(r'^/+'), '')}');
     if (query != null && query.isNotEmpty) {
-      endpoint = endpoint.replace(queryParameters: query);
+      endpoint = endpoint.replace(
+        queryParameters: stringifyQueryParameters(query),
+      );
     }
     Response<dynamic> response;
     try {

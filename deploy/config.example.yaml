@@ -4,7 +4,7 @@
 # Copy this file to /etc/sub2api/config.yaml and modify as needed
 # 复制此文件到 /etc/sub2api/config.yaml 并根据需要修改
 #
-# Documentation / 文档: https://github.com/Wei-Shaw/sub2api
+# Documentation / 文档: https://github.com/sjz960913/sub2api
 
 # =============================================================================
 # Server Configuration
@@ -287,6 +287,12 @@ gateway:
   # 默认 false：保持纯文本 Codex 请求不被改写；客户端显式提供 image_generation tool 时，
   # 仍会在分组允许图片生成的情况下正常转发。
   codex_image_generation_bridge_enabled: false
+  # Experimental: probe whether eligible OpenAI OAuth Codex accounts can keep
+  # serving after the reported 5h/7d quota reaches 100%.
+  # 实验性 Codex 额度透支：95% 后为符合条件的 OAuth 请求注入无操作工具调用；
+  # 达到 100% 后优先使用业务结果判定，必要时每个额度周期独立探测一次。
+  # 明确的额度 429 会暂停账号；默认关闭，确认风险后再显式开启。
+  codex_quota_overdraft_enabled: false
   # Optional: template file used to build the final top-level Codex `instructions`.
   # 可选：用于构建最终 Codex 顶层 `instructions` 的模板文件路径。
   #

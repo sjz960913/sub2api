@@ -6,7 +6,7 @@
 # =============================================================================
 
 ARG NODE_IMAGE=node:24-bookworm
-ARG GOLANG_IMAGE=golang:1.26.5-bookworm
+ARG GOLANG_IMAGE=golang:1.26.6-bookworm
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
 

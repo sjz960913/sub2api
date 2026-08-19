@@ -212,6 +212,18 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 }
 
 func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(ctx context.Context, c *gin.Context, account *Account, alphaBody []byte, body []byte, token string) (*http.Request, error) {
+	var clientHeaders http.Header
+	if c != nil && c.Request != nil {
+		clientHeaders = c.Request.Header
+	}
+	fingerprintIDs := resolveCodexFingerprintIDsFromRequest(account, clientHeaders)
+	if fingerprintIDs != nil {
+		var fingerprintErr error
+		body, _, fingerprintErr = applyCodexFingerprintClientMetadataRaw(body, fingerprintIDs)
+		if fingerprintErr != nil {
+			return nil, fingerprintErr
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatgptCodexURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -238,6 +250,10 @@ func (s *OpenAIGatewayService) buildOpenAIAlphaSearchResponsesWebSearchRequest(c
 	if turnMetadata := openAIAlphaSearchInboundHeader(c, "X-Codex-Turn-Metadata"); turnMetadata != "" {
 		req.Header.Set("X-Codex-Turn-Metadata", turnMetadata)
 	}
+	applyCodexFingerprintHeaders(req.Header, fingerprintIDs)
+	// 收敛先清除客户端协商值，再重建本 /responses 搜索回退所需的最小协议头。
+	// 该专用请求不继承普通 Codex 会话的 beta feature 列表。
+	req.Header.Set("OpenAI-Beta", "responses=experimental")
 	canonical := resolveCodexOutboundIdentity("")
 	if version := openAIAlphaSearchInboundHeader(c, "Version"); version != "" {
 		req.Header.Set("Version", version)
@@ -382,6 +398,11 @@ func (s *OpenAIGatewayService) buildOpenAIAlphaSearchRequest(ctx context.Context
 		if turnMetadata := openAIAlphaSearchInboundHeader(c, "X-Codex-Turn-Metadata"); turnMetadata != "" {
 			req.Header.Set("X-Codex-Turn-Metadata", turnMetadata)
 		}
+		var clientHeaders http.Header
+		if c != nil && c.Request != nil {
+			clientHeaders = c.Request.Header
+		}
+		applyCodexFingerprintHeaders(req.Header, resolveCodexFingerprintIDsFromRequest(account, clientHeaders))
 		canonical := resolveCodexOutboundIdentity("")
 		if version := openAIAlphaSearchInboundHeader(c, "Version"); version != "" {
 			req.Header.Set("Version", version)
@@ -426,8 +447,13 @@ func stripOpenAIAlphaSearchResponsesHeaders(headers http.Header) {
 	}
 	for _, key := range []string{
 		"OpenAI-Beta",
+		"X-Codex-Installation-ID",
+		"X-Codex-Window-ID",
+		"X-Client-Request-ID",
+		"Session-ID",
 		"Session_ID",
 		"Conversation_ID",
+		"Thread-ID",
 		"X-Codex-Beta-Features",
 		"X-Codex-Turn-State",
 		responsesLiteHeaderKey,

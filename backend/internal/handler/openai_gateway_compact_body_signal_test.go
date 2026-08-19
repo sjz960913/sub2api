@@ -190,14 +190,14 @@ func TestOpenAIResponsesCompactionRoutingFlags(t *testing.T) {
 			wantPathAfter:       "/v1/responses/compact",
 		},
 		{
-			name:                "nested_compact",
+			name:                "nested_compact_is_not_allowlisted",
 			body:                []byte(`{"model":"gpt-5.6-sol","stream":true,"input":[{"type":"compaction_trigger"}]}`),
 			path:                "/v1/responses/compact/detail",
-			wantLegacyBefore:    true,
+			wantLegacyBefore:    false,
 			wantNativeBefore:    false,
-			wantLegacyAfter:     true,
+			wantLegacyAfter:     false,
 			wantNativeAfter:     false,
-			wantCapabilityAfter: service.OpenAIEndpointCapabilityResponses,
+			wantCapabilityAfter: service.OpenAIEndpointCapabilityChatCompletions,
 			wantPathAfter:       "/v1/responses/compact/detail",
 		},
 		{

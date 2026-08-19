@@ -37,6 +37,26 @@ func TestAdminCreateAccountStripsUserSeedAndCreatesFreshSeedWhenEnabled(t *testi
 	require.Equal(t, "session", created.Extra[codexFingerprintModeExtraKey])
 }
 
+func TestAdminCreateAccountCreatesSeedForDefaultSessionMode(t *testing.T) {
+	repo := &upstreamBillingProbeAccountRepo{}
+	created, err := (&adminServiceImpl{accountRepo: repo}).CreateAccount(context.Background(), &CreateAccountInput{
+		Name:                 "codex-oauth-default-session",
+		Platform:             PlatformOpenAI,
+		Type:                 AccountTypeOAuth,
+		SkipDefaultGroupBind: true,
+	})
+
+	require.NoError(t, err)
+	requireValidCodexFingerprintSeed(t, created.Extra)
+	require.Equal(t, codexFingerprintSession, created.GetCodexFingerprintMode())
+}
+
+func TestShouldEnsureCodexFingerprintSeedRequiresExplicitModePatch(t *testing.T) {
+	require.False(t, ShouldEnsureCodexFingerprintSeedForExtraUpdates(map[string]any{"custom": "value"}))
+	require.False(t, ShouldEnsureCodexFingerprintSeedForExtraUpdates(map[string]any{codexFingerprintModeExtraKey: "off"}))
+	require.True(t, ShouldEnsureCodexFingerprintSeedForExtraUpdates(map[string]any{codexFingerprintModeExtraKey: "session"}))
+}
+
 func TestAdminUpdateAccountPreservesExistingSeedAndStripsUserSeed(t *testing.T) {
 	accountID := int64(201)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{

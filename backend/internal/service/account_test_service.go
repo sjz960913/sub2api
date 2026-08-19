@@ -694,6 +694,10 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth)
+	var probeFingerprintIDs *codexFingerprintIDs
+	if isOAuth {
+		probeFingerprintIDs = prepareCodexFingerprintSyntheticRequest(credentialAccount, "admin-test", payload)
+	}
 	payloadBytes, _ := json.Marshal(payload)
 	ctx, payloadBytes, overdraftInjected := s.prepareCodexQuotaOverdraftTestRequest(ctx, account, payloadBytes)
 
@@ -727,6 +731,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	} else {
 		req.Header.Set("Authorization", "Bearer "+authToken)
 	}
+	applyCodexFingerprintHeaders(req.Header, probeFingerprintIDs)
 
 	// Set OAuth-specific headers for ChatGPT internal API
 	if isOAuth {

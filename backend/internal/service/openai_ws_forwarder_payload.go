@@ -105,12 +105,6 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 			}
 		}
 	}
-	// 真实 Codex 的 WS 握手同样携带会话级 x-codex-beta-features
-	// （client.rs build_websocket_headers 复用 build_responses_headers），
-	// 客户端未声明时补成默认形态，与 HTTP 出站保持一致。放在客户端头拷贝
-	// 之外：该头是账号/会话级属性，不依赖入站请求是否存在，也避免预热与
-	// 实际请求因头差异落进不同的连接池兼容分桶。
-	applyOpenAICodexBetaFeatures(c, account, headers)
 	// OAuth 账号：将 apiKeyID 混入 session 标识符，防止跨用户会话碰撞。
 	if account != nil && account.Type == AccountTypeOAuth {
 		apiKeyID := getAPIKeyIDFromContext(c)
@@ -135,6 +129,9 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 		headers.Set(openAIWSTurnMetadataHeader, metadata)
 	}
 	applyStagedCodexFingerprintHeaders(c, account, headers)
+	// 指纹收敛会先删除客户端能力声明，再由服务端按当前请求重建规范值。
+	// 放在收敛之后，确保 HTTP 与 WS 都不存在客户端 beta 原值旁路。
+	applyOpenAICodexBetaFeatures(c, account, headers)
 
 	if account != nil && account.Type == AccountTypeOAuth {
 		if err := resolveAndSetOpenAIChatGPTAccountHeaders(ctx, s.accountRepo, headers, account); err != nil {

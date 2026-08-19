@@ -534,6 +534,7 @@ func (c *CodexQuotaOverdraftCoordinator) runProbeAttempt(ctx context.Context, ac
 		"stream":       true,
 		"store":        false,
 	}
+	probeFingerprintIDs := prepareCodexFingerprintSyntheticRequest(account, "quota-overdraft", payload)
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		result.Status, result.ReasonCode = "inconclusive", "experimental_probe_unavailable"
@@ -551,6 +552,7 @@ func (c *CodexQuotaOverdraftCoordinator) runProbeAttempt(ctx context.Context, ac
 		return result
 	}
 	req.Host = "chatgpt.com"
+	applyCodexFingerprintHeaders(req.Header, probeFingerprintIDs)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("OpenAI-Beta", "responses=experimental")

@@ -501,6 +501,11 @@ func NewOpenAIGatewayService(
 	if cfg != nil {
 		SetCodexIdentityEnforcementEnabled(!cfg.Gateway.DisableCodexIdentityEnforcement)
 		SetCodexQuotaOverdraftEnabled(cfg.Gateway.CodexQuotaOverdraftEnabled)
+		fingerprintDomainKey := strings.TrimSpace(cfg.Gateway.CodexFingerprintDomainKey)
+		if fingerprintDomainKey == "" {
+			fingerprintDomainKey = cfg.JWT.Secret
+		}
+		SetCodexFingerprintDeploymentKey(fingerprintDomainKey)
 	}
 	svc := &OpenAIGatewayService{
 		accountRepo:         accountRepo,

@@ -100,8 +100,8 @@ func TestSanitizedUpstreamPathSuffixEnforcesBounds(t *testing.T) {
 }
 
 // TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths 锁定不变式：
-// /responses/*subpath 的子路径不得改变上游请求的路径结构；不合规时既不参与拼接，
-// 也不会被误判成 compact 请求。
+// /responses 只允许裸路径和精确 /compact；格式安全但未列入协议白名单的路径
+// 同样 fail closed。
 func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -115,6 +115,11 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 		"/v1/responses/%3fa=b",
 		"/v1/responses/x%23frag",
 		"/v1/responses//double",
+		"/v1/responses/",
+		"/responses/compact/",
+		"/v1/responses/compact/detail",
+		"/v1/responses/resp_123/cancel",
+		"/v1/responses/future_metadata_channel",
 	}
 	for _, path := range nonConformingPaths {
 		t.Run(path, func(t *testing.T) {
@@ -134,7 +139,6 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 	for path, want := range map[string]string{
 		"/v1/responses":                        "",
 		"/v1/responses/compact":                "/compact",
-		"/responses/compact/":                  "/compact",
 		"/backend-api/codex/responses/compact": "/compact",
 	} {
 		t.Run("forwardable_"+path, func(t *testing.T) {
@@ -148,8 +152,6 @@ func TestOpenAIResponsesRequestPathSuffixRejectsNonConformingSubpaths(t *testing
 func TestIsOpenAIResponsesCompactPathUsesLegacyEndpointShape(t *testing.T) {
 	legacyPaths := []string{
 		"/v1/responses/compact",
-		"/v1/responses/compact/detail",
-		"/responses/compact/",
 	}
 	for _, path := range legacyPaths {
 		t.Run("legacy_"+path, func(t *testing.T) {
@@ -163,6 +165,8 @@ func TestIsOpenAIResponsesCompactPathUsesLegacyEndpointShape(t *testing.T) {
 		"/openai/v1/responses",
 		"/responses",
 		"/backend-api/codex/responses",
+		"/responses/compact/",
+		"/v1/responses/compact/detail",
 		"/v1/responses/resp_123/cancel",
 	}
 	for _, path := range nonLegacyPaths {
@@ -177,6 +181,7 @@ func TestAppendOpenAIResponsesRequestPathSuffixRefusesUnsafeSuffix(t *testing.T)
 	// 调用方漏了校验时，拼接函数本身也不得把不合规片段带进上游 URL。
 	require.Equal(t, chatgptCodexURL, appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/../../x"))
 	require.Equal(t, chatgptCodexURL, appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/?a=b"))
+	require.Equal(t, chatgptCodexURL, appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/compact/detail"))
 	require.Equal(t, chatgptCodexURL+"/compact", appendOpenAIResponsesRequestPathSuffix(chatgptCodexURL, "/compact"))
 }
 

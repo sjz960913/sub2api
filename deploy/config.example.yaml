@@ -279,6 +279,10 @@ gateway:
   #
   # 默认 false（即归一化开启）；仅当上游调整分桶、使归一化反而落入降载桶时才置 true。
   disable_codex_originator_normalization: false
+  # Optional deployment-domain secret for Codex fingerprint pseudonyms.
+  # Codex 指纹假名化的部署域密钥。克隆数据库到独立部署时请设置不同值；
+  # 留空会回退到 jwt.secret。也可用 GATEWAY_CODEX_FINGERPRINT_DOMAIN_KEY。
+  codex_fingerprint_domain_key: ""
   # Enable Codex image-generation bridge injection for /openai/v1/responses.
   # 是否为 Codex /responses 请求自动注入 image_generation 工具与桥接指令。
   #

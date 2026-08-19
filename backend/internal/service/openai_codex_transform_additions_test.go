@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -31,16 +32,18 @@ func TestEnsureCodexReasoningInclude(t *testing.T) {
 	require.Equal(t, []any{"foo", "reasoning.encrypted_content"}, body3["include"])
 }
 
-// applyCodexClientMetadata：用账号真实 device_id 注入 installation 标识，幂等、不覆盖既有项、不伪造。
+// applyCodexClientMetadata：用账号 device_id 的部署域假名注入 installation 标识。
 func TestApplyCodexClientMetadata(t *testing.T) {
 	// 仅 OpenAI OAuth 账号才有 device_id（GetOpenAIDeviceID 的门控）。
-	acc := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"openai_device_id": "dev-xyz"}}
+	acc := &Account{ID: 9, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"openai_device_id": "dev-xyz"}}
+	wantDeviceID := resolvePseudonymousOpenAIDeviceID(acc)
+	require.NotEqual(t, "dev-xyz", wantDeviceID)
 
 	body := map[string]any{}
 	require.True(t, applyCodexClientMetadata(body, acc))
 	cm, ok := body["client_metadata"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "dev-xyz", cm["x-codex-installation-id"])
+	require.Equal(t, wantDeviceID, cm["x-codex-installation-id"])
 	// 幂等
 	require.False(t, applyCodexClientMetadata(body, acc))
 
@@ -55,7 +58,19 @@ func TestApplyCodexClientMetadata(t *testing.T) {
 	require.True(t, applyCodexClientMetadata(body3, acc))
 	cm3, _ := body3["client_metadata"].(map[string]any)
 	require.Equal(t, "t", cm3["x-codex-turn-metadata"])
-	require.Equal(t, "dev-xyz", cm3["x-codex-installation-id"])
+	require.Equal(t, wantDeviceID, cm3["x-codex-installation-id"])
+}
+
+func TestApplyCodexClientMetadataExplicitOffNeverLeaksConfiguredDeviceID(t *testing.T) {
+	acc := &Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{
+		codexFingerprintModeExtraKey: "off",
+		"openai_device_id":           "client-device-original",
+	}}
+	body := map[string]any{}
+	require.True(t, applyCodexClientMetadata(body, acc))
+	encoded, err := json.Marshal(body)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "client-device-original")
 }
 
 // defaultCodexSynthInstructions：按模型选用真实 Codex base prompt。

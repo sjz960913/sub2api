@@ -844,6 +844,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	}
 	modelID := openaipkg.CodexUsageProbeModel
 	payload := createOpenAITestPayload(modelID, true)
+	probeFingerprintIDs := prepareCodexFingerprintSyntheticRequest(account, "usage", payload)
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshal openai probe payload: %w", err)
@@ -870,6 +871,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	} else {
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
+	applyCodexFingerprintHeaders(req.Header, probeFingerprintIDs)
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("OpenAI-Beta", "responses=experimental")
 	canonical := resolveCodexOutboundIdentity("")

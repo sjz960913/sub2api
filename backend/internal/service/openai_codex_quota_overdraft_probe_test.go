@@ -108,6 +108,29 @@ func TestCodexQuotaOverdraftProbeUsesOnePreferredModel(t *testing.T) {
 	require.Equal(t, []string{"gpt-5.4"}, got)
 }
 
+func TestCodexQuotaOverdraftProbeUsesCanonicalIdentity(t *testing.T) {
+	const version = "0.199.0"
+	SetCodexCanonicalUserAgentResolver(func() string { return buildCodexCLIUserAgent(version) })
+	t.Cleanup(func() { SetCodexCanonicalUserAgentResolver(nil) })
+	expectedIdentity := resolveCodexOutboundIdentity("")
+
+	account := newCodexOverdraftProbeTestAccount(time.Now().UTC())
+	account.Credentials = map[string]any{"access_token": "test-token"}
+	upstream := &queuedHTTPUpstream{responses: []*http.Response{
+		newJSONResponse(http.StatusOK, `{"type":"response.completed"}`),
+	}}
+	coordinator := &CodexQuotaOverdraftCoordinator{httpUpstream: upstream}
+
+	result := coordinator.runProbeAttempt(context.Background(), account, "gpt-5.4")
+
+	require.Equal(t, "available", result.Status)
+	require.Len(t, upstream.requests, 1)
+	request := upstream.requests[0]
+	require.Equal(t, expectedIdentity.version, request.Header.Get("Version"))
+	require.Equal(t, expectedIdentity.userAgent, request.Header.Get("User-Agent"))
+	require.Equal(t, expectedIdentity.originator, request.Header.Get("Originator"))
+}
+
 func TestCodexQuotaOverdraftSignalsKeepFiveHourAndSevenDayCyclesSeparate(t *testing.T) {
 	now := time.Date(2026, time.August, 13, 14, 0, 0, 0, time.UTC)
 	fiveReset := now.Add(5 * time.Hour)

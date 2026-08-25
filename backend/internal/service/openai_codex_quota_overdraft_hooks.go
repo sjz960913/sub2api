@@ -91,6 +91,7 @@ func (s *OpenAIGatewayService) processCodexQuotaOverdraftUsageSnapshot(
 			if err := s.accountRepo.UpdateExtra(updateCtx, accountID, updates); err != nil {
 				return
 			}
+			notifyOpenAIAutoReset(accountID)
 		}
 		if s.codexQuotaOverdraft == nil {
 			return
@@ -119,4 +120,15 @@ func (s *OpenAIGatewayService) observeCodexQuotaOverdraftScheduleSuccess(
 	if len(requestCtx) > 0 && s.codexQuotaOverdraft != nil && codexQuotaOverdraftWasInjected(requestCtx[0], accountID) {
 		s.codexQuotaOverdraft.ObserveBusinessSuccessByID(accountID, model)
 	}
+}
+
+// ObserveCodexQuotaOverdraftScheduleSuccess preserves the fork overdraft signal
+// after upstream v0.1.181 changed ReportOpenAIAccountScheduleResult to consume
+// account health errors instead of request contexts.
+func (s *OpenAIGatewayService) ObserveCodexQuotaOverdraftScheduleSuccess(
+	ctx context.Context,
+	accountID int64,
+	model string,
+) {
+	s.observeCodexQuotaOverdraftScheduleSuccess(accountID, model, []context.Context{ctx})
 }

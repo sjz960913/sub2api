@@ -64,6 +64,8 @@ func TestGetCodexFingerprintMode(t *testing.T) {
 	}{
 		{"nil 账号", nil, codexFingerprintOff},
 		{"非 OAuth 账号", &Account{Platform: PlatformOpenAI, Type: "api_key"}, codexFingerprintOff},
+		{"OpenAI setup token", &Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken, Extra: map[string]any{codexFingerprintModeExtraKey: "session"}}, codexFingerprintSession},
+		{"Anthropic setup token", &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken, Extra: map[string]any{codexFingerprintModeExtraKey: "session"}}, codexFingerprintOff},
 		{"无 extra 默认 session", newTestOAuthAccount(1, nil), codexFingerprintSession},
 		{"空值默认 session", newTestOAuthAccount(1, map[string]any{codexFingerprintModeExtraKey: ""}), codexFingerprintSession},
 		{"非法值默认 session", newTestOAuthAccount(1, map[string]any{codexFingerprintModeExtraKey: "invalid"}), codexFingerprintSession},
@@ -421,7 +423,7 @@ func TestFingerprintIDs_FourCarrierIdentityParityAndUnknownMetadataFailClosed(t 
 	require.NotNil(t, ids)
 
 	header := make(http.Header)
-	header.Set("x-codex-turn-metadata", `{"installation_id":"client-install","session_id":"client-session","thread_id":"client-thread","turn_id":"client-turn","window_id":"client-window","cwd":"/secret","git_remote":"private","traceparent":"client-trace","sandbox":"seatbelt"}`)
+	header.Set("x-codex-turn-metadata", `{"installation_id":"client-install","session_id":"client-session","thread_id":"client-thread","turn_id":"client-turn","window_id":"client-window","parent_thread_id":"guardian-parent","subagent_kind":"reviewer","cwd":"/secret","git_remote":"private","traceparent":"client-trace","sandbox":"seatbelt"}`)
 	body := map[string]any{"client_metadata": map[string]any{
 		"x-codex-installation-id": "client-install",
 		"session_id":              "client-session",
@@ -432,7 +434,7 @@ func TestFingerprintIDs_FourCarrierIdentityParityAndUnknownMetadataFailClosed(t 
 		"workspace":               "private-workspace",
 		"mcp_servers":             []any{"private-mcp"},
 		"traceparent":             "client-trace",
-		"x-codex-turn-metadata":   `{"installation_id":"client-install","session_id":"client-session","thread_id":"client-thread","turn_id":"client-turn","window_id":"client-window","terminal":"tmux","plugins":["private"],"sandbox":"seatbelt"}`,
+		"x-codex-turn-metadata":   `{"installation_id":"client-install","session_id":"client-session","thread_id":"client-thread","turn_id":"client-turn","window_id":"client-window","parent_thread_id":"guardian-parent","subagent_kind":"reviewer","terminal":"tmux","plugins":["private"],"sandbox":"seatbelt"}`,
 	}}
 
 	applyCodexFingerprintHeaders(header, ids)
@@ -458,6 +460,10 @@ func TestFingerprintIDs_FourCarrierIdentityParityAndUnknownMetadataFailClosed(t 
 		require.NotContains(t, carrier, "plugins")
 		require.NotContains(t, carrier, "mcp_servers")
 		require.NotContains(t, carrier, "traceparent")
+	}
+	for _, carrier := range []map[string]any{headerEmbedded, bodyEmbedded} {
+		require.Equal(t, "guardian-parent", carrier["parent_thread_id"])
+		require.Equal(t, "reviewer", carrier["subagent_kind"])
 	}
 	require.Equal(t, ids.installationID, header.Get("x-codex-installation-id"))
 	require.Equal(t, ids.installationID, headerEmbedded["installation_id"])
@@ -953,6 +959,32 @@ func TestApplyStagedCodexFingerprintRejectsDifferentOAuthAccount(t *testing.T) {
 	clientMetadata, ok := body["client_metadata"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "account-b-session", clientMetadata["session_id"])
+}
+
+func TestResolveStagedCodexFingerprintUsesCredentialSourceAndSelectedRowGuard(t *testing.T) {
+	c := newFingerprintStageTestContext(t)
+	selected := newTestOAuthAccount(1101, map[string]any{codexFingerprintModeExtraKey: "off"})
+	credentialSource := newTestOAuthAccount(101, map[string]any{
+		codexFingerprintModeExtraKey: "session",
+		"openai_device_id":           "credential-device",
+	})
+	c.Set(codexAccountIdentitySourceContextKey, credentialSource)
+
+	clientHeaders := make(http.Header)
+	clientHeaders.Set("session-id", "client-session")
+	ids := resolveStagedCodexFingerprintIDsFromRequest(c, selected, clientHeaders)
+	require.NotNil(t, ids)
+	require.Equal(t, selected.ID, ids.accountID)
+	require.Equal(t, resolveConvergedInstallationID(credentialSource, testCodexFingerprintSeed), ids.installationID)
+
+	stageCodexFingerprintIDs(c, ids)
+	selectedHeaders := make(http.Header)
+	applyStagedCodexFingerprintHeaders(c, selected, selectedHeaders)
+	require.Equal(t, ids.installationID, selectedHeaders.Get("x-codex-installation-id"))
+
+	credentialHeaders := make(http.Header)
+	applyStagedCodexFingerprintHeaders(c, credentialSource, credentialHeaders)
+	require.Empty(t, credentialHeaders.Get("x-codex-installation-id"))
 }
 
 func TestApplyStagedCodexFingerprintHeaders_SkipsNonOAuthAccount(t *testing.T) {

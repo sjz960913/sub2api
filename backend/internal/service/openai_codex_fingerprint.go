@@ -34,7 +34,7 @@ func stageCodexFingerprintIDs(c *gin.Context, ids *codexFingerprintIDs) {
 }
 
 func stagedCodexFingerprintIDs(c *gin.Context, account *Account) *codexFingerprintIDs {
-	if c == nil || account == nil || account.Type != AccountTypeOAuth {
+	if c == nil || account == nil || !account.UsesOpenAICodexProtocol() {
 		return nil
 	}
 	value, ok := c.Get(codexFingerprintIDsContextKey)
@@ -86,10 +86,11 @@ const (
 	codexFingerprintSeedExtraKey = "codex_fingerprint_seed"
 )
 
-// FORK-UPSTREAM-PRECEDENCE(v0.1.178): 以下默认收敛、部署域假名化和 metadata
-// 闭集收口用于补齐上游 v0.1.178 的客户端原值泄漏面。若 Wei-Shaw/sub2api 后续
-// 提供等价修复，应删除本 fork 实现及配套迁移/测试，直接采用上游的数据模型和
-// 收敛语义，避免两套策略叠加。
+// FORK-UPSTREAM-PRECEDENCE(v0.1.181-audit): 以下默认收敛、部署域假名化和
+// metadata 闭集收口用于补齐上游仍未覆盖的客户端原值泄漏面。v0.1.181 新增的
+// account identity scoping 已保留并先于本层执行，但它仍默认 off、缺少部署域
+// 密钥且不会闭集清理 metadata/传输旁路，因此不等价。若 Wei-Shaw/sub2api
+// 后续提供等价修复，应删除本 fork 实现及配套迁移/测试，直接采用上游语义。
 
 // codexFingerprintDeploymentKeyHash 是部署域密钥的进程级摘要。账号 seed 会随
 // 数据库克隆，但独立部署通常有不同的专用域密钥或 JWT secret；将部署域纳入
@@ -179,7 +180,7 @@ func codexFingerprintSeed(extra map[string]any) (string, bool) {
 
 func prepareCodexFingerprintExtraForCreate(platform, accountType string, extra map[string]any) map[string]any {
 	prepared := stripCodexFingerprintSeed(extra)
-	if platform != PlatformOpenAI || accountType != AccountTypeOAuth || !codexFingerprintModeRequiresSeed(codexFingerprintModeFromExtra(prepared)) {
+	if platform != PlatformOpenAI || (accountType != AccountTypeOAuth && accountType != AccountTypeSetupToken) || !codexFingerprintModeRequiresSeed(codexFingerprintModeFromExtra(prepared)) {
 		return prepared
 	}
 	if prepared == nil {
@@ -191,7 +192,7 @@ func prepareCodexFingerprintExtraForCreate(platform, accountType string, extra m
 
 func prepareCodexFingerprintExtraForUpdate(account *Account, extra map[string]any) map[string]any {
 	prepared := stripCodexFingerprintSeed(extra)
-	if account == nil || account.Platform != PlatformOpenAI || account.Type != AccountTypeOAuth {
+	if account == nil || !account.IsOpenAIOAuthLike() {
 		return prepared
 	}
 	if seed, ok := codexFingerprintSeed(account.Extra); ok {
@@ -239,7 +240,7 @@ func ShouldEnsureCodexFingerprintSeedForExtraUpdates(updates map[string]any) boo
 // 原因是本部署要求客户端原值默认不离开网关。若上游后续提供正式的严格模式，
 // 按 FORK-UPSTREAM-PRECEDENCE 注释整体替换本策略。
 func (a *Account) GetCodexFingerprintMode() codexFingerprintMode {
-	if a == nil || !a.IsOpenAIOAuth() {
+	if a == nil || !a.IsOpenAIOAuthLike() {
 		return codexFingerprintOff
 	}
 	return codexFingerprintModeFromExtra(a.Extra)
@@ -406,6 +407,20 @@ func resolveCodexFingerprintIDsFromRequest(account *Account, clientHeaders http.
 	return resolveCodexFingerprintIDs(account, clientSessionID, mode)
 }
 
+// resolveStagedCodexFingerprintIDsFromRequest derives identity from the
+// credential source introduced upstream in v0.1.181, while retaining the
+// selected scheduler row ID used to reject stale failover snapshots.
+func resolveStagedCodexFingerprintIDsFromRequest(c *gin.Context, selected *Account, clientHeaders http.Header) *codexFingerprintIDs {
+	if selected == nil {
+		return nil
+	}
+	ids := resolveCodexFingerprintIDsFromRequest(codexAccountIdentitySource(c, selected), clientHeaders)
+	if ids != nil {
+		ids.accountID = selected.ID
+	}
+	return ids
+}
+
 // prepareCodexFingerprintSyntheticRequest 让 admin test、usage probe 和额度探测
 // 使用与真实流量相同的账号指纹。scope 只区分合成会话，不含任何客户端原值。
 func prepareCodexFingerprintSyntheticRequest(account *Account, scope string, reqBody map[string]any) *codexFingerprintIDs {
@@ -493,6 +508,9 @@ var codexTurnMetadataAllowedKeys = map[string]struct{}{
 	"turn_started_at_unix_ms": {},
 	"sandbox":                 {},
 	"thread_source":           {},
+	// Upstream v0.1.181 guardian affinity protocol fields.
+	"parent_thread_id": {},
+	"subagent_kind":    {},
 }
 
 var codexClientMetadataAllowedKeys = map[string]struct{}{

@@ -86,7 +86,7 @@ const (
 	codexFingerprintSeedExtraKey = "codex_fingerprint_seed"
 )
 
-// FORK-UPSTREAM-PRECEDENCE(v0.1.181-audit): 以下默认收敛、部署域假名化和
+// FORK-UPSTREAM-PRECEDENCE(v0.1.185-audit): 以下默认收敛、部署域假名化和
 // metadata 闭集收口用于补齐上游仍未覆盖的客户端原值泄漏面。v0.1.181 新增的
 // account identity scoping 已保留并先于本层执行，但它仍默认 off、缺少部署域
 // 密钥且不会闭集清理 metadata/传输旁路，因此不等价。若 Wei-Shaw/sub2api

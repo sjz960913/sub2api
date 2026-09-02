@@ -13,6 +13,11 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+// FORK-UPSTREAM-PRECEDENCE(v0.1.185-audit): 上游已有用户余额记负账和 OAuth
+// 额度耗尽 429 暂停，但尚未提供本模块的 Codex 账号额度透支探测、请求注入、
+// 调度绕过、周期状态及统计展示，因此两者不等价。上游后续提供等价原生实现时，
+// 应删除本 fork 模块及短钩子，直接采用上游状态机和持久化语义。
+
 const (
 	codexQuotaOverdraftCallIDPrefix  = "call_sub2api_overdraft_"
 	codexQuotaOverdraftExecInput     = `const r = await tools.exec_command({"cmd":"true","yield_time_ms":1000,"max_output_tokens":1000}); text(r.output);`

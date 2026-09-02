@@ -6,7 +6,7 @@ Sub2API v0.1.177 代码及既有二次开发。
 
 ## 基本信息
 
-- 当前实施基线：本项目 `v0.1.177`，提交 `ffe3453a5`
+- 当前审计基线：上游 `v0.1.185`
 - 移植来源：`DeanZFC/sub2api-overdraft` 的 `codex-overdraft` 分支，提交 `b3cbc091c`
 - 参考实现：<https://github.com/Mxucc/cpa-account-config-manager>
 - 功能开关：`gateway.codex_quota_overdraft_enabled`
@@ -18,6 +18,10 @@ Sub2API v0.1.177 代码及既有二次开发。
 本次仅移植额度透支功能及其测试，没有引入第三方 Fork 的 `FORK_VERSION`、品牌、更新检查、
 在线回退限制或专用 Docker Compose。后续同步官方版本时，应按本文的低冲突接线和测试清单
 重新核对，而不是直接以第三方 Fork 覆盖本项目。
+
+截至上游 `v0.1.185`，官方已有用户余额记负账和 OAuth 额度耗尽 429 暂停，但没有本定制的
+Codex 账号额度透支探测、请求注入、调度绕过、周期状态和透支统计，因此继续保留本实现。
+后续若官方提供等价功能，应以官方状态机和持久化语义为准，删除本定制及其短钩子。
 
 Sub2API `v0.1.177` 将原生 remote compaction v2 保留在 `/responses` 路径。本定制同时检查旧 Compact 路径和原生 v2 请求信号，二者都不会开启额度透支调度或注入透支请求形态。
 

@@ -1,0 +1,70 @@
+name: All-in-One GHCR Image
+
+on:
+  push:
+    tags:
+      - 'allinone-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve image metadata
+        id: meta
+        shell: bash
+        run: |
+          VERSION=$(tr -d '\r\n' < backend/cmd/server/VERSION)
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/sub2api-allinone"
+          TAG="v${VERSION}-fingerprint-${GITHUB_SHA:0:9}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.allinone
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ github.sha }}
+            GOPROXY=https://proxy.golang.org,direct
+            GOSUMDB=sum.golang.org
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+          cache-from: type=gha,scope=allinone-amd64
+          cache-to: type=gha,mode=max,scope=allinone-amd64
+
+      - name: Verify published binary and data services
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "$IMAGE@$DIGEST"
+          docker run --rm --entrypoint /app/sub2api "$IMAGE@$DIGEST" --version
+          docker run --rm --entrypoint sh "$IMAGE@$DIGEST" -c 'pg_config --version; redis-server --version'
+          echo "Published: $IMAGE@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tag: $IMAGE:${{ steps.meta.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"

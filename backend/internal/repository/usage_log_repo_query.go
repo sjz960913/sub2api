@@ -139,6 +139,8 @@ func (r *usageLogRepository) ListWithFilters(ctx context.Context, params paginat
 		conditions = append(conditions, fmt.Sprintf("created_at < $%d", len(args)+1))
 		args = append(args, *filters.EndTime)
 	}
+	// 管理员产生的请求不属于普通用户用量明细，列表查询时统一排除。
+	conditions = append(conditions, "user_id NOT IN (SELECT id FROM users WHERE role = 'admin')")
 
 	whereClause := buildWhere(conditions)
 	var (

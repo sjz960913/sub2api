@@ -6,6 +6,7 @@
 #   - Downloads the all-in-one Docker Compose file and env template from this fork
 #   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
 #   - Applies default deployment values (image, port, admin account)
+#   - Generates a random admin login email (ADMIN_EMAIL)
 #   - Creates necessary data directories
 #
 # After running this script, you can start services with:
@@ -29,7 +30,7 @@ GITHUB_RAW_URL="${GITHUB_RAW_URL:-https://raw.githubusercontent.com/${GITHUB_REP
 
 DEFAULT_SUB2API_IMAGE="${SUB2API_IMAGE:-ghcr.io/sjz960913/sub2api-allinone:latest}"
 DEFAULT_SERVER_PORT="${SUB2API_SERVER_PORT:-8080}"
-DEFAULT_ADMIN_EMAIL="${SUB2API_ADMIN_EMAIL:-admin@sub2api.local}"
+DEFAULT_ADMIN_EMAIL="${SUB2API_ADMIN_EMAIL:-}"
 DEFAULT_ADMIN_PASSWORD="${SUB2API_ADMIN_PASSWORD:-}"
 DEFAULT_POSTGRES_PASSWORD="${SUB2API_POSTGRES_PASSWORD:-}"
 
@@ -73,6 +74,14 @@ set_env_value() {
     else
         printf '%s=%s\n' "${key}" "${value}" >> .env
     fi
+}
+
+# Generate a random admin login email so new installs never use a guessable default
+generate_admin_email() {
+    local suffix
+    suffix=$(openssl rand -hex 6) || return 1
+    [ -n "$suffix" ] || return 1
+    echo "admin-${suffix}@sub2api.local"
 }
 
 # Check if command exists
@@ -153,13 +162,17 @@ main() {
     if [ -z "${ADMIN_PASSWORD}" ]; then
         ADMIN_PASSWORD=$(generate_secret)
     fi
+    ADMIN_EMAIL="${DEFAULT_ADMIN_EMAIL}"
+    if [ -z "${ADMIN_EMAIL}" ]; then
+        ADMIN_EMAIL=$(generate_admin_email)
+    fi
 
     # Create .env from .env.example
     cp .env.example .env
 
     set_env_value "SUB2API_IMAGE" "${DEFAULT_SUB2API_IMAGE}"
     set_env_value "SERVER_PORT" "${DEFAULT_SERVER_PORT}"
-    set_env_value "ADMIN_EMAIL" "${DEFAULT_ADMIN_EMAIL}"
+    set_env_value "ADMIN_EMAIL" "${ADMIN_EMAIL}"
     set_env_value "ADMIN_PASSWORD" "${ADMIN_PASSWORD}"
     set_env_value "JWT_SECRET" "${JWT_SECRET}"
     set_env_value "TOTP_ENCRYPTION_KEY" "${TOTP_ENCRYPTION_KEY}"
@@ -182,7 +195,7 @@ main() {
     echo "Generated secure credentials:"
     echo "  SUB2API_IMAGE:         ${DEFAULT_SUB2API_IMAGE}"
     echo "  SERVER_PORT:           ${DEFAULT_SERVER_PORT}"
-    echo "  ADMIN_EMAIL:           ${DEFAULT_ADMIN_EMAIL}"
+    echo "  ADMIN_EMAIL:           ${ADMIN_EMAIL}  (admin login username)"
     echo "  ADMIN_PASSWORD:        ${ADMIN_PASSWORD}"
     echo "  POSTGRES_PASSWORD:     ${POSTGRES_PASSWORD}"
     echo "  JWT_SECRET:            ${JWT_SECRET}"
